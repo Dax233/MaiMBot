@@ -530,6 +530,9 @@ class LLM_request:
             list: embedding向量，如果失败则返回None
         """
 
+        if(len(text) < 1):
+            logger.debug("该消息没有长度，不再发送获取embedding向量的请求")
+            return None
         def embedding_handler(result):
             """处理响应"""
             if "data" in result and len(result["data"]) > 0:
