@@ -150,7 +150,7 @@ async def graceful_shutdown():
         await asyncio.gather(*tasks, return_exceptions=True)
 
     except Exception as e:
-        logger.error(f"麦麦关闭失败: {e}")
+        logger.error(f"枫关闭失败: {e}")
 
 
 async def uvicorn_main():

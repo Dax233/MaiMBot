@@ -96,7 +96,7 @@ def install_mongodb_compass():
     )
     input("请在弹出的用户账户控制中点击“是”后按任意键继续安装")
     run_cmd(r"powershell mongodb\bin\Install-Compass.ps1")
-    input("按任意键启动麦麦")
+    input("按任意键启动枫")
     input("如不需要启动此窗口可直接关闭，无需等待 Compass 安装完成")
     run_maimbot()
 
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     choice = input(
         "请输入要进行的操作：\n"
         "1.首次安装\n"
-        "2.运行麦麦\n"
+        "2.运行枫\n"
     )
     os.system("cls")
     if choice == "1":

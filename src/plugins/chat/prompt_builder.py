@@ -134,7 +134,7 @@ class PromptBuilder:
         probability_2 = global_config.PERSONALITY_2
         probability_3 = global_config.PERSONALITY_3
 
-        prompt_personality = f"{activate_prompt}你的网名叫{global_config.BOT_NICKNAME}，你还有很多别名:{'/'.join(global_config.BOT_ALIAS_NAMES)}，"
+        prompt_personality = f"{activate_prompt}你的名字叫{global_config.BOT_NICKNAME}，你还有很多别名:{'/'.join(global_config.BOT_ALIAS_NAMES)}，"
         personality_choice = random.random()
         if chat_in_group:
             prompt_in_group = f"你正在浏览{chat_stream.platform}群"
