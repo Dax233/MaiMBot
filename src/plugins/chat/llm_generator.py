@@ -3,7 +3,6 @@ import time
 from typing import List, Optional, Tuple, Union
 
 from nonebot import get_driver
-from loguru import logger
 
 from ...common.database import db
 from ..models.utils_model import LLM_request
@@ -12,6 +11,9 @@ from .message import MessageRecv, MessageThinking, Message
 from .prompt_builder import prompt_builder
 from .relationship_manager import relationship_manager
 from .utils import process_llm_response
+from src.common.logger import get_module_logger
+
+logger = get_module_logger("response_gen")
 
 driver = get_driver()
 config = driver.config

@@ -2,7 +2,7 @@ import asyncio
 import time
 from typing import Dict, List, Optional, Union
 
-from loguru import logger
+from src.common.logger import get_module_logger
 from nonebot.adapters.onebot.v11 import Bot
 from ...common.database import db
 from .message_cq import MessageSendCQ
@@ -12,6 +12,7 @@ from .storage import MessageStorage
 from .config import global_config
 from .utils import truncate_message
 
+logger = get_module_logger("msg_sender")
 
 class Message_Sender:
     """发送器"""
@@ -50,7 +51,6 @@ class Message_Sender:
             if not is_recalled:
                 message_json = message.to_dict()
                 message_send = MessageSendCQ(data=message_json)
-                # logger.debug(message_send.message_info,message_send.raw_message)
                 message_preview = truncate_message(message.processed_plain_text)
                 if message_send.message_info.group_info and message_send.message_info.group_info.group_id:
                     try:
@@ -188,16 +188,17 @@ class MessageManager:
             else:
                 if (
                     message_earliest.is_head
-                    and message_earliest.update_thinking_time() > 30
+                    and message_earliest.update_thinking_time() > 10
                     and not message_earliest.is_private_message()  # 避免在私聊时插入reply
                 ):
                     message_earliest.set_reply()
-                await message_sender.send_message(message_earliest)
+                        
                 await message_earliest.process()
+                
+                await message_sender.send_message(message_earliest)
+                
 
-                print(
-                    f"\033[1;34m[调试]\033[0m 消息“{truncate_message(message_earliest.processed_plain_text)}”正在发送中"
-                )
+
 
                 await self.storage.store_message(message_earliest, message_earliest.chat_stream, None)
 
@@ -217,11 +218,11 @@ class MessageManager:
                             and not message_earliest.is_private_message()  # 避免在私聊时插入reply
                         ):
                             msg.set_reply()
+                            
+                        await msg.process()    
+                        
                         await message_sender.send_message(msg)
-
-                        # if msg.is_emoji:
-                        #     msg.processed_plain_text = "[表情包]"
-                        await msg.process()
+                        
                         await self.storage.store_message(msg, msg.chat_stream, None)
 
                         if not container.remove_message(msg):

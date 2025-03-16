@@ -16,6 +16,8 @@ memory_graph.gml
 .env.*
 config/bot_config_dev.toml
 config/bot_config.toml
+config/bot_config.toml.bak
+src/plugins/remote/client_uuid.json
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -24,7 +26,7 @@ llm_statistics.txt
 mongodb
 napcat
 run_dev.bat
-
+elua.confirmed
 # C extensions
 *.so
 
@@ -204,3 +206,8 @@ jieba.cache
 .idea
 *.iml
 *.ipr
+
+# PyEnv
+#  If using PyEnv and configured to use a specific Python version locally
+#  a .local-version file will be created in the root of the project to specify the version.
+.python-version

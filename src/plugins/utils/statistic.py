@@ -3,10 +3,11 @@ import time
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any, Dict
-from loguru import logger
+from src.common.logger import get_module_logger
 
 from ...common.database import db
 
+logger = get_module_logger("llm_statistics")
 
 class LLMStatistics:
     def __init__(self, output_file: str = "llm_statistics.txt"):

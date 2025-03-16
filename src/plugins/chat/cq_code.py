@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Union
 import ssl
 import os
 import aiohttp
-from loguru import logger
+from src.common.logger import get_module_logger
 from nonebot import get_driver
 
 from ..models.utils_model import LLM_request
@@ -24,6 +24,7 @@ config = driver.config
 ssl_context = ssl.create_default_context()
 ssl_context.set_ciphers("AES128-GCM-SHA256")
 
+logger = get_module_logger("cq_code")
 
 @dataclass
 class CQCode:
@@ -248,6 +249,10 @@ class CQCode:
 
         if self.reply_message is None:
             return None
+        if hasattr(self.reply_message, "group_id"):
+            group_info = GroupInfo(platform="qq", group_id=self.reply_message.group_id, group_name="")
+        else:
+            group_info = None
 
         if self.reply_message.sender.user_id:
             message_obj = MessageRecvCQ(
@@ -256,7 +261,7 @@ class CQCode:
                 ),
                 message_id=self.reply_message.message_id,
                 raw_message=str(self.reply_message.message),
-                group_info=GroupInfo(group_id=self.reply_message.group_id),
+                group_info=group_info,
             )
             await message_obj.initialize()
 

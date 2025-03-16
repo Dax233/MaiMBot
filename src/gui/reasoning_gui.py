@@ -5,12 +5,13 @@ import threading
 import time
 from datetime import datetime
 from typing import Dict, List
-from loguru import logger
 from typing import Optional
-
+from src.common.logger import get_module_logger
 
 import customtkinter as ctk
 from dotenv import load_dotenv
+
+logger = get_module_logger("gui")
 
 # 获取当前文件的目录
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -29,6 +30,7 @@ elif os.path.exists(os.path.join(root_dir, '.env.prod')):
 else:
     logger.error("未找到环境配置文件")
     sys.exit(1)
+
 
 class ReasoningGUI:
     def __init__(self):

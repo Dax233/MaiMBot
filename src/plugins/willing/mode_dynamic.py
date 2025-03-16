@@ -2,12 +2,13 @@ import asyncio
 import random
 import time
 from typing import Dict
-from loguru import logger
+from src.common.logger import get_module_logger
+
+logger = get_module_logger("mode_dynamic")
 
 
-from .config import global_config
-from .chat_stream import ChatStream
-
+from ..chat.config import global_config
+from ..chat.chat_stream import ChatStream
 
 class WillingManager:
     def __init__(self):

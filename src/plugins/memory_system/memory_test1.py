@@ -12,8 +12,10 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import pymongo
 from dotenv import load_dotenv
-from loguru import logger
+from src.common.logger import get_module_logger
 import jieba
+
+logger = get_module_logger("mem_test")
 
 '''
 该理论认为，当两个或多个事物在形态上具有相似性时，

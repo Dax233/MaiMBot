@@ -64,10 +64,13 @@ class MessageRecvCQ(MessageCQ):
         self.message_segment = None  # 初始化为None
         self.raw_message = raw_message
         # 异步初始化在外部完成
+        
+        #添加对reply的解析
+        self.reply_message = reply_message
 
     async def initialize(self):
         """异步初始化方法"""
-        self.message_segment = await self._parse_message(self.raw_message)
+        self.message_segment = await self._parse_message(self.raw_message,self.reply_message)
 
     async def _parse_message(self, message: str, reply_message: Optional[Dict] = None) -> Seg:
         """异步解析消息内容为Seg对象"""

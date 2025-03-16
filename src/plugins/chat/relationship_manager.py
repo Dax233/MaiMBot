@@ -1,10 +1,12 @@
 import asyncio
 from typing import Optional
-from loguru import logger
+from src.common.logger import get_module_logger
 
 from ...common.database import db
 from .message_base import UserInfo
 from .chat_stream import ChatStream
+
+logger = get_module_logger("rel_manager")
 
 class Impression:
     traits: str = None

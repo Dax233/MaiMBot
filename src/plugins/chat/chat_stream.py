@@ -4,10 +4,13 @@ import time
 import copy
 from typing import Dict, Optional
 
-from loguru import logger
 
 from ...common.database import db
 from .message_base import GroupInfo, UserInfo
+
+from src.common.logger import get_module_logger
+
+logger = get_module_logger("chat_stream")
 
 
 class ChatStream:

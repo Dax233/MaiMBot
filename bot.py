@@ -2,6 +2,7 @@ import asyncio
 import os
 import shutil
 import sys
+from pathlib import Path
 
 import nonebot
 import time
@@ -10,10 +11,11 @@ import uvicorn
 from dotenv import load_dotenv
 from nonebot.adapters.onebot.v11 import Adapter
 import platform
-from src.plugins.utils.logger_config import LogModule, LogClassification
+from src.common.logger import get_module_logger
 
 
-# 配置日志格式
+# 配置主程序日志格式
+logger = get_module_logger("main_bot")
 
 # 获取没有加载env时的环境变量
 env_mask = {key: os.getenv(key) for key in os.environ}
@@ -76,11 +78,11 @@ def init_env():
 def load_env():
     # 使用闭包实现对加载器的横向扩展，避免大量重复判断
     def prod():
-        logger.success("加载生产环境变量配置")
+        logger.success("成功加载生产环境变量配置")
         load_dotenv(".env.prod", override=True)  # override=True 允许覆盖已存在的环境变量
 
     def dev():
-        logger.success("加载开发环境变量配置")
+        logger.success("成功加载开发环境变量配置")
         load_dotenv(".env.dev", override=True)  # override=True 允许覆盖已存在的环境变量
 
     fn_map = {"prod": prod, "dev": dev}
@@ -99,11 +101,6 @@ def load_env():
         logger.error(f"ENVIRONMENT 配置错误，请检查 .env 文件中的 ENVIRONMENT 变量及对应 .env.{env} 是否存在")
         RuntimeError(f"ENVIRONMENT 配置错误，请检查 .env 文件中的 ENVIRONMENT 变量及对应 .env.{env} 是否存在")
 
-
-def load_logger():
-    global logger # 使得bot.py中其他函数也能调用
-    log_module = LogModule()
-    logger = log_module.setup_logger(LogClassification.BASE)
 
 
 def scan_provider(env_config: dict):
@@ -168,13 +165,35 @@ async def uvicorn_main():
     uvicorn_server = server
     await server.serve()
 
+def check_eula():
+    eula_file = Path("elua.confirmed")
+    
+    # 如果已经确认过EULA，直接返回
+    if eula_file.exists():
+        return
+        
+    print("使用MaiMBot前请先阅读ELUA协议，继续运行视为同意协议")
+    print("协议内容：https://github.com/SengokuCola/MaiMBot/blob/main/EULA.md")
+    print('输入"同意"或"confirmed"继续运行')
+    
+    while True:
+        user_input = input().strip().lower()  # 转换为小写以忽略大小写
+        if user_input in ['同意', 'confirmed']:
+            # 创建确认文件
+            eula_file.touch()
+            break
+        else:
+            print('请输入"同意"或"confirmed"以继续运行')
+
 
 def raw_main():
     # 利用 TZ 环境变量设定程序工作的时区
     # 仅保证行为一致，不依赖 localtime()，实际对生产环境几乎没有作用
     if platform.system().lower() != "windows":
         time.tzset()
-
+        
+    check_eula()
+    
     easter_egg()
     init_config()
     init_env()
@@ -206,8 +225,6 @@ def raw_main():
 
 if __name__ == "__main__":
     try:
-        # 配置日志，使得主程序直接退出时候也能访问logger
-        load_logger()
         raw_main()
 
         app = nonebot.get_asgi()

@@ -11,7 +11,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import networkx as nx
 from dotenv import load_dotenv
-from loguru import logger
+from src.common.logger import get_module_logger
 import jieba
 
 # from chat.config import global_config
@@ -28,6 +28,8 @@ current_dir = Path(__file__).resolve().parent
 project_root = current_dir.parent.parent.parent
 # env.dev文件路径
 env_path = project_root / ".env.dev"
+
+logger = get_module_logger("mem_manual_bd")
 
 # 加载环境变量
 if env_path.exists():

@@ -3,13 +3,15 @@ import json
 import re
 from typing import Dict, Union
 
-from loguru import logger
 from nonebot import get_driver
 
 from src.plugins.chat.config import global_config
 
 from ...common.database import db  # 使用正确的导入语法
 from ..models.utils_model import LLM_request
+from src.common.logger import get_module_logger
+
+logger = get_module_logger("scheduler")
 
 driver = get_driver()
 config = driver.config

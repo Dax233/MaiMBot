@@ -42,8 +42,16 @@ def update_config():
                     update_dict(target[key], value)
                 else:
                     try:
-                        # 直接使用tomlkit的item方法创建新值
-                        target[key] = tomlkit.item(value)
+                        # 对数组类型进行特殊处理
+                        if isinstance(value, list):
+                            # 如果是空数组，确保它保持为空数组
+                            if not value:
+                                target[key] = tomlkit.array()
+                            else:
+                                target[key] = tomlkit.array(value)
+                        else:
+                            # 其他类型使用item方法创建新值
+                            target[key] = tomlkit.item(value)
                     except (TypeError, ValueError):
                         # 如果转换失败，直接赋值
                         target[key] = value

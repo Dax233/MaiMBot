@@ -3,7 +3,9 @@ from typing import Optional, Union
 from ...common.database import db
 from .message import MessageSending, MessageRecv
 from .chat_stream import ChatStream
-from loguru import logger
+from src.common.logger import get_module_logger
+
+logger = get_module_logger("message_storage")
 
 
 class MessageStorage:

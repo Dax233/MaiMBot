@@ -4,7 +4,9 @@ import time
 from dataclasses import dataclass
 
 from ..chat.config import global_config
-from loguru import logger
+from src.common.logger import get_module_logger
+
+logger = get_module_logger("mood_manager")
 
 @dataclass
 class MoodState:

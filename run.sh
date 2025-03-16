@@ -97,8 +97,8 @@ check_python() {
 # 5/6: 选择分支
 choose_branch() {
     BRANCH=$(whiptail --title "🔀 [5/6] 选择 Maimbot 分支" --menu "请选择要安装的 Maimbot 分支：" 15 60 2 \
-        "main" "稳定版本（推荐）" \
-        "debug" "开发版本（可能不稳定）" 3>&1 1>&2 2>&3)
+        "main" "稳定版本（推荐，供下载使用）" \
+        "main-fix" "生产环境紧急修复" 3>&1 1>&2 2>&3)
 
     if [[ -z "$BRANCH" ]]; then
         BRANCH="main"
@@ -201,6 +201,8 @@ install_napcat() {
 }
 
 # 运行安装步骤
+whiptail --title "⚠️ 警告：安装前详阅" --msgbox "项目处于活跃开发阶段，代码可能随时更改\n文档未完善，有问题可以提交 Issue 或者 Discussion\nQQ机器人存在被限制风险，请自行了解，谨慎使用\n由于持续迭代，可能存在一些已知或未知的bug\n由于开发中，可能消耗较多token\n\n本脚本可能更新不及时，如遇到bug请优先尝试手动部署以确定是否为脚本问题" 14 60
+
 check_system
 check_mongodb
 check_napcat
@@ -233,7 +235,7 @@ fi
 
 if [[ "$IS_INSTALL_NAPCAT" == "true" ]]; then
     echo -e "${GREEN}安装 NapCat...${RESET}"
-    curl -o napcat.sh https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh && bash napcat.sh
+    curl -o napcat.sh https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh && bash napcat.sh --cli y --docker n
 fi
 
 echo -e "${GREEN}创建 Python 虚拟环境...${RESET}"

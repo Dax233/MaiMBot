@@ -7,7 +7,7 @@ from typing import Dict, List
 import jieba
 import numpy as np
 from nonebot import get_driver
-from loguru import logger
+from src.common.logger import get_module_logger
 
 from ..models.utils_model import LLM_request
 from ..utils.typo_generator import ChineseTypoGenerator
@@ -20,6 +20,8 @@ from ...common.database import db
 
 driver = get_driver()
 config = driver.config
+
+logger = get_module_logger("chat_utils")
 
 
 

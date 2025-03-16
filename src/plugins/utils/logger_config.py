@@ -7,6 +7,7 @@ class LogClassification(Enum):
     MEMORY = "memory"
     EMOJI = "emoji"
     CHAT = "chat"
+    PBUILDER = "promptbuilder"
 
 class LogModule:
     logger = loguru.logger.opt()
@@ -32,11 +33,21 @@ class LogModule:
         
         # 表情包系统日志格式
         emoji_format = "<green>{time:HH:mm}</green> | <level>{level: <8}</level> | <yellow>表情包</yellow> | <cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        
+        promptbuilder_format = "<green>{time:HH:mm}</green> | <level>{level: <8}</level> | <yellow>Prompt</yellow> | <cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        
+        
         # 根据日志类型选择日志格式和输出
         if log_type == LogClassification.CHAT:
             self.logger.add(
                 sys.stderr,
                 format=chat_format,
+                # level="INFO"
+            )
+        elif log_type == LogClassification.PBUILDER:
+            self.logger.add(
+                sys.stderr,
+                format=promptbuilder_format,
                 # level="INFO"
             )
         elif log_type == LogClassification.MEMORY:

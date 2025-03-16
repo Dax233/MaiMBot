@@ -7,12 +7,15 @@ from typing import Optional, Union
 from PIL import Image
 import io
 
-from loguru import logger
 from nonebot import get_driver
 
 from ...common.database import db
 from ..chat.config import global_config
 from ..models.utils_model import LLM_request
+
+from src.common.logger import get_module_logger
+
+logger = get_module_logger("chat_image")
 
 driver = get_driver()
 config = driver.config

@@ -5,8 +5,9 @@ from typing import Tuple, Union
 
 import aiohttp
 import requests
-from loguru import logger
+from src.common.logger import get_module_logger
 
+logger = get_module_logger("offline_llm")
 
 class LLMModel:
     def __init__(self, model_name="deepseek-ai/DeepSeek-V3", **kwargs):
