@@ -192,9 +192,9 @@ def raw_main():
     if platform.system().lower() != "windows":
         time.tzset()
         
-    check_eula()
+    # check_eula()
     
-    easter_egg()
+    # easter_egg()
     init_config()
     init_env()
     load_env()
