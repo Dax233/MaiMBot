@@ -40,15 +40,43 @@ class PromptBuilder:
             str: 构建好的prompt
         """
         # 先禁用关系
-        if 0 > 30:
-            relation_prompt = "关系特别特别好，你很喜欢喜欢他"
-            relation_prompt_2 = "热情发言或者回复"
-        elif 0 < -20:
-            relation_prompt = "关系很差，你很讨厌他"
-            relation_prompt_2 = "骂他"
-        else:
+        if relationship_value >= 1000:
+            relation_prompt = "关系极好，是挚友或爱人的程度，你非常喜欢ta"
+            relation_prompt_2 = "热情发言、回复或满足ta"
+        elif relationship_value >= 500:
+            relation_prompt = "关系非常好，是挚友或知己的程度，你很喜欢ta"
+            relation_prompt_2 = "热情发言、回复或满足ta一些不过分的要求。"
+        elif relationship_value >= 250:
+            relation_prompt = "关系很好，是知己或好友的程度，你喜欢ta"
+            relation_prompt_2 = "友好发言或回复"
+        elif relationship_value >= 100:
+            relation_prompt = "关系不错，是好朋友的程度"
+            relation_prompt_2 = "友好发言或回复"
+        elif relationship_value >= 50:
+            relation_prompt = "关系不错，是普通朋友的程度"
+            relation_prompt_2 = "友好发言或回复"
+        elif relationship_value >= 20:
+            relation_prompt = "关系一般，是新朋友的程度"
+            relation_prompt_2 = "发言或回复"
+        elif relationship_value >= 0:
             relation_prompt = "关系一般"
-            relation_prompt_2 = "发言或者回复"
+            relation_prompt_2 = "发言或回复"
+        elif relationship_value >= -10:
+            relation_prompt = "关系一般，你对ta稍有不满"
+            relation_prompt_2 = "冷淡发言或回复"
+        elif relationship_value >= -20:
+            relation_prompt = "关系不佳，你不喜欢ta"
+            relation_prompt_2 = "冷淡发言或回复"
+        elif relationship_value >= -30:
+            relation_prompt = "关系很差，你讨厌ta"
+            relation_prompt_2 = "冷淡发言、讽刺或回复"
+        elif relationship_value >= -40:
+            relation_prompt = "关系非常差，你很厌恶ta"
+            relation_prompt_2 = "冷淡发言、讽刺或回复"
+        else:
+            # relationship_value < -40
+            relation_prompt = "关系极差，你极其厌恶ta"
+            relation_prompt_2 = "骂ta"
 
         # 开始构建prompt
 
