@@ -212,3 +212,5 @@ jieba.cache
 #  If using PyEnv and configured to use a specific Python version locally
 #  a .local-version file will be created in the root of the project to specify the version.
 .python-version
+
+OtherRes.txt

@@ -169,10 +169,14 @@ if exist "%_root%\tools\git\bin" (
 :search_mongodb
 cls
 sc query | findstr /i "MongoDB" >nul
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo MongoDB服务未运行，正在尝试启动...
-    net start MongoDB >nul 2>&1
-    if %errorlevel% neq 0 (
+    powershell -Command "Start-Process -Verb RunAs cmd -ArgumentList '/c net start MongoDB'"
+    echo 正在等待MongoDB服务启动...
+    echo 按下任意键跳过等待...
+    timeout /t 30 >nul
+    sc query | findstr /i "MongoDB" >nul
+    if !errorlevel! neq 0 (
         echo MongoDB服务启动失败，可能是没有安装，要安装吗？
         set /p confirm="继续？(Y/N): "
         if /i "!confirm!"=="Y" (
@@ -254,11 +258,49 @@ if "!BRANCH!"=="main" (
 
 @REM endlocal & set "BRANCH_COLOR=%BRANCH_COLOR%"
 
+:check_is_venv
+echo 正在检查是否在虚拟环境中...
+if exist "%_root%\config\no_venv" (
+    echo 检测到no_venv,跳过虚拟环境检查
+    goto menu
+)
+if not defined VIRTUAL_ENV (
+    echo 当前使用的Python环境为：
+    echo !PYTHON_HOME!
+    echo 似乎没有使用虚拟环境，是否要创建一个新的虚拟环境？
+    set /p confirm="继续？(Y/N): "
+    if /i "!confirm!"=="Y" (
+        echo 正在创建虚拟环境...
+        python -m virtualenv venv
+        call venv\Scripts\activate.bat
+        echo 要安装依赖吗？
+        set /p install_confirm="继续？(Y/N): "
+        if /i "%install_confirm%"=="Y" (
+            echo 正在安装依赖...
+            python -m pip config set global.index-url https://mirrors.aliyun.com/pypi/simple
+            python -m pip install -r requirements.txt
+        )
+        echo 虚拟环境创建完成，按任意键返回...
+    ) else (
+        echo 要永久跳过虚拟环境检查吗？
+        set /p no_venv_confirm="继续？(Y/N): "
+        if /i "!no_venv_confirm!"=="Y" (
+            echo 正在创建no_venv文件...
+            echo 1 > "%_root%\config\no_venv"
+            echo 已创建no_venv文件，按任意键返回...
+        ) else (
+            echo 取消跳过虚拟环境检查，按任意键返回...
+        )
+    )
+    pause >nul
+)
+goto menu
 
 :menu
 @chcp 936
 cls
 echo 麦麦Bot控制台 v%VERSION%  当前分支: %BRANCH_COLOR%%BRANCH%[0m
+echo 当前Python环境: [96m!PYTHON_HOME![0m
 echo ======================
 echo 1. 更新并启动麦麦Bot (默认)
 echo 2. 直接启动麦麦Bot
@@ -296,6 +338,7 @@ start python webui.py
 
 goto menu
 
+
 :tools_menu
 @chcp 936
 cls
@@ -313,10 +356,11 @@ echo ======================
 set /p choice="请输入选项数字: "
 if "!choice!"=="1" goto update_dependencies
 if "!choice!"=="2" goto switch_branch
-if "!choice!"=="3" goto update_config
-if "!choice!"=="4" goto learn_new_knowledge
-if "!choice!"=="5" goto open_knowledge_folder
-if "!choice!"=="6" goto menu
+if "!choice!"=="3" goto reset_branch
+if "!choice!"=="4" goto update_config
+if "!choice!"=="5" goto learn_new_knowledge
+if "!choice!"=="6" goto open_knowledge_folder
+if "!choice!"=="7" goto menu
 
 echo 无效的输入，请输入1-6之间的数字
 timeout /t 2 >nul
@@ -369,13 +413,30 @@ pause >nul
 goto tools_menu
 
 
+:reset_branch
+cls
+echo 正在重置当前分支...
+echo 当前分支: !BRANCH!
+echo 确认要重置当前分支吗？
+set /p confirm="继续？(Y/N): "
+if /i "!confirm!"=="Y" (
+    echo 正在重置当前分支...
+    git reset --hard !BRANCH!
+    echo 分支重置完成，按任意键返回工具箱菜单...
+) else (
+    echo 取消重置当前分支，按任意键返回工具箱菜单...
+)
+pause >nul
+goto tools_menu
+
+
 :update_config
 cls
 echo 正在更新配置文件...
 echo 请确保已备份重要数据，继续将修改当前配置文件。
 echo 继续请按Y，取消请按任意键...
 set /p confirm="继续？(Y/N): "
-if /i "%confirm%"=="Y" (
+if /i "!confirm!"=="Y" (
     echo 正在更新配置文件...
     python.exe config\auto_update.py
     echo 配置文件更新完成，按任意键返回工具箱菜单...
@@ -391,7 +452,7 @@ echo 正在学习新的知识库...
 echo 请确保已备份重要数据，继续将修改当前知识库。
 echo 继续请按Y，取消请按任意键...
 set /p confirm="继续？(Y/N): "
-if /i "%confirm%"=="Y" (
+if /i "!confirm!"=="Y" (
     echo 正在学习新的知识库...
     python.exe src\plugins\zhishi\knowledge_library.py
     echo 学习完成，按任意键返回工具箱菜单...

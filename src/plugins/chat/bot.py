@@ -210,12 +210,15 @@ class ChatBot:
                     is_head=not mark_head,
                     is_emoji=False,
                 )
-                logger.debug(f"bot_message: {bot_message}")
                 if not mark_head:
                     mark_head = True
-                logger.debug(f"添加消息到message_set: {bot_message}")
                 message_set.add_message(bot_message)
-
+                if len(str(bot_message)) < 1000:
+                    logger.debug(f"bot_message: {bot_message}")
+                    logger.debug(f"添加消息到message_set: {bot_message}")
+                else:
+                    logger.debug(f"bot_message: {str(bot_message)[:1000]}...{str(bot_message)[-10:]}")
+                    logger.debug(f"添加消息到message_set: {str(bot_message)[:1000]}...{str(bot_message)[-10:]}")
             # message_set 可以直接加入 message_manager
             # print(f"\033[1;32m[回复]\033[0m 将回复载入发送容器")
 
