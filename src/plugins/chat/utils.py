@@ -329,10 +329,16 @@ def process_llm_response(text: str) -> List[str]:
             sentences.append(sentence)
     # 检查分割后的消息数量是否过多（超过3条）
 
-    if len(sentences) > 5:
+    if len(sentences) > 10:
         logger.warning(f"分割后消息数量过多 ({len(sentences)} 条)，返回默认回复")
         return [f'{global_config.BOT_NICKNAME}不知道哦']
-
+    elif len(sentences) > 5:
+        while len(sentences) > 5:
+            # 随机选择两个索引进行合并
+            idx1, idx2 = random.sample(range(len(sentences)), 2)
+            sentences[idx1] = sentences[idx1] + sentences[idx2]
+            del sentences[idx2]
+            
     return sentences
 
 
