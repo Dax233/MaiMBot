@@ -336,9 +336,9 @@ def process_llm_response(text: str) -> List[str]:
         while len(sentences) > 5:
             # 随机选择两个索引进行合并
             idx1, idx2 = random.sample(range(len(sentences)), 2)
-            sentences[idx1] = sentences[idx1] + sentences[idx2]
+            sentences[idx1] = sentences[idx1] + "\n" + sentences[idx2]
             del sentences[idx2]
-            
+
     return sentences
 
 
