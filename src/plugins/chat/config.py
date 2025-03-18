@@ -51,6 +51,8 @@ class BotConfig:
     ban_msgs_regex = set()
 
     max_response_length: int = 1024  # 最大回复长度
+    
+    remote_enable: bool = False  # 是否启用远程控制
 
     # 模型配置
     llm_reasoning: Dict[str, str] = field(default_factory=lambda: {})
@@ -314,6 +316,10 @@ class BotConfig:
                 config.memory_forget_percentage = memory_config.get("memory_forget_percentage", config.memory_forget_percentage)
                 config.memory_compress_rate = memory_config.get("memory_compress_rate", config.memory_compress_rate)
 
+        def remote(parent: dict): 
+            remote_config = parent["remote"]
+            config.remote_enable = remote_config.get("enable", config.remote_enable)
+
         def mood(parent: dict):
             mood_config = parent["mood"]
             config.mood_update_interval = mood_config.get("mood_update_interval", config.mood_update_interval)
@@ -367,6 +373,7 @@ class BotConfig:
             "message": {"func": message, "support": ">=0.0.0"},
             "memory": {"func": memory, "support": ">=0.0.0", "necessary": False},
             "mood": {"func": mood, "support": ">=0.0.0"},
+            "remote": {"func": remote, "support": ">=0.0.10", "necessary": False},
             "keywords_reaction": {"func": keywords_reaction, "support": ">=0.0.2", "necessary": False},
             "chinese_typo": {"func": chinese_typo, "support": ">=0.0.3", "necessary": False},
             "groups": {"func": groups, "support": ">=0.0.0"},

@@ -156,8 +156,8 @@ class Memory_graph:
 class Hippocampus:
     def __init__(self, memory_graph: Memory_graph):
         self.memory_graph = memory_graph
-        self.llm_topic_judge = LLM_request(model=global_config.llm_topic_judge, temperature=0.5)
-        self.llm_summary_by_topic = LLM_request(model=global_config.llm_summary_by_topic, temperature=0.5)
+        self.llm_topic_judge = LLM_request(model=global_config.llm_topic_judge, temperature=0.5,request_type = 'topic')
+        self.llm_summary_by_topic = LLM_request(model=global_config.llm_summary_by_topic, temperature=0.5,request_type = 'topic')
 
     def get_all_node_names(self) -> list:
         """获取记忆图中所有节点的名字列表

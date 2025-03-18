@@ -1,5 +1,5 @@
 [inner]
-version = "0.0.9"
+version = "0.0.10"
 
 #以下是给开发人员阅读的，一般用户不需要阅读
 #如果你想要修改配置文件，请在修改后将version的值进行变更
@@ -123,7 +123,7 @@ talk_frequency_down = []  #降低回复频率的群
 ban_user_id = []  #禁止回复消息的QQ号
 
 [remote] #测试功能，发送统计信息，主要是看全球有多少只麦麦
-enable = false #默认关闭
+enable = true
 
 
 #V3

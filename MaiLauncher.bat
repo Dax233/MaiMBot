@@ -170,30 +170,37 @@ if exist "%_root%\tools\git\bin" (
 cls
 sc query | findstr /i "MongoDB" >nul
 if !errorlevel! neq 0 (
-    echo MongoDB服务未运行，正在尝试启动...
-    powershell -Command "Start-Process -Verb RunAs cmd -ArgumentList '/c net start MongoDB'"
-    echo 正在等待MongoDB服务启动...
-    echo 按下任意键跳过等待...
-    timeout /t 30 >nul
-    sc query | findstr /i "MongoDB" >nul
-    if !errorlevel! neq 0 (
-        echo MongoDB服务启动失败，可能是没有安装，要安装吗？
-        set /p confirm="继续？(Y/N): "
-        if /i "!confirm!"=="Y" (
-            echo 正在安装MongoDB...
-            winget install --id MongoDB.Server -e --accept-package-agreements --accept-source-agreements
-            echo 安装完成，正在启动MongoDB服务...
-            net start MongoDB
-            if %errorlevel% neq 0 (
-                echo 启动MongoDB服务失败，请手动启动
-                exit /b
+    echo MongoDB服务未运行，是否尝试运行服务？
+    set /p confirm="是否启动？(Y/N): "
+    if /i "!confirm!"=="Y" (
+        echo 正在尝试启动MongoDB服务...
+        powershell -Command "Start-Process -Verb RunAs cmd -ArgumentList '/c net start MongoDB'"
+        echo 正在等待MongoDB服务启动...
+		echo 按下任意键跳过等待...
+		timeout /t 30 >nul
+        sc query | findstr /i "MongoDB" >nul
+        if !errorlevel! neq 0 (
+            echo MongoDB服务启动失败，可能是没有安装，要安装吗？
+            set /p install_confirm="继续安装？(Y/N): "
+            if /i "!install_confirm!"=="Y" (
+                echo 正在安装MongoDB...
+                winget install --id MongoDB.Server -e --accept-package-agreements --accept-source-agreements
+                echo 安装完成，正在启动MongoDB服务...
+                net start MongoDB
+                if !errorlevel! neq 0 (
+                    echo 启动MongoDB服务失败，请手动启动
+                    exit /b
+                ) else (
+                    echo MongoDB服务已成功启动
+                )
+            ) else (
+                echo 取消安装MongoDB，按任意键退出...
+                pause >nul
+				exit /b
             )
-            echo MongoDB服务已启动
-        ) else (
-            echo 取消安装MongoDB，按任意键退出...
-            pause >nul
-            exit /b
         )
+    ) else (
+        echo "警告：MongoDB服务未运行，将导致MaiMBot无法访问数据库！"
     )
 ) else (
     echo MongoDB服务已运行
@@ -259,43 +266,135 @@ if "!BRANCH!"=="main" (
 @REM endlocal & set "BRANCH_COLOR=%BRANCH_COLOR%"
 
 :check_is_venv
-echo 正在检查是否在虚拟环境中...
+echo 正在检查虚拟环境状态...
 if exist "%_root%\config\no_venv" (
     echo 检测到no_venv,跳过虚拟环境检查
     goto menu
 )
-if not defined VIRTUAL_ENV (
-    echo 当前使用的Python环境为：
-    echo !PYTHON_HOME!
-    echo 似乎没有使用虚拟环境，是否要创建一个新的虚拟环境？
-    set /p confirm="继续？(Y/N): "
-    if /i "!confirm!"=="Y" (
-        echo 正在创建虚拟环境...
-        python -m virtualenv venv
-        call venv\Scripts\activate.bat
-        echo 要安装依赖吗？
-        set /p install_confirm="继续？(Y/N): "
-        if /i "%install_confirm%"=="Y" (
-            echo 正在安装依赖...
-            python -m pip config set global.index-url https://mirrors.aliyun.com/pypi/simple
-            python -m pip install -r requirements.txt
-        )
-        echo 虚拟环境创建完成，按任意键返回...
-    ) else (
-        echo 要永久跳过虚拟环境检查吗？
-        set /p no_venv_confirm="继续？(Y/N): "
-        if /i "!no_venv_confirm!"=="Y" (
-            echo 正在创建no_venv文件...
-            echo 1 > "%_root%\config\no_venv"
-            echo 已创建no_venv文件，按任意键返回...
-        ) else (
-            echo 取消跳过虚拟环境检查，按任意键返回...
-        )
+
+:: 环境检测
+if defined VIRTUAL_ENV (
+    goto menu
+)
+
+echo =====================================
+echo 虚拟环境检测警告：
+echo 当前使用系统Python路径：!PYTHON_HOME!
+echo 未检测到激活的虚拟环境！
+
+:env_interaction
+echo =====================================
+echo 请选择操作：
+echo 1 - 创建并激活Venv虚拟环境
+echo 2 - 创建/激活Conda虚拟环境
+echo 3 - 临时跳过本次检查
+echo 4 - 永久跳过虚拟环境检查
+set /p choice="请输入选项(1-4): "
+
+if "!choice!"=="4" (
+	echo 要永久跳过虚拟环境检查吗？
+    set /p no_venv_confirm="继续？(Y/N): ....."
+    if /i "!no_venv_confirm!"=="Y" (
+		echo 1 > "%_root%\config\no_venv"
+		echo 已创建no_venv文件
+		pause >nul
+		goto menu
+	) else (
+        echo 取消跳过虚拟环境检查，按任意键返回...
+        pause >nul
+        goto env_interaction
     )
-    pause >nul
+)
+
+if "!choice!"=="3" (
+    echo 警告：使用系统环境可能导致依赖冲突！
+    timeout /t 2 >nul
+    goto menu
+)
+
+if "!choice!"=="2" goto handle_conda
+if "!choice!"=="1" goto handle_venv
+
+echo 无效的输入，请输入1-4之间的数字
+timeout /t 2 >nul
+goto env_interaction
+
+:handle_venv
+python -m pip config set global.index-url https://mirrors.aliyun.com/pypi/simple
+echo 正在初始化Venv环境...
+python -m pip install virtualenv || (
+    echo 安装环境失败，错误码：!errorlevel!
+    pause
+    goto env_interaction
+)
+echo 创建虚拟环境到：venv
+    python -m virtualenv venv || (
+    echo 环境创建失败，错误码：!errorlevel!
+    pause
+    goto env_interaction
+)
+
+call venv\Scripts\activate.bat
+echo 已激活Venv环境
+echo 要安装依赖吗？
+set /p install_confirm="继续？(Y/N): "
+if /i "!install_confirm!"=="Y" (
+    goto update_dependencies
 )
 goto menu
 
+:handle_conda
+where conda >nul 2>&1 || (
+    echo 未检测到conda，可能原因：
+    echo 1. 未安装Miniconda
+    echo 2. conda配置异常
+    timeout /t 10 >nul
+    goto env_interaction
+)
+
+:conda_menu
+echo 请选择Conda操作：
+echo 1 - 创建新环境
+echo 2 - 激活已有环境
+echo 3 - 返回上级菜单
+set /p choice="请输入选项(1-3): "
+
+if "!choice!"=="3" goto env_interaction
+if "!choice!"=="2" goto activate_conda
+if "!choice!"=="1" goto create_conda
+
+echo 无效的输入，请输入1-3之间的数字
+timeout /t 2 >nul
+goto conda_menu
+
+:create_conda
+set /p "CONDA_ENV=请输入新环境名称："
+if "!CONDA_ENV!"=="" (
+    echo 环境名称不能为空！
+    goto create_conda
+)
+conda create -n !CONDA_ENV! python=3.13 -y || (
+    echo 环境创建失败，错误码：!errorlevel!
+    timeout /t 10 >nul
+    goto conda_menu
+)
+goto activate_conda
+
+:activate_conda
+set /p "CONDA_ENV=请输入要激活的环境名称："
+call conda activate !CONDA_ENV! || (
+    echo 激活失败，可能原因：
+    echo 1. 环境不存在
+    echo 2. conda配置异常
+    pause
+    goto conda_menu
+)
+echo 成功激活conda环境：!CONDA_ENV!
+echo 要安装依赖吗？
+set /p install_confirm="继续？(Y/N): "
+if /i "!install_confirm!"=="Y" (
+    goto update_dependencies
+)
 :menu
 @chcp 936
 cls

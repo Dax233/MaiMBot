@@ -4,11 +4,10 @@ on:
   push:
     branches:
       - main
-      - debug       # 新增 debug 分支触发
-      - stable-dev
+      - main-fix
     tags:
-      - 'v*'       
-  workflow_dispatch: 
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   build-and-push:
@@ -16,7 +15,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -33,10 +32,8 @@ jobs:
             echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:${{ github.ref_name }},${{ secrets.DOCKERHUB_USERNAME }}/maimbot:latest" >> $GITHUB_OUTPUT
           elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:main,${{ secrets.DOCKERHUB_USERNAME }}/maimbot:latest" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" == "refs/heads/debug" ]; then
-            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:debug" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" == "refs/heads/stable-dev" ]; then
-            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:stable-dev" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/main-fix" ]; then
+            echo "tags=${{ secrets.DOCKERHUB_USERNAME }}/maimbot:main-fix" >> $GITHUB_OUTPUT
           fi
 
       - name: Build and Push Docker Image

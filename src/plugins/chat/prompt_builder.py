@@ -7,8 +7,9 @@ from ..memory_system.memory import hippocampus, memory_graph
 from ..moods.moods import MoodManager
 from ..schedule.schedule_generator import bot_schedule
 from .config import global_config
-from .utils import get_embedding, get_recent_group_detailed_plain_text
+from .utils import get_embedding, get_recent_group_detailed_plain_text, get_recent_group_speaker
 from .chat_stream import chat_manager
+from .relationship_manager import relationship_manager
 from src.common.logger import get_module_logger
 
 logger = get_module_logger("prompt")
@@ -21,62 +22,36 @@ class PromptBuilder:
         self.prompt_built = ""
         self.activate_messages = ""
 
-    async def _build_prompt(
-            self,
-            message_txt: str,
-            sender_name: str = "某人",
-            relationship_value: float = 0.0,
-            stream_id: Optional[int] = None,
-    ) -> tuple[str, str]:
+    async def _build_prompt(self,
+                            chat_stream,
+                            message_txt: str,
+                            sender_name: str = "某人",
+                            stream_id: Optional[int] = None) -> tuple[str, str]:
         """构建prompt
 
         Args:
             message_txt: 消息文本
             sender_name: 发送者昵称
-            relationship_value: 关系值
+            # relationship_value: 关系值
             group_id: 群组ID
 
         Returns:
             str: 构建好的prompt
         """
-        # 先禁用关系
-        if relationship_value >= 1000:
-            relation_prompt = "关系极好，是挚友或爱人的程度，你非常喜欢ta"
-            relation_prompt_2 = "热情发言、回复或满足ta"
-        elif relationship_value >= 500:
-            relation_prompt = "关系非常好，是挚友或知己的程度，你很喜欢ta"
-            relation_prompt_2 = "热情发言、回复或满足ta一些不过分的要求。"
-        elif relationship_value >= 250:
-            relation_prompt = "关系很好，是知己或好友的程度，你喜欢ta"
-            relation_prompt_2 = "友好发言或回复"
-        elif relationship_value >= 100:
-            relation_prompt = "关系不错，是好朋友的程度"
-            relation_prompt_2 = "友好发言或回复"
-        elif relationship_value >= 50:
-            relation_prompt = "关系不错，是普通朋友的程度"
-            relation_prompt_2 = "友好发言或回复"
-        elif relationship_value >= 20:
-            relation_prompt = "关系一般，是新朋友的程度"
-            relation_prompt_2 = "发言或回复"
-        elif relationship_value >= 0:
-            relation_prompt = "关系一般"
-            relation_prompt_2 = "发言或回复"
-        elif relationship_value >= -10:
-            relation_prompt = "关系一般，你对ta稍有不满"
-            relation_prompt_2 = "冷淡发言或回复"
-        elif relationship_value >= -20:
-            relation_prompt = "关系不佳，你不喜欢ta"
-            relation_prompt_2 = "冷淡发言或回复"
-        elif relationship_value >= -30:
-            relation_prompt = "关系很差，你讨厌ta"
-            relation_prompt_2 = "冷淡发言、讽刺或回复"
-        elif relationship_value >= -40:
-            relation_prompt = "关系非常差，你很厌恶ta"
-            relation_prompt_2 = "冷淡发言、讽刺或回复"
-        else:
-            # relationship_value < -40
-            relation_prompt = "关系极差，你极其厌恶ta"
-            relation_prompt_2 = "骂ta"
+        # 关系（载入当前聊天记录里部分人的关系）
+        who_chat_in_group = [chat_stream]
+        who_chat_in_group += get_recent_group_speaker(
+            stream_id,
+            (chat_stream.user_info.user_id, chat_stream.user_info.platform),
+            limit=global_config.MAX_CONTEXT_SIZE
+        )
+        relation_prompt = ""
+        for person in who_chat_in_group:
+            relation_prompt += relationship_manager.build_relationship_info(person)
+
+        relation_prompt_all = (
+            f"{relation_prompt}关系等级越大，关系越好，请分析聊天记录，根据你和说话者{sender_name}的关系和态度进行回复，明确你的立场和情感。"
+        )
 
         # 开始构建prompt
 
@@ -98,10 +73,10 @@ class PromptBuilder:
             )
             chat_stream = chat_manager.get_stream(stream_id)
             if chat_stream.group_info:
-                chat_talking_prompt = f"以下是群里正在聊天的内容：\n{chat_talking_prompt}"
+                chat_talking_prompt = chat_talking_prompt
             else:
                 chat_in_group = False
-                chat_talking_prompt = f"以下是你正在和{sender_name}私聊的内容：\n{chat_talking_prompt}"
+                chat_talking_prompt = chat_talking_prompt
                 # print(f"\033[1;34m[调试]\033[0m 已从数据库获取群 {group_id} 的消息记录:{chat_talking_prompt}")
 
         # 使用新的记忆获取方法
@@ -151,10 +126,7 @@ class PromptBuilder:
         probability_3 = global_config.PERSONALITY_3
 
         personality_choice = random.random()
-        if chat_in_group:
-            prompt_in_group = f"你正在浏览{chat_stream.platform}群"
-        else:
-            prompt_in_group = f"你正在{chat_stream.platform}上和{sender_name}私聊"
+
         if personality_choice < probability_1:  # 第一种人格
             prompt_personality = personality[0]
         elif personality_choice < probability_1 + probability_2:  # 第二种人格
@@ -170,15 +142,6 @@ class PromptBuilder:
             prompt_ger += "你喜欢用反问句"
         if random.random() < 0.01:
             prompt_ger += "你喜欢用文言文"
-
-        # 合并prompt
-        # prompt = ""
-        # prompt += f"{prompt_info}\n"
-        # prompt += f"{prompt_date}\n"
-        # prompt += f"{chat_talking_prompt}\n"
-        # prompt += f"{prompt_personality}\n"
-        # prompt += f"{prompt_ger}\n"
-        # prompt += f"{extra_info}\n"
 
         # 知识构建
         start_time = time.time()
@@ -204,7 +167,7 @@ class PromptBuilder:
 `<UserMessage>`
 {message_txt}
 `</UserMessage>`\
-引起了你的注意,你和ta{relation_prompt},{mood_prompt},你想要{relation_prompt_2}。
+引起了你的注意,{relation_prompt_all}{mood_prompt}
 
 `<MainRule>`
 你的名字叫{global_config.BOT_NICKNAME}，你还有很多别名:{"/".join(global_config.BOT_ALIAS_NAMES)}，{prompt_personality}。
@@ -226,8 +189,8 @@ class PromptBuilder:
         #     prompt_personality_check = f"""你的网名叫{global_config.BOT_NICKNAME}，{personality[2]}, 你正在浏览qq群，{promt_info_prompt} {activate_prompt_check} {extra_check_info}"""
         #
         # prompt_check_if_response = f"{prompt_info}\n{prompt_date}\n{chat_talking_prompt}\n{prompt_personality_check}"
+        
         prompt_check_if_response = ""
-
         return prompt, prompt_check_if_response
 
     def _build_initiative_prompt_select(self, group_id, probability_1=0.8, probability_2=0.1):

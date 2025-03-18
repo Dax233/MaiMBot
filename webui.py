@@ -6,6 +6,7 @@ from src.common.logger import get_module_logger
 import shutil
 import ast
 import json
+from packaging import version
 
 logger = get_module_logger("webui")
 
@@ -14,7 +15,8 @@ debug = True
 config_data = toml.load("config/bot_config.toml")
 
 CONFIG_VERSION = config_data["inner"]["version"]
-PARSED_CONFIG_VERSION = float(CONFIG_VERSION[2:])
+PARSED_CONFIG_VERSION = version.parse(CONFIG_VERSION)
+HAVE_ONLINE_STATUS_VERSION = version.parse("0.0.9")
 
 #==============================================
 #env环境配置文件读取部分
@@ -1149,7 +1151,7 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                         enable_debug_output = gr.Checkbox(value=config_data['others']['enable_debug_output'], label="是否开启调试输出")
                     with gr.Row():
                         enable_friend_chat = gr.Checkbox(value=config_data['others']['enable_friend_chat'], label="是否开启好友聊天")
-                    if PARSED_CONFIG_VERSION > 0.8:
+                    if PARSED_CONFIG_VERSION > HAVE_ONLINE_STATUS_VERSION:
                         with gr.Row():
                             gr.Markdown(
                                 """### 远程统计设置\n
@@ -1179,7 +1181,7 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                     with gr.Row():
                         save_other_config_message = gr.Textbox()
                     with gr.Row():
-                        if PARSED_CONFIG_VERSION <= 0.8:
+                        if PARSED_CONFIG_VERSION <= HAVE_ONLINE_STATUS_VERSION:
                             remote_status = gr.Checkbox(value=False,visible=False)
                         save_other_config_btn.click(
                             save_other_config,

@@ -214,3 +214,6 @@ jieba.cache
 .python-version
 
 OtherRes.txt
+
+/eula.confirmed
+/privacy.confirmed

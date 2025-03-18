@@ -214,7 +214,7 @@ class MessageManager:
                     try:
                         if (
                             msg.is_head
-                            and msg.update_thinking_time() > 30
+                            and msg.update_thinking_time() > 10
                             and not message_earliest.is_private_message()  # 避免在私聊时插入reply
                         ):
                             msg.set_reply()

@@ -5,6 +5,7 @@ from src.common.logger import get_module_logger
 from ...common.database import db
 from .message_base import UserInfo
 from .chat_stream import ChatStream
+import math
 
 logger = get_module_logger("rel_manager")
 
@@ -250,6 +251,101 @@ class RelationshipManager:
             return user_info.user_nickname or user_info.user_cardname or "某人"
         else:
             return "某人"
+        
+    async def calculate_update_relationship_value(self,
+                                                  chat_stream: ChatStream,
+                                                  label: str,
+                                                  stance: str) -> None:
+        """计算变更关系值  
+            新的关系值变更计算方式：
+                将关系值限定在-1000到1000
+                对于关系值的变更，期望：
+                    1.向两端逼近时会逐渐减缓
+                    2.关系越差，改善越难，关系越好，恶化越容易
+                    3.人维护关系的精力往往有限，所以当高关系值用户越多，对于中高关系值用户增长越慢
+        """
+        stancedict = {
+                "supportive": 0,
+                "neutrality": 1,
+                "opposed": 2,
+            }
+
+        valuedict = {
+                "happy": 1.5,
+                "angry": -3.0,
+                "sad": -1.5,
+                "surprised": 0.6,
+                "disgusted": -4.5,
+                "fearful": -2.1,
+                "neutral": 0.3,
+            }
+        if self.get_relationship(chat_stream):
+            old_value = self.get_relationship(chat_stream).relationship_value
+        else:
+            return
+        
+        if old_value > 1000:
+            old_value = 1000
+        elif old_value < -1000:
+            old_value = -1000
+        
+        value = valuedict[label]
+        if old_value >= 0:
+            if valuedict[label] >= 0 and stancedict[stance] != 2:
+                value = value*math.cos(math.pi*old_value/2000)
+                if old_value > 500:
+                    high_value_count = 0
+                    for key, relationship in self.relationships.items():
+                        if relationship.relationship_value >= 850:
+                            high_value_count += 1
+                    value *= 3/(high_value_count + 3)
+            elif valuedict[label] < 0 and stancedict[stance] != 0:
+                value = value*math.exp(old_value/1000)
+            else:
+                value = 0
+        elif old_value < 0:
+            if valuedict[label] >= 0 and stancedict[stance] != 2:
+                value = value*math.exp(old_value/1000)
+            elif valuedict[label] < 0 and stancedict[stance] != 0:
+                value = value*math.cos(math.pi*old_value/2000)
+            else:
+                value = 0
+        
+        logger.info(f"[关系变更] 立场：{stance}  标签：{label}  关系值：{value}")
+
+        await self.update_relationship_value(
+                chat_stream=chat_stream, relationship_value=value
+            )
+
+    def build_relationship_info(self,person) -> str:
+        relationship_value = relationship_manager.get_relationship(person).relationship_value
+        if -1000 <= relationship_value < -227:
+            level_num = 0
+        elif -227 <= relationship_value < -73:
+            level_num = 1
+        elif -76 <= relationship_value < 227:
+            level_num = 2
+        elif 227 <= relationship_value < 587:
+            level_num = 3
+        elif 587 <= relationship_value < 900:
+            level_num = 4
+        elif 900 <= relationship_value <= 1000:
+            level_num = 5
+        else:
+            level_num = 5 if relationship_value > 1000 else 0
+
+        relationship_level = ["厌恶", "冷漠", "一般", "友好", "喜欢", "暧昧"]
+        relation_prompt2_list = [
+            "冷漠回应或直接辱骂", "冷淡回复",
+            "保持理性", "愿意回复",
+            "积极回复", "无条件支持",
+        ]
+        if person.user_info.user_cardname:
+            return (f"你对昵称为'[({person.user_info.user_id}){person.user_info.user_nickname}]{person.user_info.user_cardname}'的用户的态度为{relationship_level[level_num]}，"
+                    f"回复态度为{relation_prompt2_list[level_num]}，关系等级为{level_num}。")
+        else:
+            return (f"你对昵称为'({person.user_info.user_id}){person.user_info.user_nickname}'的用户的态度为{relationship_level[level_num]}，"
+                    f"回复态度为{relation_prompt2_list[level_num]}，关系等级为{level_num}。")
 
 
 relationship_manager = RelationshipManager()

@@ -23,7 +23,7 @@ class ScheduleGenerator:
     def __init__(self):
         # 根据global_config.llm_normal这一字典配置指定模型
         # self.llm_scheduler = LLMModel(model = global_config.llm_normal,temperature=0.9)
-        self.llm_scheduler = LLM_request(model=global_config.llm_normal, temperature=0.9)
+        self.llm_scheduler = LLM_request(model=global_config.llm_normal, temperature=0.9,request_type = 'scheduler')
         self.today_schedule_text = ""
         self.today_schedule = {}
         self.tomorrow_schedule_text = ""

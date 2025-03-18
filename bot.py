@@ -166,25 +166,57 @@ async def uvicorn_main():
     await server.serve()
 
 def check_eula():
-    eula_file = Path("elua.confirmed")
+    eula_confirm_file = Path("elua.confirmed")
+    privacy_confirm_file = Path("privacy.confirmed")
+    eula_file = Path("EULA.md")
+    privacy_file = Path("PRIVACY.md")
     
-    # 如果已经确认过EULA，直接返回
-    if eula_file.exists():
-        return
-        
-    print("使用MaiMBot前请先阅读ELUA协议，继续运行视为同意协议")
-    print("协议内容：https://github.com/SengokuCola/MaiMBot/blob/main/EULA.md")
-    print('输入"同意"或"confirmed"继续运行')
-    
-    while True:
-        user_input = input().strip().lower()  # 转换为小写以忽略大小写
-        if user_input in ['同意', 'confirmed']:
-            # 创建确认文件
-            eula_file.touch()
-            break
-        else:
-            print('请输入"同意"或"confirmed"以继续运行')
+    eula_updated = True
+    privacy_updated = True
 
+    eula_confirmed = False
+    privacy_confirmed = False
+
+    # 检查EULA确认文件是否存在
+    if eula_confirm_file.exists():
+        # 检查EULA文件版本是否更新（与elua.confirmed文件对比）
+        with open(eula_file, "r") as f:
+            eula_content = f.read()
+        with open(eula_confirm_file, "r") as f:
+            confirmed_content = f.read()
+        if eula_content == confirmed_content:
+            eula_confirmed = True
+            eula_updated = False
+        
+
+    # 检查隐私条款确认文件是否存在
+    if privacy_confirm_file.exists():
+        # 检查隐私条款文件版本是否更新（与privacy.confirmed文件对比）
+        with open(privacy_file, "r") as f:
+            privacy_content = f.read()
+        with open(privacy_confirm_file, "r") as f:
+            confirmed_content = f.read()
+        if privacy_content == confirmed_content:
+            privacy_confirmed = True
+            privacy_updated = False
+            
+    # 如果EULA或隐私条款有更新，提示用户重新确认
+    if eula_updated or privacy_updated:
+        print("EULA或隐私条款内容已更新，请在阅读后重新确认，继续运行视为同意更新后的以上两款协议")
+        print('输入"同意"或"confirmed"继续运行')
+        while True:
+            user_input = input().strip().lower()
+            if user_input in ['同意', 'confirmed']:
+                if eula_updated:
+                    eula_confirm_file.write_text(eula_file.read_text())
+                if privacy_updated:
+                    privacy_confirm_file.write_text(privacy_file.read_text())
+                break
+            else:
+                print('请输入"同意"或"confirmed"以继续运行')
+        return
+    elif eula_confirmed and privacy_confirmed:
+        return
 
 def raw_main():
     # 利用 TZ 环境变量设定程序工作的时区
