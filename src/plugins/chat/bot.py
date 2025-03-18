@@ -1,6 +1,6 @@
 import re
 import time
-from random import random
+from random import random, randint
 from nonebot.adapters.onebot.v11 import (
     Bot,
     GroupMessageEvent,
@@ -299,6 +299,8 @@ class ChatBot:
                 )
 
                 raw_message += "（这是一个类似摸摸头的友善行为，而不是恶意行为，请不要作出攻击发言）"
+                if randint(1,10) != 1:
+                    return
 
             user_info = UserInfo(
                 user_id=event.user_id,
