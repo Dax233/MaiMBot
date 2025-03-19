@@ -226,6 +226,13 @@ def get_recent_group_speaker(chat_stream_id: int, sender, limit: int = 12) -> li
             who_chat_in_group.append(ChatStream.from_dict(chat_info))
     return who_chat_in_group
 
+# 检测是否为西文字符
+def is_western_char(char):
+    return len(char.encode('utf-8')) <= 2
+
+# 检测是否为西文字符段落
+def is_western_paragraph(paragraph):
+    return all(is_western_char(char) for char in paragraph if char.isalnum())
 
 def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
     """将文本分割成句子，但保持书名号中的内容完整
@@ -251,8 +258,12 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
 
     # print(f"处理前的文本: {text}")
 
-    # 统一将英文逗号转换为中文逗号
-    text = text.replace(',', '，')
+    if not is_western_paragraph(text):
+        # 当语言为中文时，统一将英文逗号转换为中文逗号
+        text = text.replace(',', '，')
+    else:
+        # 用奇怪的字符分开
+        text = re.sub(r'([.!?]) +', r'\1\|seg\|', text)
     text = text.replace('\n', ' ')
     text, mapping = protect_kaomoji(text)
     # print(f"处理前的文本: {text}")
@@ -276,21 +287,29 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
     for sentence in sentences:
         parts = sentence.split('，')
         current_sentence = parts[0]
-        for part in parts[1:]:
-            if random.random() < split_strength:
+        if  not is_western_paragraph(current_sentence):
+            for part in parts[1:]:
+                if random.random() < split_strength:
+                    new_sentences.append(current_sentence.strip())
+                    current_sentence = part
+                else:
+                    current_sentence += '，' + part
+            # 处理空格分割
+            space_parts = current_sentence.split(' ')
+            current_sentence = space_parts[0]
+            for part in space_parts[1:]:
+                if random.random() < split_strength:
+                    new_sentences.append(current_sentence.strip())
+                    current_sentence = part
+                else:
+                    current_sentence += ' ' + part
+        else:
+            # 处理奇怪字符分割
+            space_parts = current_sentence.split('\|seg\|')
+            current_sentence = space_parts[0]
+            for part in space_parts[1:]:
                 new_sentences.append(current_sentence.strip())
                 current_sentence = part
-            else:
-                current_sentence += '，' + part
-        # 处理空格分割
-        space_parts = current_sentence.split(' ')
-        current_sentence = space_parts[0]
-        for part in space_parts[1:]:
-            if random.random() < split_strength:
-                new_sentences.append(current_sentence.strip())
-                current_sentence = part
-            else:
-                current_sentence += ' ' + part
         new_sentences.append(current_sentence.strip())
     sentences = [s for s in new_sentences if s]  # 移除空字符串
     sentences = recover_kaomoji(sentences, mapping)
@@ -338,7 +357,10 @@ def random_remove_punctuation(text: str) -> str:
 
 def process_llm_response(text: str) -> List[str]:
     # processed_response = process_text_with_typos(content)
-    if len(text) > 100:
+    if len(text) > 100 and  not is_western_paragraph(text) :
+        logger.warning(f"回复过长 ({len(text)} 字符)，返回默认回复")
+        return ['懒得说']
+    elif len(text) > 200 :
         logger.warning(f"回复过长 ({len(text)} 字符)，返回默认回复")
         return ['懒得说']
     # 处理长消息
