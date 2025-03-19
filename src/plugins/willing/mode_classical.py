@@ -61,7 +61,7 @@ class WillingManager:
                 reply_probability = 0
                 
             if chat_stream.group_info.group_id in config.talk_frequency_down_groups:
-                reply_probability = reply_probability / 3.5
+                reply_probability = reply_probability / config.down_frequency_rate
             
         return reply_probability
     

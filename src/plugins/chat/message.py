@@ -179,6 +179,7 @@ class MessageProcessBase(Message):
         bot_user_info: UserInfo,
         message_segment: Optional[Seg] = None,
         reply: Optional["MessageRecv"] = None,
+        thinking_start_time: float = 0,
     ):
         # 调用父类初始化
         super().__init__(
@@ -191,7 +192,7 @@ class MessageProcessBase(Message):
         )
 
         # 处理状态相关属性
-        self.thinking_start_time = int(time.time())
+        self.thinking_start_time = thinking_start_time
         self.thinking_time = 0
 
     def update_thinking_time(self) -> float:
@@ -274,6 +275,7 @@ class MessageThinking(MessageProcessBase):
         chat_stream: ChatStream,
         bot_user_info: UserInfo,
         reply: Optional["MessageRecv"] = None,
+        thinking_start_time: float = 0,
     ):
         # 调用父类初始化
         super().__init__(
@@ -282,6 +284,7 @@ class MessageThinking(MessageProcessBase):
             bot_user_info=bot_user_info,
             message_segment=None,  # 思考状态不需要消息段
             reply=reply,
+            thinking_start_time=thinking_start_time,
         )
 
         # 思考状态特有属性
@@ -302,6 +305,7 @@ class MessageSending(MessageProcessBase):
         reply: Optional["MessageRecv"] = None,
         is_head: bool = False,
         is_emoji: bool = False,
+        thinking_start_time: float = 0,
     ):
         # 调用父类初始化
         super().__init__(
@@ -310,6 +314,7 @@ class MessageSending(MessageProcessBase):
             bot_user_info=bot_user_info,
             message_segment=message_segment,
             reply=reply,
+            thinking_start_time=thinking_start_time,
         )
 
         # 发送状态特有属性

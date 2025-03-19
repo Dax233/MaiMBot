@@ -430,7 +430,7 @@ if not exist config/bot_config.toml (
 
 )
 if not exist .env.prod (
-    copy /Y "template\.env.prod" ".env.prod"
+    copy /Y "template.env" ".env.prod"
 )
 
 start python webui.py

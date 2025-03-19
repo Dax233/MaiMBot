@@ -137,20 +137,23 @@ class ChatBot:
         )
 
         response = None
-
+        # 开始组织语言
         if random() < reply_probability:
             bot_user_info = UserInfo(
                 user_id=global_config.BOT_QQ,
                 user_nickname=global_config.BOT_NICKNAME,
                 platform=messageinfo.platform,
             )
+            #开始思考的时间点
             thinking_time_point = round(time.time(), 2)
+            logger.info(f"开始思考的时间点: {thinking_time_point}")
             think_id = "mt" + str(thinking_time_point)
             thinking_message = MessageThinking(
                 message_id=think_id,
                 chat_stream=chat,
                 bot_user_info=bot_user_info,
                 reply=message,
+                thinking_start_time=thinking_time_point,
             )
 
             message_manager.add_message(thinking_message)
@@ -188,16 +191,16 @@ class ChatBot:
             thinking_start_time = thinking_message.thinking_start_time
             message_set = MessageSet(chat, think_id)
             # 计算打字时间，1是为了模拟打字，2是避免多条回复乱序
-            accu_typing_time = 0
+            # accu_typing_time = 0
 
             mark_head = False
             for msg in response:
                 # print(f"\033[1;32m[回复内容]\033[0m {msg}")
                 # 通过时间改变时间戳
-                typing_time = calculate_typing_time(msg)
-                logger.debug(f"typing_time: {typing_time}")
-                accu_typing_time += typing_time
-                timepoint = thinking_time_point + accu_typing_time
+                # typing_time = calculate_typing_time(msg)
+                # logger.debug(f"typing_time: {typing_time}")
+                # accu_typing_time += typing_time
+                # timepoint = thinking_time_point + accu_typing_time
                 message_segment = Seg(type="text", data=msg)
                 # logger.debug(f"message_segment: {message_segment}")
                 bot_message = MessageSending(
@@ -209,6 +212,7 @@ class ChatBot:
                     reply=message,
                     is_head=not mark_head,
                     is_emoji=False,
+                    thinking_start_time=thinking_start_time,
                 )
                 if not mark_head:
                     mark_head = True

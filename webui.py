@@ -18,8 +18,8 @@ CONFIG_VERSION = config_data["inner"]["version"]
 PARSED_CONFIG_VERSION = version.parse(CONFIG_VERSION)
 HAVE_ONLINE_STATUS_VERSION = version.parse("0.0.9")
 
-#==============================================
-#env环境配置文件读取部分
+# ==============================================
+# env环境配置文件读取部分
 def parse_env_config(config_file):
     """
     解析配置文件并将配置项存储到相应的变量中（变量名以env_为前缀）。
@@ -53,7 +53,7 @@ def parse_env_config(config_file):
 
     return env_variables
 
-#env环境配置文件保存函数
+# env环境配置文件保存函数
 def save_to_env_file(env_variables, filename=".env.prod"):
     """
     将修改后的变量保存到指定的.env文件中，并在第一次保存前备份文件（如果备份文件不存在）。
@@ -76,7 +76,7 @@ def save_to_env_file(env_variables, filename=".env.prod"):
     logger.info(f"配置已保存到 {filename}")
 
 
-#载入env文件并解析
+# 载入env文件并解析
 env_config_file = ".env.prod"  # 配置文件路径
 env_config_data = parse_env_config(env_config_file)
 if "env_VOLCENGINE_BASE_URL" in env_config_data:
@@ -98,8 +98,46 @@ MODEL_PROVIDER_LIST = [
     "SILICONFLOW",
     "DEEP_SEEK"
 ]
-#env读取保存结束
-#==============================================
+# env读取保存结束
+# ==============================================
+
+#获取在线麦麦数量
+import requests
+
+def get_online_maimbot(url="http://hyybuth.xyz:10058/api/clients/details", timeout=10):
+    """
+    获取在线客户端详细信息。
+
+    参数:
+        url (str): API 请求地址，默认值为 "http://hyybuth.xyz:10058/api/clients/details"。
+        timeout (int): 请求超时时间，默认值为 10 秒。
+
+    返回:
+        dict: 解析后的 JSON 数据。
+
+    异常:
+        如果请求失败或数据格式不正确，将返回 None 并记录错误信息。
+    """
+    try:
+        response = requests.get(url, timeout=timeout)
+        # 检查 HTTP 响应状态码是否为 200
+        if response.status_code == 200:
+            # 尝试解析 JSON 数据
+            return response.json()
+        else:
+            logger.error(f"请求失败，状态码: {response.status_code}")
+            return None
+    except requests.exceptions.Timeout:
+        logger.error("请求超时，请检查网络连接或增加超时时间。")
+        return None
+    except requests.exceptions.ConnectionError:
+        logger.error("连接错误，请检查网络或API地址是否正确。")
+        return None
+    except ValueError:  # 包括 json.JSONDecodeError
+        logger.error("无法解析返回的JSON数据，请检查API返回内容。")
+        return None
+
+online_maimbot_data = get_online_maimbot()
 
 #==============================================
 #env环境文件中插件修改更新函数
@@ -151,7 +189,7 @@ def delete_int_item(selected_item, current_list):
         gr.update(choices=updated_list),
         ", ".join(map(str, updated_list))
     ]
-#env文件中插件值处理函数
+# env文件中插件值处理函数
 def parse_list_str(input_str):
     """
     将形如["src2.plugins.chat"]的字符串解析为Python列表
@@ -185,7 +223,7 @@ def format_list_to_str(lst):
     return "[" + res + "]"
 
 
-#env保存函数
+# env保存函数
 def save_trigger(server_address, server_port, final_result_list,t_mongodb_host,t_mongodb_port,t_mongodb_database_name,t_chatanywhere_base_url,t_chatanywhere_key,t_siliconflow_base_url,t_siliconflow_key,t_deepseek_base_url,t_deepseek_key,t_volcengine_base_url,t_volcengine_key):
     final_result_lists = format_list_to_str(final_result_list)
     env_config_data["env_HOST"] = server_address
@@ -206,11 +244,11 @@ def save_trigger(server_address, server_port, final_result_list,t_mongodb_host,t
     logger.success("配置已保存到 .env.prod 文件中")
     return "配置已保存"
 
-#==============================================
+# ==============================================
 
 
-#==============================================
-#主要配置文件保存函数
+# ==============================================
+# 主要配置文件保存函数
 def save_config_to_file(t_config_data):
     filename = "config/bot_config.toml"
     backup_filename = f"{filename}.bak"
@@ -235,48 +273,61 @@ def save_bot_config(t_qqbot_qq, t_nickname,t_nickname_final_result):
     return "Bot配置已保存"
 
 # 监听滑块的值变化，确保总和不超过 1，并显示警告
-def adjust_greater_probabilities(t_personality_1, t_personality_2, t_personality_3):
-    total = t_personality_1 + t_personality_2 + t_personality_3
+def adjust_personality_greater_probabilities(t_personality_1_probability, t_personality_2_probability, t_personality_3_probability):
+    total = t_personality_1_probability + t_personality_2_probability + t_personality_3_probability
     if total > 1.0:
         warning_message = f"警告: 人格1、人格2和人格3的概率总和为 {total:.2f}，超过了 1.0！请调整滑块使总和等于 1.0。"
         return warning_message
-    else:
-        return ""  # 没有警告时返回空字符串
+    return ""  # 没有警告时返回空字符串
 
-def adjust_less_probabilities(t_personality_1, t_personality_2, t_personality_3):
-    total = t_personality_1 + t_personality_2 + t_personality_3
+def adjust_personality_less_probabilities(t_personality_1_probability, t_personality_2_probability, t_personality_3_probability):
+    total = t_personality_1_probability + t_personality_2_probability + t_personality_3_probability
     if total < 1.0:
         warning_message = f"警告: 人格1、人格2和人格3的概率总和为 {total:.2f}，小于 1.0！请调整滑块使总和等于 1.0。"
         return warning_message
-    else:
-        return ""  # 没有警告时返回空字符串
+    return ""  # 没有警告时返回空字符串
 
-def adjust_model_greater_probabilities(t_personality_1, t_personality_2, t_personality_3):
-    total = t_personality_1 + t_personality_2 + t_personality_3
+def adjust_model_greater_probabilities(t_model_1_probability, t_model_2_probability, t_model_3_probability):
+    total = t_model_1_probability + t_model_2_probability + t_model_3_probability
     if total > 1.0:
         warning_message = f"警告: 选择模型1、模型2和模型3的概率总和为 {total:.2f}，超过了 1.0！请调整滑块使总和等于 1.0。"
         return warning_message
-    else:
-        return ""  # 没有警告时返回空字符串
+    return ""  # 没有警告时返回空字符串
 
-def adjust_model_less_probabilities(t_personality_1, t_personality_2, t_personality_3):
-    total = t_personality_1 + t_personality_2 + t_personality_3
+def adjust_model_less_probabilities(t_model_1_probability, t_model_2_probability, t_model_3_probability):
+    total = t_model_1_probability + t_model_2_probability + t_model_3_probability
     if total > 1.0:
         warning_message = f"警告: 选择模型1、模型2和模型3的概率总和为 {total:.2f}，小于了 1.0！请调整滑块使总和等于 1.0。"
         return warning_message
-    else:
-        return ""  # 没有警告时返回空字符串
+    return ""  # 没有警告时返回空字符串
 
-#==============================================
-#人格保存函数
-def save_personality_config(t_personality_1, t_personality_2, t_personality_3, t_prompt_schedule):
-    config_data["personality"]["personality_1_probability"] = t_personality_1
-    config_data["personality"]["personality_2_probability"] = t_personality_2
-    config_data["personality"]["personality_3_probability"] = t_personality_3
+
+# ==============================================
+# 人格保存函数
+def save_personality_config(t_prompt_personality_1,
+                            t_prompt_personality_2,
+                            t_prompt_personality_3,
+                            t_prompt_schedule,
+                            t_personality_1_probability,
+                            t_personality_2_probability,
+                            t_personality_3_probability):
+    # 保存人格提示词
+    config_data["personality"]["prompt_personality"][0] = t_prompt_personality_1
+    config_data["personality"]["prompt_personality"][1] = t_prompt_personality_2
+    config_data["personality"]["prompt_personality"][2] = t_prompt_personality_3
+
+    # 保存日程生成提示词
     config_data["personality"]["prompt_schedule"] = t_prompt_schedule
+
+    # 保存三个人格的概率
+    config_data["personality"]["personality_1_probability"] = t_personality_1_probability
+    config_data["personality"]["personality_2_probability"] = t_personality_2_probability
+    config_data["personality"]["personality_3_probability"] = t_personality_3_probability
+
     save_config_to_file(config_data)
     logger.info("人格配置已保存到 bot_config.toml 文件中")
     return "人格配置已保存"
+
 
 def save_message_and_emoji_config(t_min_text_length,
                                   t_max_context_size,
@@ -378,7 +429,7 @@ def save_other_config(t_keywords_reaction_enabled,t_enable_advance_output, t_ena
     config_data["chinese_typo"]["min_freq"] = t_min_freq
     config_data["chinese_typo"]["tone_error_rate"] = t_tone_error_rate
     config_data["chinese_typo"]["word_replace_rate"] = t_word_replace_rate
-    if PARSED_CONFIG_VERSION > 0.8:
+    if PARSED_CONFIG_VERSION > HAVE_ONLINE_STATUS_VERSION:
         config_data["remote"]["enable"] = t_remote_status
     save_config_to_file(config_data)
     logger.info("其他设置已保存到 bot_config.toml 文件中")
@@ -398,8 +449,13 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
     gr.Markdown(
         value="""
         ### 欢迎使用由墨梓柒MotricSeven编写的MaimBot配置文件编辑器\n
+        感谢ZureTz大佬提供的人格保存部分修复！
         """
     )
+    gr.Markdown(
+        value="## 全球在线MaiMBot数量: " + str((online_maimbot_data or {}).get('online_clients', 0))
+    )
+
     gr.Markdown(
         value="### 配置文件版本：" + config_data["inner"]["version"]
     )
@@ -490,19 +546,19 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                         )
                     with gr.Row():
                         gr.Markdown(
-                            '''ChatAntWhere的baseURL和APIkey\n
+                            '''ChatAnyWhere的baseURL和APIkey\n
                             改完了记得保存！！！
                             '''
                         )
                     with gr.Row():
                         chatanywhere_base_url = gr.Textbox(
-                            label="ChatAntWhere的BaseURL",
+                            label="ChatAnyWhere的BaseURL",
                             value=env_config_data["env_CHAT_ANY_WHERE_BASE_URL"],
                             interactive=True
                         )
                     with gr.Row():
                         chatanywhere_key = gr.Textbox(
-                            label="ChatAntWhere的key",
+                            label="ChatAnyWhere的key",
                             value=env_config_data["env_CHAT_ANY_WHERE_KEY"],
                             interactive=True
                         )
@@ -635,38 +691,92 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                     with gr.Row():
                         prompt_personality_1 = gr.Textbox(
                             label="人格1提示词",
-                            value=config_data['personality']['prompt_personality'][0],
-                            interactive=True
+                            value=config_data["personality"]["prompt_personality"][0],
+                            interactive=True,
                         )
                     with gr.Row():
                         prompt_personality_2 = gr.Textbox(
                             label="人格2提示词",
-                            value=config_data['personality']['prompt_personality'][1],
-                            interactive=True
+                            value=config_data["personality"]["prompt_personality"][1],
+                            interactive=True,
                         )
                     with gr.Row():
                         prompt_personality_3 = gr.Textbox(
                             label="人格3提示词",
-                            value=config_data['personality']['prompt_personality'][2],
-                            interactive=True
+                            value=config_data["personality"]["prompt_personality"][2],
+                            interactive=True,
                         )
                 with gr.Column(scale=3):
-                    # 创建三个滑块
-                    personality_1 = gr.Slider(minimum=0, maximum=1, step=0.01, value=config_data["personality"]["personality_1_probability"], label="人格1概率")
-                    personality_2 = gr.Slider(minimum=0, maximum=1, step=0.01, value=config_data["personality"]["personality_2_probability"], label="人格2概率")
-                    personality_3 = gr.Slider(minimum=0, maximum=1, step=0.01, value=config_data["personality"]["personality_3_probability"], label="人格3概率")
+                    # 创建三个滑块, 代表三个人格的概率
+                    personality_1_probability = gr.Slider(
+                        minimum=0,
+                        maximum=1,
+                        step=0.01,
+                        value=config_data["personality"]["personality_1_probability"],
+                        label="人格1概率",
+                    )
+                    personality_2_probability = gr.Slider(
+                        minimum=0,
+                        maximum=1,
+                        step=0.01,
+                        value=config_data["personality"]["personality_2_probability"],
+                        label="人格2概率",
+                    )
+                    personality_3_probability = gr.Slider(
+                        minimum=0,
+                        maximum=1,
+                        step=0.01,
+                        value=config_data["personality"]["personality_3_probability"],
+                        label="人格3概率",
+                    )
 
                     # 用于显示警告消息
                     warning_greater_text = gr.Markdown()
                     warning_less_text = gr.Markdown()
 
                     # 绑定滑块的值变化事件，确保总和必须等于 1.0
-                    personality_1.change(adjust_greater_probabilities, inputs=[personality_1, personality_2, personality_3], outputs=[warning_greater_text])
-                    personality_2.change(adjust_greater_probabilities, inputs=[personality_1, personality_2, personality_3], outputs=[warning_greater_text])
-                    personality_3.change(adjust_greater_probabilities, inputs=[personality_1, personality_2, personality_3], outputs=[warning_greater_text])
-                    personality_1.change(adjust_less_probabilities, inputs=[personality_1, personality_2, personality_3], outputs=[warning_less_text])
-                    personality_2.change(adjust_less_probabilities, inputs=[personality_1, personality_2, personality_3], outputs=[warning_less_text])
-                    personality_3.change(adjust_less_probabilities, inputs=[personality_1, personality_2, personality_3], outputs=[warning_less_text])
+
+                    # 输入的 3 个概率
+                    personality_probability_change_inputs = [
+                        personality_1_probability,
+                        personality_2_probability,
+                        personality_3_probability,
+                    ]
+
+                    # 绑定滑块的值变化事件，确保总和不大于 1.0
+                    personality_1_probability.change(
+                        adjust_personality_greater_probabilities,
+                        inputs=personality_probability_change_inputs,
+                        outputs=[warning_greater_text],
+                    )
+                    personality_2_probability.change(
+                        adjust_personality_greater_probabilities,
+                        inputs=personality_probability_change_inputs,
+                        outputs=[warning_greater_text],
+                    )
+                    personality_3_probability.change(
+                        adjust_personality_greater_probabilities,
+                        inputs=personality_probability_change_inputs,
+                        outputs=[warning_greater_text],
+                    )
+
+                    # 绑定滑块的值变化事件，确保总和不小于 1.0
+                    personality_1_probability.change(
+                        adjust_personality_less_probabilities,
+                        inputs=personality_probability_change_inputs,
+                        outputs=[warning_less_text],
+                    )
+                    personality_2_probability.change(
+                        adjust_personality_less_probabilities,
+                        inputs=personality_probability_change_inputs,
+                        outputs=[warning_less_text],
+                    )
+                    personality_3_probability.change(
+                        adjust_personality_less_probabilities,
+                        inputs=personality_probability_change_inputs,
+                        outputs=[warning_less_text],
+                    )
+
             with gr.Row():
                 prompt_schedule = gr.Textbox(
                     label="日程生成提示词",
@@ -684,8 +794,16 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                 personal_save_message = gr.Textbox(label="保存人格结果")
             personal_save_btn.click(
                 save_personality_config,
-                inputs=[personality_1, personality_2, personality_3, prompt_schedule],
-                outputs=[personal_save_message]
+                inputs=[
+                    prompt_personality_1,
+                    prompt_personality_2,
+                    prompt_personality_3,
+                    prompt_schedule,
+                    personality_1_probability,
+                    personality_2_probability,
+                    personality_3_probability,
+                ],
+                outputs=[personal_save_message],
             )
         with gr.TabItem("3-消息&表情包设置"):
             with gr.Row():

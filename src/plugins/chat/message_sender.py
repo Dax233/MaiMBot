@@ -12,7 +12,17 @@ from .storage import MessageStorage
 from .config import global_config
 from .utils import truncate_message
 
-logger = get_module_logger("msg_sender")
+from src.common.logger import get_module_logger, LogConfig, SENDER_STYLE_CONFIG
+
+# 定义日志配置
+sender_config = LogConfig(
+    # 使用消息发送专用样式
+    console_format=SENDER_STYLE_CONFIG["console_format"],
+    file_format=SENDER_STYLE_CONFIG["file_format"]
+)
+
+logger = get_module_logger("msg_sender", config=sender_config)
+
 
 class Message_Sender:
     """发送器"""
@@ -174,6 +184,7 @@ class MessageManager:
             if isinstance(message_earliest, MessageThinking):
                 message_earliest.update_thinking_time()
                 thinking_time = message_earliest.thinking_time
+                # print(thinking_time)
                 print(
                     f"消息正在思考中，已思考{int(thinking_time)}秒\r",
                     end="",
@@ -186,11 +197,17 @@ class MessageManager:
                     container.remove_message(message_earliest)
 
             else:
+                # print(message_earliest.is_head)
+                # print(message_earliest.update_thinking_time())
+                # print(message_earliest.is_private_message())
+                # thinking_time = message_earliest.update_thinking_time()
+                # print(thinking_time)
                 if (
                     message_earliest.is_head
-                    and message_earliest.update_thinking_time() > 10
+                    and message_earliest.update_thinking_time() > 15
                     and not message_earliest.is_private_message()  # 避免在私聊时插入reply
                 ):
+                    logger.debug(f"设置回复消息{message_earliest.processed_plain_text}")
                     message_earliest.set_reply()
                         
                 await message_earliest.process()
@@ -212,11 +229,15 @@ class MessageManager:
                         continue
 
                     try:
+                        # print(msg.is_head)
+                        # print(msg.update_thinking_time())
+                        # print(msg.is_private_message())
                         if (
                             msg.is_head
-                            and msg.update_thinking_time() > 10
-                            and not message_earliest.is_private_message()  # 避免在私聊时插入reply
+                            and msg.update_thinking_time() > 15
+                            and not msg.is_private_message()  # 避免在私聊时插入reply
                         ):
+                            logger.debug(f"设置回复消息{msg.processed_plain_text}")
                             msg.set_reply()
                             
                         await msg.process()    

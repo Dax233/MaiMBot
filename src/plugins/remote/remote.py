@@ -21,7 +21,7 @@ def get_unique_id():
             with open(UUID_FILE, "r") as f:
                 data = json.load(f)
                 if "client_id" in data:
-                    print("从本地文件读取客户端ID")
+                    # print("从本地文件读取客户端ID")
                     return data["client_id"]
         except (json.JSONDecodeError, IOError) as e:
             print(f"读取UUID文件出错: {e}，将生成新的UUID")

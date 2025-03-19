@@ -5,8 +5,18 @@ from ..chat.config import global_config
 from .mode_classical import WillingManager as ClassicalWillingManager
 from .mode_dynamic import WillingManager as DynamicWillingManager
 from .mode_custom import WillingManager as CustomWillingManager
+from src.common.logger import LogConfig
 
-logger = get_module_logger("willing")
+willing_config = LogConfig(
+    console_format=(
+        "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+        "<level>{level: <8}</level> | "
+        "<red>{extra[module]: <12}</red> | "
+        "<level>{message}</level>"
+    ),
+)
+
+logger = get_module_logger("willing",config=willing_config)
 
 def init_willing_manager() -> Optional[object]:
     """

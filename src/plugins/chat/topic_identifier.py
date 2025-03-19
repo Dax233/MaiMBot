@@ -4,9 +4,16 @@ from nonebot import get_driver
 
 from ..models.utils_model import LLM_request
 from .config import global_config
-from src.common.logger import get_module_logger
+from src.common.logger import get_module_logger, LogConfig, TOPIC_STYLE_CONFIG
 
-logger = get_module_logger("topic_identifier")
+# 定义日志配置
+topic_config = LogConfig(
+    # 使用海马体专用样式
+    console_format=TOPIC_STYLE_CONFIG["console_format"],
+    file_format=TOPIC_STYLE_CONFIG["file_format"]
+)
+
+logger = get_module_logger("topic_identifier",config=topic_config)
 
 driver = get_driver()
 config = driver.config

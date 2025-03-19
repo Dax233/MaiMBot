@@ -11,9 +11,16 @@ from .message import MessageRecv, MessageThinking, Message
 from .prompt_builder import prompt_builder
 from .relationship_manager import relationship_manager
 from .utils import process_llm_response
-from src.common.logger import get_module_logger
+from src.common.logger import get_module_logger, LogConfig, LLM_STYLE_CONFIG
 
-logger = get_module_logger("response_gen")
+# 定义日志配置
+llm_config = LogConfig(
+    # 使用消息发送专用样式
+    console_format=LLM_STYLE_CONFIG["console_format"],
+    file_format=LLM_STYLE_CONFIG["file_format"]
+)
+
+logger = get_module_logger("llm_generator", config=llm_config)
 
 driver = get_driver()
 config = driver.config

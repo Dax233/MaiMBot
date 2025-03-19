@@ -17,9 +17,16 @@ from ..chat.utils import (
     text_to_vector,
 )
 from ..models.utils_model import LLM_request
-from src.common.logger import get_module_logger
+from src.common.logger import get_module_logger, LogConfig, MEMORY_STYLE_CONFIG
 
-logger = get_module_logger("memory_sys")
+# 定义日志配置
+memory_config = LogConfig(
+    # 使用海马体专用样式
+    console_format=MEMORY_STYLE_CONFIG["console_format"],
+    file_format=MEMORY_STYLE_CONFIG["file_format"]
+)
+
+logger = get_module_logger("memory_system", config=memory_config)
 
 
 class Memory_graph:
@@ -954,3 +961,4 @@ hippocampus.sync_memory_from_db()
 
 end_time = time.time()
 logger.success(f"加载海马体耗时: {end_time - start_time:.2f} 秒")
+

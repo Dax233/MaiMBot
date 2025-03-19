@@ -5,6 +5,7 @@ import os
 from types import ModuleType
 from pathlib import Path
 from dotenv import load_dotenv
+# from ..plugins.chat.config import global_config
 
 load_dotenv()
 
@@ -28,41 +29,216 @@ _handler_registry: Dict[str, List[int]] = {}
 current_file_path = Path(__file__).resolve()
 LOG_ROOT = "logs"
 
-# 默认全局配置
-DEFAULT_CONFIG = {
-    # 日志级别配置
-    "console_level": "INFO",
-    "file_level": "DEBUG",
+# 从环境变量获取是否启用高级输出
+# ENABLE_ADVANCE_OUTPUT = True
+ENABLE_ADVANCE_OUTPUT = False
 
-    # 格式配置
-    "console_format": (
-        "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-        "<level>{level: <8}</level> | "
-        "<cyan>{extra[module]: <12}</cyan> | "
-        "<level>{message}</level>"
-    ),
-    "file_format": (
-        "{time:YYYY-MM-DD HH:mm:ss} | "
-        "{level: <8} | "
-        "{extra[module]: <15} | "
-        "{message}"
-    ),
-    "log_dir": LOG_ROOT,
-    "rotation": "00:00",
-    "retention": "3 days",
-    "compression": "zip",
+if ENABLE_ADVANCE_OUTPUT:
+    # 默认全局配置
+    DEFAULT_CONFIG = {
+        # 日志级别配置
+        "console_level": "INFO",
+        "file_level": "DEBUG",
+
+        # 格式配置
+        "console_format": (
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{extra[module]: <12}</cyan> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": (
+            "{time:YYYY-MM-DD HH:mm:ss} | "
+            "{level: <8} | "
+            "{extra[module]: <15} | "
+            "{message}"
+        ),
+        "log_dir": LOG_ROOT,
+        "rotation": "00:00",
+        "retention": "3 days",
+        "compression": "zip",
+    }
+else:
+    DEFAULT_CONFIG = {
+        # 日志级别配置
+        "console_level": "INFO", 
+        "file_level": "DEBUG",
+
+        # 格式配置
+        "console_format": (
+            "<green>{time:MM-DD HH:mm}</green> | "
+            "<cyan>{extra[module]}</cyan> | "
+            "{message}"
+        ),
+        "file_format": (
+            "{time:YYYY-MM-DD HH:mm:ss} | "
+            "{level: <8} | "
+            "{extra[module]: <15} | "
+            "{message}"
+        ),
+        "log_dir": LOG_ROOT,
+        "rotation": "00:00",
+        "retention": "3 days",
+        "compression": "zip",
+    }
+
+# 控制nonebot日志输出的环境变量
+NONEBOT_LOG_ENABLED = False
+
+# 海马体日志样式配置
+MEMORY_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{extra[module]: <12}</cyan> | "
+            "<light-yellow>海马体</light-yellow> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": (
+            "{time:YYYY-MM-DD HH:mm:ss} | "
+            "{level: <8} | "
+            "{extra[module]: <15} | "
+            "海马体 | "
+            "{message}"
+        )
+    },
+    "simple": {
+        "console_format": (
+            "<green>{time:MM-DD HH:mm}</green> | "
+            "<light-yellow>海马体</light-yellow> | "
+            "{message}"
+        ),
+        "file_format": (
+            "{time:YYYY-MM-DD HH:mm:ss} | "
+            "{level: <8} | "
+            "{extra[module]: <15} | "
+            "海马体 | "
+            "{message}"
+        )
+    }
 }
 
+# 海马体日志样式配置
+SENDER_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{extra[module]: <12}</cyan> | "
+            "<light-yellow>消息发送</light-yellow> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": (
+            "{time:YYYY-MM-DD HH:mm:ss} | "
+            "{level: <8} | "
+            "{extra[module]: <15} | "
+            "消息发送 | "
+            "{message}"
+        )
+    },
+    "simple": {
+        "console_format": (
+            "<green>{time:MM-DD HH:mm}</green> | "
+            "<green>消息发送</green> | "
+            "{message}"
+        ),
+        "file_format": (
+            "{time:YYYY-MM-DD HH:mm:ss} | "
+            "{level: <8} | "
+            "{extra[module]: <15} | "
+            "消息发送 | "
+            "{message}"
+        )
+    }
+}
+
+LLM_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{extra[module]: <12}</cyan> | "
+            "<light-yellow>麦麦组织语言</light-yellow> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": (
+            "{time:YYYY-MM-DD HH:mm:ss} | "
+            "{level: <8} | "
+            "{extra[module]: <15} | "
+            "麦麦组织语言 | "
+            "{message}"
+        )
+    },
+    "simple": {
+        "console_format": (
+            "<green>{time:MM-DD HH:mm}</green> | "
+            "<light-green>麦麦组织语言</light-green> | "
+            "{message}"
+        ),
+        "file_format": (
+            "{time:YYYY-MM-DD HH:mm:ss} | "
+            "{level: <8} | "
+            "{extra[module]: <15} | "
+            "麦麦组织语言 | "
+            "{message}"
+        )
+    }
+}
+            
+
+
+# Topic日志样式配置
+TOPIC_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{extra[module]: <12}</cyan> | "
+            "<light-blue>话题</light-blue> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": (
+            "{time:YYYY-MM-DD HH:mm:ss} | "
+            "{level: <8} | "
+            "{extra[module]: <15} | "
+            "话题 | "
+            "{message}"
+        )
+    },
+    "simple": {
+        "console_format": (
+            "<green>{time:MM-DD HH:mm}</green> | "
+            "<light-blue>主题</light-blue> | "
+            "{message}"
+        ),
+        "file_format": (
+            "{time:YYYY-MM-DD HH:mm:ss} | "
+            "{level: <8} | "
+            "{extra[module]: <15} | "
+            "话题 | "
+            "{message}"
+        )
+    }
+}
+
+# 根据ENABLE_ADVANCE_OUTPUT选择配置
+MEMORY_STYLE_CONFIG = MEMORY_STYLE_CONFIG["advanced"] if ENABLE_ADVANCE_OUTPUT else MEMORY_STYLE_CONFIG["simple"]
+TOPIC_STYLE_CONFIG = TOPIC_STYLE_CONFIG["advanced"] if ENABLE_ADVANCE_OUTPUT else TOPIC_STYLE_CONFIG["simple"]
+SENDER_STYLE_CONFIG = SENDER_STYLE_CONFIG["advanced"] if ENABLE_ADVANCE_OUTPUT else SENDER_STYLE_CONFIG["simple"]
+LLM_STYLE_CONFIG = LLM_STYLE_CONFIG["advanced"] if ENABLE_ADVANCE_OUTPUT else LLM_STYLE_CONFIG["simple"]
+
+def filter_nonebot(record: dict) -> bool:
+    """过滤nonebot的日志"""
+    return record["extra"].get("module") != "nonebot"
 
 def is_registered_module(record: dict) -> bool:
     """检查是否为已注册的模块"""
     return record["extra"].get("module") in _handler_registry
 
-
 def is_unregistered_module(record: dict) -> bool:
     """检查是否为未注册的模块"""
     return not is_registered_module(record)
-
 
 def log_patcher(record: dict) -> None:
     """自动填充未设置模块名的日志记录，保留原生模块名称"""
@@ -73,10 +249,8 @@ def log_patcher(record: dict) -> None:
             module_name = "root"
         record["extra"]["module"] = module_name
 
-
 # 应用全局修补器
 logger.configure(patcher=log_patcher)
-
 
 class LogConfig:
     """日志配置类"""
@@ -170,7 +344,7 @@ DEFAULT_GLOBAL_HANDLER = logger.add(
         "<cyan>{name: <12}</cyan> | "
         "<level>{message}</level>"
     ),
-    filter=is_unregistered_module,  # 只处理未注册模块的日志
+    filter=lambda record: is_unregistered_module(record) and filter_nonebot(record),  # 只处理未注册模块的日志，并过滤nonebot
     enqueue=True,
 )
 
@@ -193,6 +367,6 @@ DEFAULT_FILE_HANDLER = logger.add(
     retention=DEFAULT_CONFIG["retention"],
     compression=DEFAULT_CONFIG["compression"],
     encoding="utf-8",
-    filter=is_unregistered_module,  # 只处理未注册模块的日志
+    filter=lambda record: is_unregistered_module(record) and filter_nonebot(record),  # 只处理未注册模块的日志，并过滤nonebot
     enqueue=True,
 )

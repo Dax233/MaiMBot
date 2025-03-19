@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import os
 import shutil
 import sys
@@ -166,40 +167,53 @@ async def uvicorn_main():
     await server.serve()
 
 def check_eula():
-    eula_confirm_file = Path("elua.confirmed")
+    eula_confirm_file = Path("eula.confirmed")
     privacy_confirm_file = Path("privacy.confirmed")
     eula_file = Path("EULA.md")
     privacy_file = Path("PRIVACY.md")
     
     eula_updated = True
+    eula_new_hash = None
     privacy_updated = True
+    privacy_new_hash = None
 
     eula_confirmed = False
     privacy_confirmed = False
 
+    # 首先计算当前EULA文件的哈希值
+    if eula_file.exists():
+        with open(eula_file, "r", encoding="utf-8") as f:
+            eula_content = f.read()
+        eula_new_hash = hashlib.md5(eula_content.encode("utf-8")).hexdigest()
+    else:
+        logger.error("EULA.md 文件不存在")
+        raise FileNotFoundError("EULA.md 文件不存在")
+
+    # 首先计算当前隐私条款文件的哈希值
+    if privacy_file.exists():
+        with open(privacy_file, "r", encoding="utf-8") as f:
+            privacy_content = f.read()
+        privacy_new_hash = hashlib.md5(privacy_content.encode("utf-8")).hexdigest()
+    else:
+        logger.error("PRIVACY.md 文件不存在")
+        raise FileNotFoundError("PRIVACY.md 文件不存在")
+
     # 检查EULA确认文件是否存在
     if eula_confirm_file.exists():
-        # 检查EULA文件版本是否更新（与elua.confirmed文件对比）
-        with open(eula_file, "r") as f:
-            eula_content = f.read()
-        with open(eula_confirm_file, "r") as f:
+        with open(eula_confirm_file, "r", encoding="utf-8") as f:
             confirmed_content = f.read()
-        if eula_content == confirmed_content:
+        if eula_new_hash == confirmed_content:
             eula_confirmed = True
             eula_updated = False
-        
 
     # 检查隐私条款确认文件是否存在
     if privacy_confirm_file.exists():
-        # 检查隐私条款文件版本是否更新（与privacy.confirmed文件对比）
-        with open(privacy_file, "r") as f:
-            privacy_content = f.read()
-        with open(privacy_confirm_file, "r") as f:
+        with open(privacy_confirm_file, "r", encoding="utf-8") as f:
             confirmed_content = f.read()
-        if privacy_content == confirmed_content:
+        if privacy_new_hash == confirmed_content:
             privacy_confirmed = True
             privacy_updated = False
-            
+
     # 如果EULA或隐私条款有更新，提示用户重新确认
     if eula_updated or privacy_updated:
         print("EULA或隐私条款内容已更新，请在阅读后重新确认，继续运行视为同意更新后的以上两款协议")
@@ -207,10 +221,14 @@ def check_eula():
         while True:
             user_input = input().strip().lower()
             if user_input in ['同意', 'confirmed']:
+                # print("确认成功，继续运行")
+                # print(f"确认成功，继续运行{eula_updated} {privacy_updated}")
                 if eula_updated:
-                    eula_confirm_file.write_text(eula_file.read_text())
+                    print(f"更新EULA确认文件{eula_new_hash}")
+                    eula_confirm_file.write_text(eula_new_hash,encoding="utf-8")
                 if privacy_updated:
-                    privacy_confirm_file.write_text(privacy_file.read_text())
+                    print(f"更新隐私条款确认文件{privacy_new_hash}")
+                    privacy_confirm_file.write_text(privacy_new_hash,encoding="utf-8")
                 break
             else:
                 print('请输入"同意"或"confirmed"以继续运行')
@@ -224,9 +242,9 @@ def raw_main():
     if platform.system().lower() != "windows":
         time.tzset()
         
-    # check_eula()
-    
-    # easter_egg()
+    check_eula()
+    print("检查EULA和隐私条款完成")
+    easter_egg()
     init_config()
     init_env()
     load_env()

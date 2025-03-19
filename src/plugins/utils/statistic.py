@@ -50,7 +50,11 @@ class LLMStatistics:
             "total_cost": 0.0,
             "costs_by_user": defaultdict(float),
             "costs_by_type": defaultdict(float),
-            "costs_by_model": defaultdict(float)
+            "costs_by_model": defaultdict(float),
+            #新增token统计字段
+            "tokens_by_type": defaultdict(int),
+            "tokens_by_user": defaultdict(int),
+            "tokens_by_model": defaultdict(int),
         }
         
         cursor = db.llm_usage.find({
@@ -71,7 +75,11 @@ class LLMStatistics:
             
             prompt_tokens = doc.get("prompt_tokens", 0)
             completion_tokens = doc.get("completion_tokens", 0)
-            stats["total_tokens"] += prompt_tokens + completion_tokens
+            total_tokens = prompt_tokens + completion_tokens  # 根据数据库字段调整
+            stats["tokens_by_type"][request_type] += total_tokens
+            stats["tokens_by_user"][user_id] += total_tokens
+            stats["tokens_by_model"][model_name] += total_tokens
+            stats["total_tokens"] += total_tokens
             
             cost = doc.get("cost", 0.0)
             stats["total_cost"] += cost
@@ -98,31 +106,61 @@ class LLMStatistics:
         }
     
     def _format_stats_section(self, stats: Dict[str, Any], title: str) -> str:
-        """格式化统计部分的输出
-        
-        Args:
-            stats: 统计数据
-            title: 部分标题
-        """
+        """格式化统计部分的输出"""
         output = []
-        output.append(f"\n{title}")
-        output.append("=" * len(title))
+
+        output.append("\n"+"-" * 84)
+        output.append(f"{title}")
+        output.append("-" * 84)
         
         output.append(f"总请求数: {stats['total_requests']}")
         if stats['total_requests'] > 0:
             output.append(f"总Token数: {stats['total_tokens']}")
-            output.append(f"总花费: ¥{stats['total_cost']:.4f}")
+            output.append(f"总花费: {stats['total_cost']:.4f}¥\n")
             
-            output.append("\n按模型统计:")
+            data_fmt = "{:<32}  {:>10}  {:>14}  {:>13.4f} ¥"
+            
+            # 按模型统计
+            output.append("按模型统计:")
+            output.append(("模型名称                              调用次数       Token总量         累计花费"))
             for model_name, count in sorted(stats["requests_by_model"].items()):
+                tokens = stats["tokens_by_model"][model_name]
                 cost = stats["costs_by_model"][model_name]
-                output.append(f"- {model_name}: {count}次 (花费: ¥{cost:.4f})")
+                output.append(data_fmt.format(
+                    model_name[:32] + ".." if len(model_name) > 32 else model_name,
+                    count,
+                    tokens,
+                    cost
+                ))
+            output.append("")
             
-            output.append("\n按请求类型统计:")
+            # 按请求类型统计
+            output.append("按请求类型统计:")
+            output.append(("模型名称                              调用次数       Token总量         累计花费"))
             for req_type, count in sorted(stats["requests_by_type"].items()):
+                tokens = stats["tokens_by_type"][req_type]
                 cost = stats["costs_by_type"][req_type]
-                output.append(f"- {req_type}: {count}次 (花费: ¥{cost:.4f})")
-        
+                output.append(data_fmt.format(
+                    req_type[:22] + ".." if len(req_type) > 24 else req_type,
+                    count,
+                    tokens,
+                    cost
+                ))
+            output.append("")
+            
+            # 修正用户统计列宽
+            output.append("按用户统计:")
+            output.append(("模型名称                              调用次数       Token总量         累计花费"))
+            for user_id, count in sorted(stats["requests_by_user"].items()):
+                tokens = stats["tokens_by_user"][user_id]
+                cost = stats["costs_by_user"][user_id]
+                output.append(data_fmt.format(
+                    user_id[:22],  # 不再添加省略号，保持原始ID
+                    count,
+                    tokens,
+                    cost
+                ))
+
         return "\n".join(output)
     
     def _save_statistics(self, all_stats: Dict[str, Dict[str, Any]]):
@@ -131,7 +169,7 @@ class LLMStatistics:
         
         output = []
         output.append(f"LLM请求统计报告 (生成时间: {current_time})")
-        output.append("=" * 50)
+
         
         # 添加各个时间段的统计
         sections = [
