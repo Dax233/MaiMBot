@@ -226,13 +226,6 @@ def get_recent_group_speaker(chat_stream_id: int, sender, limit: int = 12) -> li
             who_chat_in_group.append(ChatStream.from_dict(chat_info))
     return who_chat_in_group
 
-def is_western_char(char):
-    """检测是否为西文字符"""
-    return len(char.encode('utf-8')) <= 2
-
-def is_western_paragraph(paragraph):
-    """检测是否为西文字符段落"""
-    return all(is_western_char(char) for char in paragraph if char.isalnum())
 
 def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
     """将文本分割成句子，但保持书名号中的内容完整
@@ -261,10 +254,11 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
     if not is_western_paragraph(text):
         # 当语言为中文时，统一将英文逗号转换为中文逗号
         text = text.replace(',', '，')
+        text = text.replace('\n', ' ')
     else:
         # 用奇怪的字符分开
         text = re.sub(r'([.!?]) +', r'\1\|seg\|', text)
-    text = text.replace('\n', ' ')
+        text = text.replace('\n', '\|seg\|')
     text, mapping = protect_kaomoji(text)
     # print(f"处理前的文本: {text}")
 
@@ -318,10 +312,12 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
     sentences_done = []
     for sentence in sentences:
         sentence = sentence.rstrip('，,')
-        if random.random() < split_strength * 0.5:
-            sentence = sentence.replace('，', '').replace(',', '')
-        elif random.random() < split_strength:
-            sentence = sentence.replace('，', ' ').replace(',', ' ')
+        # 西文字符句子不进行随机合并
+        if  not is_western_paragraph(sentence):
+            if random.random() < split_strength * 0.5:
+                sentence = sentence.replace('，', '').replace(',', '')
+            elif random.random() < split_strength:
+                sentence = sentence.replace('，', ' ').replace(',', ' ')
         sentences_done.append(sentence)
 
     logger.info(f"处理后的句子: {sentences_done}")
@@ -528,3 +524,11 @@ def recover_kaomoji(sentences, placeholder_to_kaomoji):
             sentence = sentence.replace(placeholder, kaomoji)
         recovered_sentences.append(sentence)
     return recovered_sentences
+
+def is_western_char(char):
+    """检测是否为西文字符"""
+    return len(char.encode('utf-8')) <= 2
+
+def is_western_paragraph(paragraph):
+    """检测是否为西文字符段落"""
+    return all(is_western_char(char) for char in paragraph if char.isalnum())
