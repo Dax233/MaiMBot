@@ -38,9 +38,9 @@ class EmojiManager:
 
     def __init__(self):
         self._scan_task = None
-        self.vlm = LLM_request(model=global_config.vlm, temperature=0.3, max_tokens=1000,request_type = 'image')
+        self.vlm = LLM_request(model=global_config.vlm, temperature=0.3, max_tokens=1000, request_type="image")
         self.llm_emotion_judge = LLM_request(
-            model=global_config.llm_emotion_judge, max_tokens=600, temperature=0.8,request_type = 'image'
+            model=global_config.llm_emotion_judge, max_tokens=600, temperature=0.8, request_type="image"
         )  # 更高的温度，更少的token（后续可以根据情绪来调整温度）
 
     def _ensure_emoji_dir(self):
@@ -189,7 +189,10 @@ class EmojiManager:
 
     async def _check_emoji(self, image_base64: str, image_format: str) -> str:
         try:
-            prompt = f'这是一个表情包，请回答这个表情包是否满足"{global_config.EMOJI_CHECK_PROMPT}"的要求，是则回答是，否则回答否，不要出现任何其他内容'
+            prompt = (
+                f'这是一个表情包，请回答这个表情包是否满足"{global_config.EMOJI_CHECK_PROMPT}"的要求，是则回答是，'
+                f"否则回答否，不要出现任何其他内容"
+            )
 
             content, _ = await self.vlm.generate_response_for_image(prompt, image_base64, image_format)
             logger.debug(f"[检查] 表情包检查结果: {content}")
@@ -201,7 +204,11 @@ class EmojiManager:
 
     async def _get_kimoji_for_text(self, text: str):
         try:
-            prompt = f'这是{global_config.BOT_NICKNAME}将要发送的消息内容:\n{text}\n若要为其配上表情包，请你输出这个表情包应该表达怎样的情感，应该给人什么样的感觉，不要太简洁也不要太长，注意不要输出任何对消息内容的分析内容，只输出"一种什么样的感觉"中间的形容词部分。'
+            prompt = (
+                f"这是{global_config.BOT_NICKNAME}将要发送的消息内容:\n{text}\n若要为其配上表情包，"
+                f"请你输出这个表情包应该表达怎样的情感，应该给人什么样的感觉，不要太简洁也不要太长，"
+                f'注意不要输出任何对消息内容的分析内容，只输出"一种什么样的感觉"中间的形容词部分。'
+            )
 
             content, _ = await self.llm_emotion_judge.generate_response_async(prompt, temperature=1.5)
             logger.info(f"[情感] 表情包情感描述: {content}")

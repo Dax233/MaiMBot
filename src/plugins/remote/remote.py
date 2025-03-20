@@ -13,6 +13,7 @@ logger = get_module_logger("remote")
 # UUID文件路径
 UUID_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "client_uuid.json")
 
+
 # 生成或获取客户端唯一ID
 def get_unique_id():
     # 检查是否已经有保存的UUID
@@ -39,12 +40,14 @@ def get_unique_id():
 
     return client_id
 
+
 # 生成客户端唯一ID
 def generate_unique_id():
     # 结合主机名、系统信息和随机UUID生成唯一ID
     system_info = platform.system()
     unique_id = f"{system_info}-{uuid.uuid4()}"
     return unique_id
+
 
 def send_heartbeat(server_url, client_id):
     """向服务器发送心跳"""
@@ -66,31 +69,33 @@ def send_heartbeat(server_url, client_id):
         logger.debug(f"发送心跳时出错: {e}")
         return False
 
+
 class HeartbeatThread(threading.Thread):
     """心跳线程类"""
-    
+
     def __init__(self, server_url, interval):
         super().__init__(daemon=True)  # 设置为守护线程，主程序结束时自动结束
         self.server_url = server_url
         self.interval = interval
         self.client_id = get_unique_id()
         self.running = True
-        
+
     def run(self):
         """线程运行函数"""
         logger.debug(f"心跳线程已启动，客户端ID: {self.client_id}")
-        
+
         while self.running:
             if send_heartbeat(self.server_url, self.client_id):
                 logger.info(f"{self.interval}秒后发送下一次心跳...")
             else:
                 logger.info(f"{self.interval}秒后重试...")
-            
+
             time.sleep(self.interval)  # 使用同步的睡眠
-    
+
     def stop(self):
         """停止线程"""
         self.running = False
+
 
 def main():
     if global_config.remote_enable:
@@ -98,9 +103,9 @@ def main():
         # 配置
         SERVER_URL = "http://hyybuth.xyz:10058"
         HEARTBEAT_INTERVAL = 300  # 5分钟（秒）
-        
+
         # 创建并启动心跳线程
         heartbeat_thread = HeartbeatThread(SERVER_URL, HEARTBEAT_INTERVAL)
         heartbeat_thread.start()
-        
+
         return heartbeat_thread  # 返回线程对象，便于外部控制

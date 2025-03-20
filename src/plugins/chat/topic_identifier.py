@@ -10,10 +10,10 @@ from src.common.logger import get_module_logger, LogConfig, TOPIC_STYLE_CONFIG
 topic_config = LogConfig(
     # 使用海马体专用样式
     console_format=TOPIC_STYLE_CONFIG["console_format"],
-    file_format=TOPIC_STYLE_CONFIG["file_format"]
+    file_format=TOPIC_STYLE_CONFIG["file_format"],
 )
 
-logger = get_module_logger("topic_identifier",config=topic_config)
+logger = get_module_logger("topic_identifier", config=topic_config)
 
 driver = get_driver()
 config = driver.config
@@ -21,7 +21,7 @@ config = driver.config
 
 class TopicIdentifier:
     def __init__(self):
-        self.llm_topic_judge = LLM_request(model=global_config.llm_topic_judge,request_type = 'topic')
+        self.llm_topic_judge = LLM_request(model=global_config.llm_topic_judge, request_type="topic")
 
     async def identify_topic_llm(self, text: str) -> Optional[List[str]]:
         """识别消息主题，返回主题列表"""

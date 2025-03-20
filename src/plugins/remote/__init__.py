@@ -1,4 +1,3 @@
-import asyncio
 from .remote import main
 
 # 启动心跳线程

@@ -16,16 +16,16 @@ logger = get_module_logger("gui")
 # 获取当前文件的目录
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # 获取项目根目录
-root_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
+root_dir = os.path.abspath(os.path.join(current_dir, "..", ".."))
 sys.path.insert(0, root_dir)
-from src.common.database import db
+from src.common.database import db  # noqa: E402
 
 # 加载环境变量
-if os.path.exists(os.path.join(root_dir, '.env.dev')):
-    load_dotenv(os.path.join(root_dir, '.env.dev'))
+if os.path.exists(os.path.join(root_dir, ".env.dev")):
+    load_dotenv(os.path.join(root_dir, ".env.dev"))
     logger.info("成功加载开发环境配置")
-elif os.path.exists(os.path.join(root_dir, '.env.prod')):
-    load_dotenv(os.path.join(root_dir, '.env.prod'))
+elif os.path.exists(os.path.join(root_dir, ".env.prod")):
+    load_dotenv(os.path.join(root_dir, ".env.prod"))
     logger.info("成功加载生产环境配置")
 else:
     logger.error("未找到环境配置文件")
@@ -107,12 +107,7 @@ class ReasoningGUI:
         self.control_frame = ctk.CTkFrame(self.frame)
         self.control_frame.pack(fill="x", padx=10, pady=5)
 
-        self.clear_button = ctk.CTkButton(
-            self.control_frame,
-            text="清除显示",
-            command=self.clear_display,
-            width=120
-        )
+        self.clear_button = ctk.CTkButton(self.control_frame, text="清除显示", command=self.clear_display, width=120)
         self.clear_button.pack(side="left", padx=5)
 
         # 启动自动更新线程
@@ -132,10 +127,10 @@ class ReasoningGUI:
         try:
             while True:
                 task = self.update_queue.get_nowait()
-                if task['type'] == 'update_group_list':
+                if task["type"] == "update_group_list":
                     self._update_group_list_gui()
-                elif task['type'] == 'update_display':
-                    self._update_display_gui(task['group_id'])
+                elif task["type"] == "update_display":
+                    self._update_display_gui(task["group_id"])
         except queue.Empty:
             pass
         finally:
@@ -157,7 +152,7 @@ class ReasoningGUI:
                 width=160,
                 height=30,
                 corner_radius=8,
-                command=lambda gid=group_id: self._on_group_select(gid)
+                command=lambda gid=group_id: self._on_group_select(gid),
             )
             button.pack(pady=2, padx=5)
             self.group_buttons[group_id] = button
@@ -190,7 +185,7 @@ class ReasoningGUI:
             self.content_text.delete("1.0", "end")
             for item in self.group_data[group_id]:
                 # 时间戳
-                time_str = item['time'].strftime("%Y-%m-%d %H:%M:%S")
+                time_str = item["time"].strftime("%Y-%m-%d %H:%M:%S")
                 self.content_text.insert("end", f"[{time_str}]\n", "timestamp")
 
                 # 用户信息
@@ -207,9 +202,9 @@ class ReasoningGUI:
 
                 # Prompt内容
                 self.content_text.insert("end", "Prompt内容:\n", "timestamp")
-                prompt_text = item.get('prompt', '')
-                if prompt_text and prompt_text.lower() != 'none':
-                    lines = prompt_text.split('\n')
+                prompt_text = item.get("prompt", "")
+                if prompt_text and prompt_text.lower() != "none":
+                    lines = prompt_text.split("\n")
                     for line in lines:
                         if line.strip():
                             self.content_text.insert("end", "    " + line + "\n", "prompt")
@@ -218,9 +213,9 @@ class ReasoningGUI:
 
                 # 推理过程
                 self.content_text.insert("end", "推理过程:\n", "timestamp")
-                reasoning_text = item.get('reasoning', '')
-                if reasoning_text and reasoning_text.lower() != 'none':
-                    lines = reasoning_text.split('\n')
+                reasoning_text = item.get("reasoning", "")
+                if reasoning_text and reasoning_text.lower() != "none":
+                    lines = reasoning_text.split("\n")
                     for line in lines:
                         if line.strip():
                             self.content_text.insert("end", "    " + line + "\n", "reasoning")
@@ -265,23 +260,25 @@ class ReasoningGUI:
                         new_data[group_id] = []
 
                     # 转换时间戳为datetime对象
-                    if isinstance(item['time'], (int, float)):
-                        time_obj = datetime.fromtimestamp(item['time'])
-                    elif isinstance(item['time'], datetime):
-                        time_obj = item['time']
+                    if isinstance(item["time"], (int, float)):
+                        time_obj = datetime.fromtimestamp(item["time"])
+                    elif isinstance(item["time"], datetime):
+                        time_obj = item["time"]
                     else:
                         logger.warning(f"未知的时间格式: {type(item['time'])}")
                         time_obj = datetime.now()  # 使用当前时间作为后备
 
-                    new_data[group_id].append({
-                        'time': time_obj,
-                        'user': item.get('user', '未知'),
-                        'message': item.get('message', ''),
-                        'model': item.get('model', '未知'),
-                        'reasoning': item.get('reasoning', ''),
-                        'response': item.get('response', ''),
-                        'prompt': item.get('prompt', '')  # 添加prompt字段
-                    })
+                    new_data[group_id].append(
+                        {
+                            "time": time_obj,
+                            "user": item.get("user", "未知"),
+                            "message": item.get("message", ""),
+                            "model": item.get("model", "未知"),
+                            "reasoning": item.get("reasoning", ""),
+                            "response": item.get("response", ""),
+                            "prompt": item.get("prompt", ""),  # 添加prompt字段
+                        }
+                    )
 
                 logger.info(f"从数据库加载了 {total_count} 条记录，分布在 {len(new_data)} 个群组中")
 
@@ -290,15 +287,12 @@ class ReasoningGUI:
                     self.group_data = new_data
                     logger.info("数据已更新，正在刷新显示...")
                     # 将更新任务添加到队列
-                    self.update_queue.put({'type': 'update_group_list'})
+                    self.update_queue.put({"type": "update_group_list"})
                     if self.group_data:
                         # 如果没有选中的群组，选择最新的群组
                         if not self.selected_group_id or self.selected_group_id not in self.group_data:
                             self.selected_group_id = next(iter(self.group_data))
-                        self.update_queue.put({
-                            'type': 'update_display',
-                            'group_id': self.selected_group_id
-                        })
+                        self.update_queue.put({"type": "update_display", "group_id": self.selected_group_id})
             except Exception:
                 logger.exception("自动更新出错")
 

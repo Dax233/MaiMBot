@@ -1,6 +1,5 @@
 import base64
 import html
-import time
 import asyncio
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
@@ -25,6 +24,7 @@ ssl_context = ssl.create_default_context()
 ssl_context.set_ciphers("AES128-GCM-SHA256")
 
 logger = get_module_logger("cq_code")
+
 
 @dataclass
 class CQCode:
@@ -91,7 +91,8 @@ class CQCode:
     async def get_img(self) -> Optional[str]:
         """异步获取图片并转换为base64"""
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.87 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/50.0.2661.87 Safari/537.36",
             "Accept": "text/html, application/xhtml xml, */*",
             "Accept-Encoding": "gbk, GB2312",
             "Accept-Language": "zh-cn",

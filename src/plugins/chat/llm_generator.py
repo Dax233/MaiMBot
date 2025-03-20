@@ -9,7 +9,6 @@ from ..models.utils_model import LLM_request
 from .config import global_config
 from .message import MessageRecv, MessageThinking, Message
 from .prompt_builder import prompt_builder
-from .relationship_manager import relationship_manager
 from .utils import process_llm_response
 from src.common.logger import get_module_logger, LogConfig, LLM_STYLE_CONFIG
 
@@ -17,7 +16,7 @@ from src.common.logger import get_module_logger, LogConfig, LLM_STYLE_CONFIG
 llm_config = LogConfig(
     # 使用消息发送专用样式
     console_format=LLM_STYLE_CONFIG["console_format"],
-    file_format=LLM_STYLE_CONFIG["file_format"]
+    file_format=LLM_STYLE_CONFIG["file_format"],
 )
 
 logger = get_module_logger("llm_generator", config=llm_config)
@@ -72,7 +71,10 @@ class ResponseGenerator:
         """使用指定的模型生成回复"""
         sender_name = ""
         if message.chat_stream.user_info.user_cardname and message.chat_stream.user_info.user_nickname:
-            sender_name = f"[({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}]{message.chat_stream.user_info.user_cardname}"
+            sender_name = (
+                f"[({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}]"
+                f"{message.chat_stream.user_info.user_cardname}"
+            )
         elif message.chat_stream.user_info.user_nickname:
             sender_name = f"({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}"
         else:
@@ -152,9 +154,7 @@ class ResponseGenerator:
             }
         )
 
-    async def _get_emotion_tags(
-        self, content: str, processed_plain_text: str
-    ):
+    async def _get_emotion_tags(self, content: str, processed_plain_text: str):
         """提取情感标签，结合立场和情绪"""
         try:
             # 构建提示词，结合回复内容、被回复的内容以及立场分析
@@ -181,9 +181,7 @@ class ResponseGenerator:
             if "-" in result:
                 stance, emotion = result.split("-", 1)
                 valid_stances = ["supportive", "opposed", "neutrality"]
-                valid_emotions = [
-                    "happy", "angry", "sad", "surprised", "disgusted", "fearful", "neutral"
-                ]
+                valid_emotions = ["happy", "angry", "sad", "surprised", "disgusted", "fearful", "neutral"]
                 if stance in valid_stances and emotion in valid_emotions:
                     return stance, emotion  # 返回有效的立场-情绪组合
                 else:

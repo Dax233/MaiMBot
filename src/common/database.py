@@ -1,5 +1,4 @@
 import os
-from typing import cast
 from pymongo import MongoClient
 from pymongo.database import Database
 
@@ -11,7 +10,7 @@ def __create_database_instance():
     uri = os.getenv("MONGODB_URI")
     host = os.getenv("MONGODB_HOST", "127.0.0.1")
     port = int(os.getenv("MONGODB_PORT", "27017"))
-    db_name = os.getenv("DATABASE_NAME", "MegBot")
+    # db_name 变量在创建连接时不需要，在获取数据库实例时才使用
     username = os.getenv("MONGODB_USERNAME")
     password = os.getenv("MONGODB_PASSWORD")
     auth_source = os.getenv("MONGODB_AUTH_SOURCE")

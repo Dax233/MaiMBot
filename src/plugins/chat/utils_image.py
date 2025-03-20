@@ -1,9 +1,8 @@
 import base64
 import os
 import time
-import aiohttp
 import hashlib
-from typing import Optional, Union
+from typing import Optional
 from PIL import Image
 import io
 
@@ -37,7 +36,7 @@ class ImageManager:
             self._ensure_description_collection()
             self._ensure_image_dir()
             self._initialized = True
-            self._llm = LLM_request(model=global_config.vlm, temperature=0.4, max_tokens=1000,request_type = 'image')
+            self._llm = LLM_request(model=global_config.vlm, temperature=0.4, max_tokens=1000, request_type="image")
 
     def _ensure_image_dir(self):
         """确保图像存储目录存在"""

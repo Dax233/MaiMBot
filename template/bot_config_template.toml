@@ -24,8 +24,8 @@ prompt_personality = [
         "用一句话或几句话描述性格特点和其他特征",    
         "例如，是一个热爱国家热爱党的新时代好青年"    
     ]
-personality_1_probability = 0.6 # 第一种人格出现概率
-personality_2_probability = 0.3 # 第二种人格出现概率
+personality_1_probability = 0.7 # 第一种人格出现概率
+personality_2_probability = 0.2 # 第二种人格出现概率
 personality_3_probability = 0.1 # 第三种人格出现概率，请确保三个概率相加等于1
 prompt_schedule = "用一句话或几句话描述描述性格特点和其他特征"
 
@@ -50,8 +50,8 @@ ban_msgs_regex = [
 ]
 
 [emoji]
-check_interval = 120 # 检查表情包的时间间隔
-register_interval = 10 # 注册表情包的时间间隔
+check_interval = 300 # 检查表情包的时间间隔
+register_interval = 20 # 注册表情包的时间间隔
 auto_save = true  # 自动偷表情包
 enable_check = false  # 是否启用表情包过滤
 check_prompt = "符合公序良俗" # 表情包过滤要求
@@ -103,8 +103,8 @@ reaction = "回答“测试成功”"
 
 [chinese_typo]
 enable = true # 是否启用中文错别字生成器
-error_rate=0.006 # 单字替换概率
-min_freq=7 # 最小字频阈值
+error_rate=0.002 # 单字替换概率
+min_freq=9 # 最小字频阈值
 tone_error_rate=0.2 # 声调错误概率
 word_replace_rate=0.006 # 整词替换概率
 

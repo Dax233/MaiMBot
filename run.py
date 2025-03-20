@@ -54,9 +54,7 @@ def run_maimbot():
     run_cmd(r"napcat\NapCatWinBootMain.exe 10001", False)
     if not os.path.exists(r"mongodb\db"):
         os.makedirs(r"mongodb\db")
-    run_cmd(
-        r"mongodb\bin\mongod.exe --dbpath=" + os.getcwd() + r"\mongodb\db --port 27017"
-    )
+    run_cmd(r"mongodb\bin\mongod.exe --dbpath=" + os.getcwd() + r"\mongodb\db --port 27017")
     run_cmd("nb run")
 
 
@@ -70,30 +68,29 @@ def install_mongodb():
         stream=True,
     )
     total = int(resp.headers.get("content-length", 0))  # 计算文件大小
-    with open("mongodb.zip", "w+b") as file, tqdm(  # 展示下载进度条，并解压文件
-        desc="mongodb.zip",
-        total=total,
-        unit="iB",
-        unit_scale=True,
-        unit_divisor=1024,
-    ) as bar:
+    with (
+        open("mongodb.zip", "w+b") as file,
+        tqdm(  # 展示下载进度条，并解压文件
+            desc="mongodb.zip",
+            total=total,
+            unit="iB",
+            unit_scale=True,
+            unit_divisor=1024,
+        ) as bar,
+    ):
         for data in resp.iter_content(chunk_size=1024):
             size = file.write(data)
             bar.update(size)
     extract_files("mongodb.zip", "mongodb")
     print("MongoDB 下载完成")
     os.remove("mongodb.zip")
-    choice = input(
-        "是否安装 MongoDB Compass？此软件可以以可视化的方式修改数据库，建议安装（Y/n）"
-    ).upper()
+    choice = input("是否安装 MongoDB Compass？此软件可以以可视化的方式修改数据库，建议安装（Y/n）").upper()
     if choice == "Y" or choice == "":
         install_mongodb_compass()
 
 
 def install_mongodb_compass():
-    run_cmd(
-        r"powershell Start-Process powershell -Verb runAs 'Set-ExecutionPolicy RemoteSigned'"
-    )
+    run_cmd(r"powershell Start-Process powershell -Verb runAs 'Set-ExecutionPolicy RemoteSigned'")
     input("请在弹出的用户账户控制中点击“是”后按任意键继续安装")
     run_cmd(r"powershell mongodb\bin\Install-Compass.ps1")
     input("按任意键启动枫")
@@ -107,7 +104,7 @@ def install_napcat():
     napcat_filename = input(
         "下载完成后请把文件复制到此文件夹，并将**不包含后缀的文件名**输入至此窗口，如 NapCat.32793.Shell："
     )
-    if(napcat_filename[-4:] == ".zip"):
+    if napcat_filename[-4:] == ".zip":
         napcat_filename = napcat_filename[:-4]
     extract_files(napcat_filename + ".zip", "napcat")
     print("NapCat 安装完成")
@@ -121,11 +118,7 @@ if __name__ == "__main__":
         print("按任意键退出")
         input()
         exit(1)
-    choice = input(
-        "请输入要进行的操作：\n"
-        "1.首次安装\n"
-        "2.运行枫\n"
-    )
+    choice = input("请输入要进行的操作：\n1.首次安装\n2.运行枫\n")
     os.system("cls")
     if choice == "1":
         confirm = input("首次安装将下载并配置所需组件\n1.确认\n2.取消\n")

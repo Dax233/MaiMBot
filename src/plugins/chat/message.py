@@ -9,8 +9,8 @@ import urllib3
 
 from .utils_image import image_manager
 
-from .message_base import Seg, GroupInfo, UserInfo, BaseMessageInfo, MessageBase
-from .chat_stream import ChatStream, chat_manager
+from .message_base import Seg, UserInfo, BaseMessageInfo, MessageBase
+from .chat_stream import ChatStream
 from src.common.logger import get_module_logger
 
 logger = get_module_logger("chat_message")

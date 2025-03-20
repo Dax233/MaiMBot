@@ -1,5 +1,4 @@
 import os
-import sys
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
@@ -40,7 +39,6 @@ class BotConfig:
 
     ban_user_id = set()
 
-    
     EMOJI_CHECK_INTERVAL: int = 120  # 表情包检查间隔（分钟）
     EMOJI_REGISTER_INTERVAL: int = 10  # 表情包注册间隔（分钟）
     EMOJI_SAVE: bool = True  # 偷表情包
@@ -51,7 +49,7 @@ class BotConfig:
     ban_msgs_regex = set()
 
     max_response_length: int = 1024  # 最大回复长度
-    
+
     remote_enable: bool = False  # 是否启用远程控制
 
     # 模型配置
@@ -78,7 +76,7 @@ class BotConfig:
     mood_update_interval: float = 1.0  # 情绪更新间隔 单位秒
     mood_decay_rate: float = 0.95  # 情绪衰减率
     mood_intensity_factor: float = 0.7  # 情绪强度因子
-    
+
     willing_mode: str = "classical"  # 意愿模式
 
     keywords_reaction_rules = []  # 关键词回复规则
@@ -101,9 +99,9 @@ class BotConfig:
     PERSONALITY_1: float = 0.6  # 第一种人格概率
     PERSONALITY_2: float = 0.3  # 第二种人格概率
     PERSONALITY_3: float = 0.1  # 第三种人格概率
-    
+
     build_memory_interval: int = 600  # 记忆构建间隔（秒）
-    
+
     forget_memory_interval: int = 600  # 记忆遗忘间隔（秒）
     memory_forget_time: int = 24  # 记忆遗忘时间（小时）
     memory_forget_percentage: float = 0.01  # 记忆遗忘比例
@@ -219,7 +217,7 @@ class BotConfig:
                 "model_r1_distill_probability", config.MODEL_R1_DISTILL_PROBABILITY
             )
             config.max_response_length = response_config.get("max_response_length", config.max_response_length)
-            
+
         def willing(parent: dict):
             willing_config = parent["willing"]
             config.willing_mode = willing_config.get("willing_mode", config.willing_mode)
@@ -298,7 +296,7 @@ class BotConfig:
                     "response_interested_rate_amplifier", config.response_interested_rate_amplifier
                 )
                 config.down_frequency_rate = msg_config.get("down_frequency_rate", config.down_frequency_rate)
-            
+
             if config.INNER_VERSION in SpecifierSet(">=0.0.6"):
                 config.ban_msgs_regex = msg_config.get("ban_msgs_regex", config.ban_msgs_regex)
 
@@ -310,13 +308,15 @@ class BotConfig:
             # 在版本 >= 0.0.4 时才处理新增的配置项
             if config.INNER_VERSION in SpecifierSet(">=0.0.4"):
                 config.memory_ban_words = set(memory_config.get("memory_ban_words", []))
-                
+
             if config.INNER_VERSION in SpecifierSet(">=0.0.7"):
                 config.memory_forget_time = memory_config.get("memory_forget_time", config.memory_forget_time)
-                config.memory_forget_percentage = memory_config.get("memory_forget_percentage", config.memory_forget_percentage)
+                config.memory_forget_percentage = memory_config.get(
+                    "memory_forget_percentage", config.memory_forget_percentage
+                )
                 config.memory_compress_rate = memory_config.get("memory_compress_rate", config.memory_compress_rate)
 
-        def remote(parent: dict): 
+        def remote(parent: dict):
             remote_config = parent["remote"]
             config.remote_enable = remote_config.get("enable", config.remote_enable)
 
@@ -449,4 +449,3 @@ else:
     raise FileNotFoundError(f"配置文件不存在: {bot_config_path}")
 
 global_config = BotConfig.load_config(config_path=bot_config_path)
-

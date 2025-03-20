@@ -28,12 +28,8 @@ class ChatStream:
         self.platform = platform
         self.user_info = user_info
         self.group_info = group_info
-        self.create_time = (
-            data.get("create_time", int(time.time())) if data else int(time.time())
-        )
-        self.last_active_time = (
-            data.get("last_active_time", self.create_time) if data else self.create_time
-        )
+        self.create_time = data.get("create_time", int(time.time())) if data else int(time.time())
+        self.last_active_time = data.get("last_active_time", self.create_time) if data else self.create_time
         self.saved = False
 
     def to_dict(self) -> dict:
@@ -51,12 +47,8 @@ class ChatStream:
     @classmethod
     def from_dict(cls, data: dict) -> "ChatStream":
         """从字典创建实例"""
-        user_info = (
-            UserInfo(**data.get("user_info", {})) if data.get("user_info") else None
-        )
-        group_info = (
-            GroupInfo(**data.get("group_info", {})) if data.get("group_info") else None
-        )
+        user_info = UserInfo(**data.get("user_info", {})) if data.get("user_info") else None
+        group_info = GroupInfo(**data.get("group_info", {})) if data.get("group_info") else None
 
         return cls(
             stream_id=data["stream_id"],
@@ -117,26 +109,15 @@ class ChatManager:
             db.create_collection("chat_streams")
             # 创建索引
             db.chat_streams.create_index([("stream_id", 1)], unique=True)
-            db.chat_streams.create_index(
-                [("platform", 1), ("user_info.user_id", 1), ("group_info.group_id", 1)]
-            )
+            db.chat_streams.create_index([("platform", 1), ("user_info.user_id", 1), ("group_info.group_id", 1)])
 
-    def _generate_stream_id(
-        self, platform: str, user_info: UserInfo, group_info: Optional[GroupInfo] = None
-    ) -> str:
+    def _generate_stream_id(self, platform: str, user_info: UserInfo, group_info: Optional[GroupInfo] = None) -> str:
         """生成聊天流唯一ID"""
         if group_info:
             # 组合关键信息
-            components = [
-                platform,
-                str(group_info.group_id)
-            ]
+            components = [platform, str(group_info.group_id)]
         else:
-            components = [
-                platform,
-                str(user_info.user_id),
-                "private"
-            ]
+            components = [platform, str(user_info.user_id), "private"]
 
         # 使用MD5生成唯一ID
         key = "_".join(components)
@@ -163,7 +144,7 @@ class ChatManager:
             stream = self.streams[stream_id]
             # 更新用户信息和群组信息
             stream.update_active_time()
-            stream=copy.deepcopy(stream)
+            stream = copy.deepcopy(stream)
             stream.user_info = user_info
             if group_info:
                 stream.group_info = group_info
@@ -206,9 +187,7 @@ class ChatManager:
     async def _save_stream(self, stream: ChatStream):
         """保存聊天流到数据库"""
         if not stream.saved:
-            db.chat_streams.update_one(
-                {"stream_id": stream.stream_id}, {"$set": stream.to_dict()}, upsert=True
-            )
+            db.chat_streams.update_one({"stream_id": stream.stream_id}, {"$set": stream.to_dict()}, upsert=True)
             stream.saved = True
 
     async def _save_all_streams(self):
