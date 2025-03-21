@@ -54,7 +54,7 @@ class WillingManager:
 
         self.chat_reply_willing[chat_id] = min(current_willing, 3.0)
 
-        reply_probability = min(max((current_willing - 0.5), 0.03) * config.response_willing_amplifier * 2, 1)
+        reply_probability = min(max((current_willing - 0.5), 0.01) * config.response_willing_amplifier * 2, 1)
 
         # 检查群组权限（如果是群聊）
         if chat_stream.group_info and config:

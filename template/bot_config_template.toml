@@ -16,7 +16,7 @@ version = "0.0.10"
 [bot]
 qq = 123
 nickname = "麦麦"
-alias_names = ["小麦", "阿麦"]
+alias_names = ["麦叠", "牢麦"]
 
 [personality]
 prompt_personality = [
@@ -37,7 +37,7 @@ thinking_timeout = 120 # 麦麦思考时间
 
 response_willing_amplifier = 1 # 麦麦回复意愿放大系数，一般为1
 response_interested_rate_amplifier = 1 # 麦麦回复兴趣度放大系数,听到记忆里的内容时放大系数
-down_frequency_rate = 3.5 # 降低回复频率的群组回复意愿降低系数
+down_frequency_rate = 3 # 降低回复频率的群组回复意愿降低系数 除法
 ban_words = [
     # "403","张三"
     ]
@@ -126,26 +126,13 @@ ban_user_id = []  #禁止回复消息的QQ号
 enable = true
 
 
-#V3
-#name = "deepseek-chat"
-#base_url = "DEEP_SEEK_BASE_URL"
-#key = "DEEP_SEEK_KEY"
-
-#R1
-#name = "deepseek-reasoner"
-#base_url = "DEEP_SEEK_BASE_URL"
-#key = "DEEP_SEEK_KEY"
-
 #下面的模型若使用硅基流动则不需要更改，使用ds官方则改成.env.prod自定义的宏，使用自定义模型则选择定位相似的模型自己填写
-
 #推理模型：
-
 [model.llm_reasoning] #回复模型1 主要回复模型
 name = "Pro/deepseek-ai/DeepSeek-R1"
 provider = "SILICONFLOW"
 pri_in = 0 #模型的输入价格（非必填，可以记录消耗）
 pri_out = 0 #模型的输出价格（非必填，可以记录消耗）
-
 
 [model.llm_reasoning_minor] #回复模型3 次要回复模型
 name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"

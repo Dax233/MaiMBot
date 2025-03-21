@@ -7,13 +7,16 @@ import jieba
 import matplotlib.pyplot as plt
 import networkx as nx
 from dotenv import load_dotenv
-from src.common.logger import get_module_logger
+from loguru import logger
+# from src.common.logger import get_module_logger
 
-logger = get_module_logger("draw_memory")
+# logger = get_module_logger("draw_memory")
 
 # 添加项目根目录到 Python 路径
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 sys.path.append(root_path)
+
+print(root_path)
 
 from src.common.database import db  # noqa: E402
 

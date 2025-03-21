@@ -11,7 +11,7 @@ logger = get_module_logger("offline_llm")
 
 
 class LLMModel:
-    def __init__(self, model_name="deepseek-ai/DeepSeek-V3", **kwargs):
+    def __init__(self, model_name="Pro/deepseek-ai/DeepSeek-V3", **kwargs):
         self.model_name = model_name
         self.params = kwargs
         self.api_key = os.getenv("SILICONFLOW_KEY")

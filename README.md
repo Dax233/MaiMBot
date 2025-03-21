@@ -251,10 +251,12 @@ SengokuCola~~纯编程外行，面向cursor编程，很多代码写得不好多�
 
 感谢各位大佬！
 
-<a href="https://github.com/SengokuCola/MaiMBot/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=SengokuCola/MaiMBot" />
+<a href="https://github.com/MaiM-with-u/MaiBot/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=MaiM-with-u/MaiBot" />
 </a>
+
+**也感谢每一位给麦麦发展提出宝贵意见与建议的用户，感谢陪伴麦麦走到现在的你们**
 
 ## Stargazers over time
 
-[![Stargazers over time](https://starchart.cc/SengokuCola/MaiMBot.svg?variant=adaptive)](https://starchart.cc/SengokuCola/MaiMBot)
+[![Stargazers over time](https://starchart.cc/MaiM-with-u/MaiBot.svg?variant=adaptive)](https://starchart.cc/MaiM-with-u/MaiBot)

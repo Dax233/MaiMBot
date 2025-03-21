@@ -29,7 +29,7 @@ run_dev.bat
 elua.confirmed
 # C extensions
 *.so
-.vscode
+/results
 
 # Distribution / packaging
 .Python

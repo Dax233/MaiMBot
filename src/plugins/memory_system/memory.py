@@ -594,7 +594,7 @@ class Hippocampus:
 
         logger.info("[遗忘] 开始检查数据库... 当前Logger信息:")
         # logger.info(f"- Logger名称: {logger.name}")
-        logger.info(f"- Logger等级: {logger.level}")
+        # logger.info(f"- Logger等级: {logger.level}")
         # logger.info(f"- Logger处理器: {[handler.__class__.__name__ for handler in logger.handlers]}")
 
         # logger2 = setup_logger(LogModule.MEMORY)

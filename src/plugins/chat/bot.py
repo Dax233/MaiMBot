@@ -419,6 +419,16 @@ class ChatBot:
     async def handle_forward_message(self, event: MessageEvent, bot: Bot) -> None:
         """专用于处理合并转发的消息处理器"""
 
+        # 用户屏蔽,不区分私聊/群聊
+        if event.user_id in global_config.ban_user_id:
+            return
+        
+        if isinstance(event, GroupMessageEvent):
+            if event.group_id:
+                if event.group_id not in global_config.talk_allowed_groups:
+                    return
+
+
         # 获取合并转发消息的详细信息
         forward_info = await bot.get_forward_msg(message_id=event.message_id)
         messages = forward_info["messages"]
@@ -429,22 +439,11 @@ class ChatBot:
             # 提取发送者昵称
             nickname = node["sender"].get("nickname", "未知用户")
             
-            # 处理消息内容
-            message_content = []
-            for seg in node["message"]: 
-                if seg["type"] == "text":
-                    message_content.append(seg["data"]["text"])
-                elif seg["type"] == "image":
-                    message_content.append("[图片]")
-                elif seg["type"] =="face":
-                    message_content.append("[表情]")
-                elif seg["type"] == "at":
-                    message_content.append(f"@{seg['data'].get('qq', '未知用户')}")
-                else:
-                    message_content.append(f"[{seg['type']}]")
+            # 递归处理消息内容
+            message_content = await self.process_message_segments(node["message"],layer=0)
             
             # 拼接为【昵称】+ 内容
-            processed_messages.append(f"【{nickname}】{''.join(message_content)}")
+            processed_messages.append(f"【{nickname}】{message_content}")
 
         # 组合所有消息
         combined_message = "\n".join(processed_messages)
@@ -463,7 +462,7 @@ class ChatBot:
         if isinstance(event, GroupMessageEvent):
             group_info = GroupInfo(
                 group_id=event.group_id,
-                group_name= None,
+                group_name=None,
                 platform="qq"
             )
 
@@ -480,5 +479,42 @@ class ChatBot:
         # 进入标准消息处理流程
         await self.message_process(message_cq)
 
+    async def process_message_segments(self, segments: list,layer:int) -> str:
+        """递归处理消息段"""
+        parts = []
+        for seg in segments:
+            part = await self.process_segment(seg,layer+1)
+            parts.append(part)
+        return "".join(parts)
+
+    async def process_segment(self, seg: dict , layer:int) -> str:
+        """处理单个消息段"""
+        seg_type = seg["type"]
+        if layer > 3 :
+            #防止有那种100层转发消息炸飞麦麦
+            return "【转发消息】"
+        if seg_type == "text":
+            return seg["data"]["text"]
+        elif seg_type == "image":
+            return "[图片]"
+        elif seg_type == "face":
+            return "[表情]"
+        elif seg_type == "at":
+            return f"@{seg['data'].get('qq', '未知用户')}"
+        elif seg_type == "forward":
+            # 递归处理嵌套的合并转发消息
+            nested_nodes = seg["data"].get("content", [])
+            nested_messages = []
+            nested_messages.append("合并转发消息内容：")
+            for node in nested_nodes:
+                nickname = node["sender"].get("nickname", "未知用户")
+                content = await self.process_message_segments(node["message"],layer=layer)
+                # nested_messages.append('-' * layer)
+                nested_messages.append(f"{'--' * layer}【{nickname}】{content}")
+            # nested_messages.append(f"{'--' * layer}合并转发第【{layer}】层结束")
+            return "\n".join(nested_messages)
+        else:
+            return f"[{seg_type}]"
+        
 # 创建全局ChatBot实例
 chat_bot = ChatBot()
