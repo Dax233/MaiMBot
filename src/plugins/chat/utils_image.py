@@ -112,7 +112,7 @@ class ImageManager:
             # 查询缓存的描述
             cached_description = self._get_description_from_db(image_hash, "emoji")
             if cached_description:
-                logger.info(f"缓存表情包描述: {cached_description}")
+                logger.debug(f"缓存表情包描述: {cached_description}")
                 return f"[表情包：{cached_description}]"
 
             # 调用AI获取描述
@@ -184,7 +184,7 @@ class ImageManager:
                 logger.warning(f"虽然生成了描述，但是找到缓存图片描述 {cached_description}")
                 return f"[图片：{cached_description}]"
 
-            logger.info(f"描述是{description}")
+            logger.debug(f"描述是{description}")
 
             if description is None:
                 logger.warning("AI未能生成图片描述")

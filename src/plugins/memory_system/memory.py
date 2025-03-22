@@ -3,6 +3,7 @@ import datetime
 import math
 import random
 import time
+import re
 
 import jieba
 import networkx as nx
@@ -18,6 +19,7 @@ from ..chat.utils import (
 )
 from ..models.utils_model import LLM_request
 from src.common.logger import get_module_logger, LogConfig, MEMORY_STYLE_CONFIG
+from src.plugins.memory_system.sample_distribution import MemoryBuildScheduler
 
 # 定义日志配置
 memory_config = LogConfig(
@@ -25,6 +27,11 @@ memory_config = LogConfig(
     console_format=MEMORY_STYLE_CONFIG["console_format"],
     file_format=MEMORY_STYLE_CONFIG["file_format"],
 )
+# print(f"memory_config: {memory_config}")
+# print(f"MEMORY_STYLE_CONFIG: {MEMORY_STYLE_CONFIG}")
+# print(f"MEMORY_STYLE_CONFIG['console_format']: {MEMORY_STYLE_CONFIG['console_format']}")
+# print(f"MEMORY_STYLE_CONFIG['file_format']: {MEMORY_STYLE_CONFIG['file_format']}")
+
 
 logger = get_module_logger("memory_system", config=memory_config)
 
@@ -168,9 +175,9 @@ class Memory_graph:
 class Hippocampus:
     def __init__(self, memory_graph: Memory_graph):
         self.memory_graph = memory_graph
-        self.llm_topic_judge = LLM_request(model=global_config.llm_topic_judge, temperature=0.5, request_type="topic")
+        self.llm_topic_judge = LLM_request(model=global_config.llm_topic_judge, temperature=0.5, request_type="memory")
         self.llm_summary_by_topic = LLM_request(
-            model=global_config.llm_summary_by_topic, temperature=0.5, request_type="topic"
+            model=global_config.llm_summary_by_topic, temperature=0.5, request_type="memory"
         )
 
     def get_all_node_names(self) -> list:
@@ -195,25 +202,17 @@ class Hippocampus:
         return hash(f"{nodes[0]}:{nodes[1]}")
 
     def random_get_msg_snippet(self, target_timestamp: float, chat_size: int, max_memorized_time_per_msg: int) -> list:
-        """随机抽取一段时间内的消息片段
-        Args:
-            - target_timestamp: 目标时间戳
-            - chat_size: 抽取的消息数量
-            - max_memorized_time_per_msg: 每条消息的最大记忆次数
-
-        Returns:
-            - list: 抽取出的消息记录列表
-
-        """
         try_count = 0
-        # 最多尝试三次抽取
+        # 最多尝试2次抽取
         while try_count < 3:
             messages = get_closest_chat_from_db(length=chat_size, timestamp=target_timestamp)
             if messages:
+                # print(f"抽取到的消息: {messages}")
                 # 检查messages是否均没有达到记忆次数限制
                 for message in messages:
                     if message["memorized_times"] >= max_memorized_time_per_msg:
                         messages = None
+                        # print(f"抽取到的消息提取次数达到限制，跳过")
                         break
                 if messages:
                     # 成功抽取短期消息样本
@@ -224,63 +223,48 @@ class Hippocampus:
                         )
                     return messages
             try_count += 1
-        # 三次尝试均失败
         return None
 
-    def get_memory_sample(self, chat_size=20, time_frequency=None):
-        """获取记忆样本
-
-        Returns:
-            list: 消息记录列表，每个元素是一个消息记录字典列表
-        """
+    def get_memory_sample(self):
         # 硬编码：每条消息最大记忆次数
         # 如有需求可写入global_config
-        if time_frequency is None:
-            time_frequency = {"near": 2, "mid": 4, "far": 3}
         max_memorized_time_per_msg = 3
 
-        current_timestamp = datetime.datetime.now().timestamp()
+        # 创建双峰分布的记忆调度器
+        scheduler = MemoryBuildScheduler(
+            n_hours1=global_config.memory_build_distribution[0],           # 第一个分布均值（4小时前）
+            std_hours1=global_config.memory_build_distribution[1],         # 第一个分布标准差
+            weight1=global_config.memory_build_distribution[2],          # 第一个分布权重 60%
+            n_hours2=global_config.memory_build_distribution[3],          # 第二个分布均值（24小时前）
+            std_hours2=global_config.memory_build_distribution[4],         # 第二个分布标准差
+            weight2=global_config.memory_build_distribution[5],          # 第二个分布权重 40%
+            total_samples=global_config.build_memory_sample_num      # 总共生成10个时间点
+        )
+
+        # 生成时间戳数组
+        timestamps = scheduler.get_timestamp_array()
+        # logger.debug(f"生成的时间戳数组: {timestamps}")
+        # print(f"生成的时间戳数组: {timestamps}")
+        # print(f"时间戳的实际时间: {[time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(ts)) for ts in timestamps]}")
+        logger.info(f"回忆往事: {[time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(ts)) for ts in timestamps]}")
         chat_samples = []
-
-        # 短期：1h   中期：4h   长期：24h
-        logger.debug("正在抽取短期消息样本")
-        for i in range(time_frequency.get("near")):
-            random_time = current_timestamp - random.randint(1, 3600)
-            messages = self.random_get_msg_snippet(random_time, chat_size, max_memorized_time_per_msg)
+        for timestamp in timestamps:
+            messages = self.random_get_msg_snippet(
+                timestamp, 
+                global_config.build_memory_sample_length, 
+                max_memorized_time_per_msg
+            )
             if messages:
-                logger.debug(f"成功抽取短期消息样本{len(messages)}条")
+                time_diff = (datetime.datetime.now().timestamp() - timestamp) / 3600
+                logger.debug(f"成功抽取 {time_diff:.1f} 小时前的消息样本，共{len(messages)}条")
+                # print(f"成功抽取 {time_diff:.1f} 小时前的消息样本，共{len(messages)}条")
                 chat_samples.append(messages)
             else:
-                logger.warning(f"第{i}次短期消息样本抽取失败")
-
-        logger.debug("正在抽取中期消息样本")
-        for i in range(time_frequency.get("mid")):
-            random_time = current_timestamp - random.randint(3600, 3600 * 4)
-            messages = self.random_get_msg_snippet(random_time, chat_size, max_memorized_time_per_msg)
-            if messages:
-                logger.debug(f"成功抽取中期消息样本{len(messages)}条")
-                chat_samples.append(messages)
-            else:
-                logger.warning(f"第{i}次中期消息样本抽取失败")
-
-        logger.debug("正在抽取长期消息样本")
-        for i in range(time_frequency.get("far")):
-            random_time = current_timestamp - random.randint(3600 * 4, 3600 * 24)
-            messages = self.random_get_msg_snippet(random_time, chat_size, max_memorized_time_per_msg)
-            if messages:
-                logger.debug(f"成功抽取长期消息样本{len(messages)}条")
-                chat_samples.append(messages)
-            else:
-                logger.warning(f"第{i}次长期消息样本抽取失败")
+                logger.debug(f"时间戳 {timestamp} 的消息样本抽取失败")
 
         return chat_samples
 
     async def memory_compress(self, messages: list, compress_rate=0.1):
-        """压缩消息记录为记忆
-
-        Returns:
-            tuple: (压缩记忆集合, 相似主题字典)
-        """
         if not messages:
             return set(), {}
 
@@ -312,16 +296,29 @@ class Hippocampus:
         topic_num = self.calculate_topic_num(input_text, compress_rate)
         topics_response = await self.llm_topic_judge.generate_response(self.find_topic_llm(input_text, topic_num))
 
-        # 过滤topics
-        filter_keywords = global_config.memory_ban_words
-        topics = [
-            topic.strip()
-            for topic in topics_response[0].replace("，", ",").replace("、", ",").replace(" ", ",").split(",")
-            if topic.strip()
-        ]
-        filtered_topics = [topic for topic in topics if not any(keyword in topic for keyword in filter_keywords)]
+        # 使用正则表达式提取<>中的内容
+        topics = re.findall(r'<([^>]+)>', topics_response[0])
+        
+        # 如果没有找到<>包裹的内容，返回['none']
+        if not topics:
+            topics = ['none']
+        else:
+            # 处理提取出的话题
+            topics = [
+                topic.strip()
+                for topic in ','.join(topics).replace("，", ",").replace("、", ",").replace(" ", ",").split(",")
+                if topic.strip()
+            ]
 
-        logger.info(f"过滤后话题: {filtered_topics}")
+        # 过滤掉包含禁用关键词的topic
+        # any()检查topic中是否包含任何一个filter_keywords中的关键词
+        # 只保留不包含禁用关键词的topic
+        filtered_topics = [
+            topic for topic in topics 
+            if not any(keyword in topic for keyword in global_config.memory_ban_words)
+        ]
+
+        logger.debug(f"过滤后话题: {filtered_topics}")
 
         # 创建所有话题的请求任务
         tasks = []
@@ -331,31 +328,42 @@ class Hippocampus:
             tasks.append((topic.strip(), task))
 
         # 等待所有任务完成
-        compressed_memory = set()
+        # 初始化压缩后的记忆集合和相似主题字典
+        compressed_memory = set()  # 存储压缩后的(主题,内容)元组
         similar_topics_dict = {}  # 存储每个话题的相似主题列表
+        
+        # 遍历每个主题及其对应的LLM任务
         for topic, task in tasks:
             response = await task
             if response:
+                # 将主题和LLM生成的内容添加到压缩记忆中
                 compressed_memory.add((topic, response[0]))
-                # 为每个话题查找相似的已存在主题
+                
+                # 为当前主题寻找相似的已存在主题
                 existing_topics = list(self.memory_graph.G.nodes())
                 similar_topics = []
 
+                # 计算当前主题与每个已存在主题的相似度
                 for existing_topic in existing_topics:
+                    # 使用jieba分词,将主题转换为词集合
                     topic_words = set(jieba.cut(topic))
                     existing_words = set(jieba.cut(existing_topic))
 
-                    all_words = topic_words | existing_words
-                    v1 = [1 if word in topic_words else 0 for word in all_words]
-                    v2 = [1 if word in existing_words else 0 for word in all_words]
+                    # 构建词向量用于计算余弦相似度
+                    all_words = topic_words | existing_words  # 所有不重复的词
+                    v1 = [1 if word in topic_words else 0 for word in all_words]  # 当前主题的词向量
+                    v2 = [1 if word in existing_words else 0 for word in all_words]  # 已存在主题的词向量
 
+                    # 计算余弦相似度
                     similarity = cosine_similarity(v1, v2)
 
-                    if similarity >= 0.6:
+                    # 如果相似度超过阈值,添加到相似主题列表
+                    if similarity >= 0.7:
                         similar_topics.append((existing_topic, similarity))
 
+                # 按相似度降序排序,只保留前3个最相似的主题
                 similar_topics.sort(key=lambda x: x[1], reverse=True)
-                similar_topics = similar_topics[:5]
+                similar_topics = similar_topics[:3]
                 similar_topics_dict[topic] = similar_topics
 
         return compressed_memory, similar_topics_dict
@@ -372,10 +380,13 @@ class Hippocampus:
         )
         return topic_num
 
-    async def operation_build_memory(self, chat_size=20):
-        time_frequency = {"near": 1, "mid": 4, "far": 4}
-        memory_samples = self.get_memory_sample(chat_size, time_frequency)
-
+    async def operation_build_memory(self):
+        logger.debug("------------------------------------开始构建记忆--------------------------------------")
+        start_time = time.time()
+        memory_samples = self.get_memory_sample()
+        all_added_nodes = []
+        all_connected_nodes = []
+        all_added_edges = []
         for i, messages in enumerate(memory_samples, 1):
             all_topics = []
             # 加载进度可视化
@@ -387,12 +398,14 @@ class Hippocampus:
 
             compress_rate = global_config.memory_compress_rate
             compressed_memory, similar_topics_dict = await self.memory_compress(messages, compress_rate)
-            logger.info(f"压缩后记忆数量: {len(compressed_memory)}，似曾相识的话题: {len(similar_topics_dict)}")
+            logger.debug(f"压缩后记忆数量: {compressed_memory}，似曾相识的话题: {similar_topics_dict}")
 
             current_time = datetime.datetime.now().timestamp()
-
+            logger.debug(f"添加节点: {', '.join(topic for topic, _ in compressed_memory)}")
+            all_added_nodes.extend(topic for topic, _ in compressed_memory)
+            # all_connected_nodes.extend(topic for topic, _ in similar_topics_dict)
+            
             for topic, memory in compressed_memory:
-                logger.info(f"添加节点: {topic}")
                 self.memory_graph.add_dot(topic, memory)
                 all_topics.append(topic)
 
@@ -402,7 +415,13 @@ class Hippocampus:
                     for similar_topic, similarity in similar_topics:
                         if topic != similar_topic:
                             strength = int(similarity * 10)
-                            logger.info(f"连接相似节点: {topic} 和 {similar_topic} (强度: {strength})")
+                            
+                            logger.debug(f"连接相似节点: {topic} 和 {similar_topic} (强度: {strength})")
+                            all_added_edges.append(f"{topic}-{similar_topic}")
+                            
+                            all_connected_nodes.append(topic)
+                            all_connected_nodes.append(similar_topic)
+                            
                             self.memory_graph.G.add_edge(
                                 topic,
                                 similar_topic,
@@ -414,10 +433,21 @@ class Hippocampus:
             # 连接同批次的相关话题
             for i in range(len(all_topics)):
                 for j in range(i + 1, len(all_topics)):
-                    logger.info(f"连接同批次节点: {all_topics[i]} 和 {all_topics[j]}")
+                    logger.debug(f"连接同批次节点: {all_topics[i]} 和 {all_topics[j]}")
+                    all_added_edges.append(f"{all_topics[i]}-{all_topics[j]}")
                     self.memory_graph.connect_dot(all_topics[i], all_topics[j])
 
+        logger.success(f"更新记忆: {', '.join(all_added_nodes)}")
+        logger.debug(f"强化连接: {', '.join(all_added_edges)}")
+        logger.info(f"强化连接节点: {', '.join(all_connected_nodes)}")
+        # logger.success(f"强化连接: {', '.join(all_added_edges)}")
         self.sync_memory_to_db()
+        
+        end_time = time.time()
+        logger.success(
+            f"--------------------------记忆构建完成：耗时: {end_time - start_time:.2f} "
+            "秒--------------------------"
+        )
 
     def sync_memory_to_db(self):
         """检查并同步内存中的图结构与数据库"""
@@ -745,8 +775,9 @@ class Hippocampus:
 
     def find_topic_llm(self, text, topic_num):
         prompt = (
-            f"这是一段文字：{text}。请你从这段话中总结出{topic_num}个关键的概念，可以是名词，动词，或者特定人物，帮我列出来，"
-            f"用逗号,隔开，尽可能精简。只需要列举{topic_num}个话题就好，不要有序号，不要告诉我其他内容。"
+            f"这是一段文字：{text}。请你从这段话中总结出最多{topic_num}个关键的概念，可以是名词，动词，或者特定人物，帮我列出来，"
+            f"将主题用逗号隔开，并加上<>,例如<主题1>,<主题2>......尽可能精简。只需要列举最多{topic_num}个话题就好，不要有序号，不要告诉我其他内容。"
+            f"如果找不出主题或者没有明显主题，返回<none>。"
         )
         return prompt
 
@@ -766,14 +797,21 @@ class Hippocampus:
         Returns:
             list: 识别出的主题列表
         """
-        topics_response = await self.llm_topic_judge.generate_response(self.find_topic_llm(text, 5))
-        # print(f"话题: {topics_response[0]}")
-        topics = [
-            topic.strip()
-            for topic in topics_response[0].replace("，", ",").replace("、", ",").replace(" ", ",").split(",")
-            if topic.strip()
-        ]
-        # print(f"话题: {topics}")
+        topics_response = await self.llm_topic_judge.generate_response(self.find_topic_llm(text, 4))
+        # 使用正则表达式提取<>中的内容
+        print(f"话题: {topics_response[0]}")
+        topics = re.findall(r'<([^>]+)>', topics_response[0])
+        
+        # 如果没有找到<>包裹的内容，返回['none']
+        if not topics:
+            topics = ['none']
+        else:
+            # 处理提取出的话题
+            topics = [
+                topic.strip()
+                for topic in ','.join(topics).replace("，", ",").replace("、", ",").replace(" ", ",").split(",")
+                if topic.strip()
+            ]
 
         return topics
 
@@ -844,11 +882,11 @@ class Hippocampus:
 
     async def memory_activate_value(self, text: str, max_topics: int = 5, similarity_threshold: float = 0.3) -> int:
         """计算输入文本对记忆的激活程度"""
-        logger.info(f"识别主题: {await self._identify_topics(text)}")
-
         # 识别主题
         identified_topics = await self._identify_topics(text)
-        if not identified_topics:
+        print(f"识别主题: {identified_topics}")
+        
+        if identified_topics[0] == "none":
             return 0
 
         # 查找相似主题
@@ -908,7 +946,8 @@ class Hippocampus:
 
         # 计算最终激活值
         activation = int((topic_match + average_similarities) / 2 * 100)
-        logger.info(f"匹配率: {topic_match:.3f}, 平均相似度: {average_similarities:.3f}, 激活值: {activation}")
+        
+        logger.info(f"识别<{text[:15]}...>主题: {identified_topics}, 匹配率: {topic_match:.3f}, 激活值: {activation}")
 
         return activation
 

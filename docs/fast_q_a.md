@@ -10,7 +10,7 @@
 
 - 为什么显示:"缺失必要的API KEY" ❓
 
-<img src="API_KEY.png" width=650>
+<img src="./pic/API_KEY.png" width=650>
 
 >你需要在 [Silicon Flow Api](https://cloud.siliconflow.cn/account/ak) 网站上注册一个账号，然后点击这个链接打开API KEY获取页面。
 >
@@ -41,19 +41,19 @@
 
 >打开你的MongoDB Compass软件，你会在左上角看到这样的一个界面：
 >
-><img src="MONGO_DB_0.png" width=250>
+><img src="./pic/MONGO_DB_0.png" width=250>
 >
 ><br>
 >
 >点击 "CONNECT" 之后，点击展开 MegBot 标签栏
 >
-><img src="MONGO_DB_1.png" width=250>
+><img src="./pic/MONGO_DB_1.png" width=250>
 >
 ><br>
 >
 >点进 "emoji" 再点击 "DELETE" 删掉所有条目，如图所示
 >
-><img src="MONGO_DB_2.png" width=450>
+><img src="./pic/MONGO_DB_2.png" width=450>
 >
 ><br>
 >

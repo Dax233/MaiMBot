@@ -1,30 +1,29 @@
 import datetime
 import json
 import re
+import os
+import sys
 from typing import Dict, Union
 
-from nonebot import get_driver
 
 # 添加项目根目录到 Python 路径
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+sys.path.append(root_path)
 
-from src.plugins.chat.config import global_config
-from ...common.database import db  # 使用正确的导入语法
-from ..models.utils_model import LLM_request
-from src.common.logger import get_module_logger
+from src.common.database import db # noqa: E402
+from src.common.logger import get_module_logger # noqa: E402
+from src.plugins.schedule.offline_llm import LLMModel # noqa: E402
+from src.plugins.chat.config import global_config # noqa: E402
 
 logger = get_module_logger("scheduler")
-
-driver = get_driver()
-config = driver.config
 
 
 class ScheduleGenerator:
     enable_output: bool = True
 
     def __init__(self):
-        # 根据global_config.llm_normal这一字典配置指定模型
-        # self.llm_scheduler = LLMModel(model = global_config.llm_normal,temperature=0.9)
-        self.llm_scheduler = LLM_request(model=global_config.llm_normal, temperature=0.9, request_type="scheduler")
+        # 使用离线LLM模型
+        self.llm_scheduler = LLMModel(model_name="Pro/deepseek-ai/DeepSeek-V3", temperature=0.9)
         self.today_schedule_text = ""
         self.today_schedule = {}
         self.tomorrow_schedule_text = ""
@@ -74,7 +73,7 @@ class ScheduleGenerator:
             )
 
             try:
-                schedule_text, _, _ = await self.llm_scheduler.generate_response(prompt)
+                schedule_text, _ = self.llm_scheduler.generate_response(prompt)
                 db.schedule.insert_one({"date": date_str, "schedule": schedule_text})
                 self.enable_output = True
             except Exception as e:
@@ -166,5 +165,27 @@ class ScheduleGenerator:
                 logger.info(f"时间[{time_str}]: 活动[{activity}]")
             logger.info("==================")
             self.enable_output = False
+
+
+async def main():
+    # 使用示例
+    scheduler = ScheduleGenerator()
+    await scheduler.initialize()
+    scheduler.print_schedule()
+    print("\n当前任务：")
+    print(await scheduler.get_current_task())
+
+    print("昨天日程：")
+    print(scheduler.yesterday_schedule)
+    print("今天日程：")
+    print(scheduler.today_schedule)
+    print("明天日程：")
+    print(scheduler.tomorrow_schedule)
+
 # 当作为组件导入时使用的实例
 bot_schedule = ScheduleGenerator()
+
+if __name__ == "__main__":
+    import asyncio
+    # 当直接运行此文件时执行
+    asyncio.run(main())

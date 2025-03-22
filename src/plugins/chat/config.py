@@ -56,7 +56,6 @@ class BotConfig:
     llm_reasoning: Dict[str, str] = field(default_factory=lambda: {})
     llm_reasoning_minor: Dict[str, str] = field(default_factory=lambda: {})
     llm_normal: Dict[str, str] = field(default_factory=lambda: {})
-    llm_normal_minor: Dict[str, str] = field(default_factory=lambda: {})
     llm_topic_judge: Dict[str, str] = field(default_factory=lambda: {})
     llm_summary_by_topic: Dict[str, str] = field(default_factory=lambda: {})
     llm_emotion_judge: Dict[str, str] = field(default_factory=lambda: {})
@@ -68,9 +67,9 @@ class BotConfig:
     MODEL_V3_PROBABILITY: float = 0.1  # V3模型概率
     MODEL_R1_DISTILL_PROBABILITY: float = 0.1  # R1蒸馏模型概率
 
-    enable_advance_output: bool = False  # 是否启用高级输出
+    # enable_advance_output: bool = False  # 是否启用高级输出
     enable_kuuki_read: bool = True  # 是否启用读空气功能
-    enable_debug_output: bool = False  # 是否启用调试输出
+    # enable_debug_output: bool = False  # 是否启用调试输出
     enable_friend_chat: bool = False  # 是否启用好友聊天
 
     mood_update_interval: float = 1.0  # 情绪更新间隔 单位秒
@@ -106,6 +105,11 @@ class BotConfig:
     memory_forget_time: int = 24  # 记忆遗忘时间（小时）
     memory_forget_percentage: float = 0.01  # 记忆遗忘比例
     memory_compress_rate: float = 0.1  # 记忆压缩率
+    build_memory_sample_num: int = 10  # 记忆构建采样数量
+    build_memory_sample_length: int = 20  # 记忆构建采样长度
+    memory_build_distribution: list = field(
+        default_factory=lambda: [4,2,0.6,24,8,0.4]
+    )  # 记忆构建分布，参数：分布1均值，标准差，权重，分布2均值，标准差，权重
     memory_ban_words: list = field(
         default_factory=lambda: ["表情包", "图片", "回复", "聊天记录"]
     )  # 添加新的配置项默认值
@@ -230,7 +234,6 @@ class BotConfig:
                 "llm_reasoning",
                 "llm_reasoning_minor",
                 "llm_normal",
-                "llm_normal_minor",
                 "llm_topic_judge",
                 "llm_summary_by_topic",
                 "llm_emotion_judge",
@@ -315,6 +318,20 @@ class BotConfig:
                     "memory_forget_percentage", config.memory_forget_percentage
                 )
                 config.memory_compress_rate = memory_config.get("memory_compress_rate", config.memory_compress_rate)
+            if config.INNER_VERSION in SpecifierSet(">=0.0.11"):
+                config.memory_build_distribution = memory_config.get(
+                    "memory_build_distribution", 
+                    config.memory_build_distribution
+                )
+                config.build_memory_sample_num = memory_config.get(
+                    "build_memory_sample_num", 
+                    config.build_memory_sample_num
+                )
+                config.build_memory_sample_length = memory_config.get(
+                    "build_memory_sample_length", 
+                    config.build_memory_sample_length
+                )
+
 
         def remote(parent: dict):
             remote_config = parent["remote"]
@@ -351,10 +368,10 @@ class BotConfig:
 
         def others(parent: dict):
             others_config = parent["others"]
-            config.enable_advance_output = others_config.get("enable_advance_output", config.enable_advance_output)
+            # config.enable_advance_output = others_config.get("enable_advance_output", config.enable_advance_output)
             config.enable_kuuki_read = others_config.get("enable_kuuki_read", config.enable_kuuki_read)
             if config.INNER_VERSION in SpecifierSet(">=0.0.7"):
-                config.enable_debug_output = others_config.get("enable_debug_output", config.enable_debug_output)
+                # config.enable_debug_output = others_config.get("enable_debug_output", config.enable_debug_output)
                 config.enable_friend_chat = others_config.get("enable_friend_chat", config.enable_friend_chat)
 
         # 版本表达式：>=1.0.0,<2.0.0

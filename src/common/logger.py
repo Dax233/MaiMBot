@@ -31,9 +31,10 @@ _handler_registry: Dict[str, List[int]] = {}
 current_file_path = Path(__file__).resolve()
 LOG_ROOT = "logs"
 
-ENABLE_ADVANCE_OUTPUT = False
+SIMPLE_OUTPUT = os.getenv("SIMPLE_OUTPUT", "false")
+print(f"SIMPLE_OUTPUT: {SIMPLE_OUTPUT}")
 
-if ENABLE_ADVANCE_OUTPUT:
+if not SIMPLE_OUTPUT:
     # 默认全局配置
     DEFAULT_CONFIG = {
         # 日志级别配置
@@ -85,7 +86,6 @@ MEMORY_STYLE_CONFIG = {
     },
 }
 
-# 海马体日志样式配置
 SENDER_STYLE_CONFIG = {
     "advanced": {
         "console_format": (
@@ -152,17 +152,17 @@ CHAT_STYLE_CONFIG = {
         "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 见闻 | {message}"),
     },
     "simple": {
-        "console_format": ("<green>{time:MM-DD HH:mm}</green> | <light-blue>见闻</light-blue> | {message}"),
+        "console_format": ("<green>{time:MM-DD HH:mm}</green> | <light-blue>见闻</light-blue> | <green>{message}</green>"),  # noqa: E501
         "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 见闻 | {message}"),
     },
 }
 
-# 根据ENABLE_ADVANCE_OUTPUT选择配置
-MEMORY_STYLE_CONFIG = MEMORY_STYLE_CONFIG["advanced"] if ENABLE_ADVANCE_OUTPUT else MEMORY_STYLE_CONFIG["simple"]
-TOPIC_STYLE_CONFIG = TOPIC_STYLE_CONFIG["advanced"] if ENABLE_ADVANCE_OUTPUT else TOPIC_STYLE_CONFIG["simple"]
-SENDER_STYLE_CONFIG = SENDER_STYLE_CONFIG["advanced"] if ENABLE_ADVANCE_OUTPUT else SENDER_STYLE_CONFIG["simple"]
-LLM_STYLE_CONFIG = LLM_STYLE_CONFIG["advanced"] if ENABLE_ADVANCE_OUTPUT else LLM_STYLE_CONFIG["simple"]
-CHAT_STYLE_CONFIG = CHAT_STYLE_CONFIG["advanced"] if ENABLE_ADVANCE_OUTPUT else CHAT_STYLE_CONFIG["simple"]
+# 根据SIMPLE_OUTPUT选择配置
+MEMORY_STYLE_CONFIG = MEMORY_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else MEMORY_STYLE_CONFIG["advanced"]
+TOPIC_STYLE_CONFIG = TOPIC_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else TOPIC_STYLE_CONFIG["advanced"]  
+SENDER_STYLE_CONFIG = SENDER_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else SENDER_STYLE_CONFIG["advanced"]
+LLM_STYLE_CONFIG = LLM_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else LLM_STYLE_CONFIG["advanced"]
+CHAT_STYLE_CONFIG = CHAT_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else CHAT_STYLE_CONFIG["advanced"]
 
 
 def is_registered_module(record: dict) -> bool:

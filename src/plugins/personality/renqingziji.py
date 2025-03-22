@@ -1,10 +1,12 @@
-'''
-The definition of artificial personality in this paper follows the dispositional para-digm and adapts a definition of personality developed for humans [17]: 
-Personality for a human is the "whole and organisation of relatively stable tendencies and patterns of experience and 
-behaviour within one person (distinguishing it from other persons)". This definition is modified for artificial personality: 
-Artificial personality describes the relatively stable tendencies and patterns of behav-iour of an AI-based machine that 
-can be designed by developers and designers via different modalities, such as language, creating the impression 
-of individuality of a humanized social agent when users interact with the machine.'''
+"""
+The definition of artificial personality in this paper follows the dispositional para-digm and adapts a definition of
+personality developed for humans [17]:
+Personality for a human is the "whole and organisation of relatively stable tendencies and patterns of experience and
+behaviour within one person (distinguishing it from other persons)". This definition is modified for artificial
+personality:
+Artificial personality describes the relatively stable tendencies and patterns of behav-iour of an AI-based machine that
+can be designed by developers and designers via different modalities, such as language, creating the impression
+of individuality of a humanized social agent when users interact with the machine."""
 
 from typing import Dict, List
 import json
@@ -13,9 +15,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 import sys
 
-'''
+"""
 第一种方案：基于情景评估的人格测定
-'''
+"""
 current_dir = Path(__file__).resolve().parent
 project_root = current_dir.parent.parent.parent
 env_path = project_root / ".env.prod"
@@ -23,9 +25,9 @@ env_path = project_root / ".env.prod"
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 sys.path.append(root_path)
 
-from src.plugins.personality.scene import get_scene_by_factor,get_all_scenes,PERSONALITY_SCENES
-from src.plugins.personality.questionnaire import PERSONALITY_QUESTIONS,FACTOR_DESCRIPTIONS
-from src.plugins.personality.offline_llm import LLMModel 
+from src.plugins.personality.scene import get_scene_by_factor, PERSONALITY_SCENES  # noqa: E402
+from src.plugins.personality.questionnaire import FACTOR_DESCRIPTIONS  # noqa: E402
+from src.plugins.personality.offline_llm import LLMModel  # noqa: E402
 
 # 加载环境变量
 if env_path.exists():
@@ -40,32 +42,31 @@ class PersonalityEvaluator_direct:
     def __init__(self):
         self.personality_traits = {"开放性": 0, "严谨性": 0, "外向性": 0, "宜人性": 0, "神经质": 0}
         self.scenarios = []
-        
+
         # 为每个人格特质获取对应的场景
         for trait in PERSONALITY_SCENES:
             scenes = get_scene_by_factor(trait)
             if not scenes:
                 continue
-                
+
             # 从每个维度选择3个场景
             import random
+
             scene_keys = list(scenes.keys())
             selected_scenes = random.sample(scene_keys, min(3, len(scene_keys)))
-            
+
             for scene_key in selected_scenes:
                 scene = scenes[scene_key]
-                
+
                 # 为每个场景添加评估维度
                 # 主维度是当前特质，次维度随机选择一个其他特质
                 other_traits = [t for t in PERSONALITY_SCENES if t != trait]
                 secondary_trait = random.choice(other_traits)
-                
-                self.scenarios.append({
-                    "场景": scene["scenario"],
-                    "评估维度": [trait, secondary_trait],
-                    "场景编号": scene_key
-                })
-            
+
+                self.scenarios.append(
+                    {"场景": scene["scenario"], "评估维度": [trait, secondary_trait], "场景编号": scene_key}
+                )
+
         self.llm = LLMModel()
 
     def evaluate_response(self, scenario: str, response: str, dimensions: List[str]) -> Dict[str, float]:
@@ -78,9 +79,9 @@ class PersonalityEvaluator_direct:
             desc = FACTOR_DESCRIPTIONS.get(dim, "")
             if desc:
                 dimension_descriptions.append(f"- {dim}：{desc}")
-        
+
         dimensions_text = "\n".join(dimension_descriptions)
-        
+
         prompt = f"""请根据以下场景和用户描述，评估用户在大五人格模型中的相关维度得分（1-6分）。
 
 场景描述：
@@ -178,11 +179,7 @@ def main():
         print(f"测试场景数：{dimension_counts[trait]}")
 
     # 保存结果
-    result = {
-        "final_scores": final_scores, 
-        "dimension_counts": dimension_counts,
-        "scenarios": evaluator.scenarios
-    }
+    result = {"final_scores": final_scores, "dimension_counts": dimension_counts, "scenarios": evaluator.scenarios}
 
     # 确保目录存在
     os.makedirs("results", exist_ok=True)

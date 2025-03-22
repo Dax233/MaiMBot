@@ -1,3 +1,4 @@
+import warnings
 import gradio as gr
 import os
 import toml
@@ -6,9 +7,11 @@ import sys
 import requests
 try:
     from src.common.logger import get_module_logger
+
     logger = get_module_logger("webui")
 except ImportError:
     from loguru import logger
+
     # 检查并创建日志目录
     log_dir = "logs/webui"
     if not os.path.exists(log_dir):
@@ -23,11 +26,14 @@ import shutil
 import ast
 from packaging import version
 from decimal import Decimal
+# 忽略 gradio 版本警告
+warnings.filterwarnings("ignore", message="IMPORTANT: You are using gradio version.*")
 
 def signal_handler(signum, frame):
     """处理 Ctrl+C 信号"""
     logger.info("收到终止信号，正在关闭 Gradio 服务器...")
     sys.exit(0)
+
 
 # 注册信号处理器
 signal.signal(signal.SIGINT, signal_handler)
@@ -44,10 +50,10 @@ if not os.path.exists(".env.prod"):
     raise FileNotFoundError("环境配置文件 .env.prod 不存在，请检查配置文件路径")
 
 config_data = toml.load("config/bot_config.toml")
-#增加对老版本配置文件支持
+# 增加对老版本配置文件支持
 LEGACY_CONFIG_VERSION = version.parse("0.0.1")
 
-#增加最低支持版本
+# 增加最低支持版本
 MIN_SUPPORT_VERSION = version.parse("0.0.8")
 MIN_SUPPORT_MAIMAI_VERSION = version.parse("0.5.13")
 
@@ -66,8 +72,17 @@ else:
 
 HAVE_ONLINE_STATUS_VERSION = version.parse("0.0.9")
 
-#添加WebUI配置文件版本
-WEBUI_VERSION = version.parse("0.0.9")
+# 定义意愿模式可选项
+WILLING_MODE_CHOICES = [
+    "classical",
+    "dynamic",
+    "custom",
+]
+
+
+# 添加WebUI配置文件版本
+WEBUI_VERSION = version.parse("0.0.10")
+
 
 # ==============================================
 # env环境配置文件读取部分
@@ -84,9 +99,13 @@ def parse_env_config(config_file):
     # 逐行处理配置
     for line in lines:
         line = line.strip()
-        # 忽略空行和注释
+        # 忽略空行和注释行
         if not line or line.startswith("#"):
             continue
+
+        # 处理行尾注释
+        if "#" in line:
+            line = line.split("#")[0].strip()
 
         # 拆分键值对
         key, value = line.split("=", 1)
@@ -194,7 +213,7 @@ MODEL_PROVIDER_LIST = parse_model_providers(env_config_data)
 # env读取保存结束
 # ==============================================
 
-#获取在线麦麦数量
+# 获取在线麦麦数量
 
 
 def get_online_maimbot(url="http://hyybuth.xyz:10058/api/clients/details", timeout=10):
@@ -522,6 +541,7 @@ def save_message_and_emoji_config(
 
 
 def save_response_model_config(
+    t_willing_mode,
     t_model_r1_probability,
     t_model_r2_probability,
     t_model_r3_probability,
@@ -543,6 +563,8 @@ def save_response_model_config(
     t_vlm_model_name,
     t_vlm_model_provider,
 ):
+    if PARSED_CONFIG_VERSION >= version.parse("0.0.10"):
+        config_data["willing"]["willing_mode"] = t_willing_mode
     config_data["response"]["model_r1_probability"] = t_model_r1_probability
     config_data["response"]["model_v3_probability"] = t_model_r2_probability
     config_data["response"]["model_r1_distill_probability"] = t_model_r3_probability
@@ -639,13 +661,21 @@ def save_group_config(
 with gr.Blocks(title="MaimBot配置文件编辑") as app:
     gr.Markdown(
         value="""
-        ### 欢迎使用由墨梓柒MotricSeven编写的MaimBot配置文件编辑器\n
+        # 欢迎使用由墨梓柒MotricSeven编写的MaimBot配置文件编辑器\n
         感谢ZureTz大佬提供的人格保存部分修复！
         """
     )
+    gr.Markdown(value="---")  # 添加分割线
+    gr.Markdown(value="""
+        ## 注意！！！\n
+        由于Gradio的限制，在保存配置文件时，请不要刷新浏览器窗口！！\n
+        您的配置文件在点击保存按钮的时候就已经成功保存！！
+        """)
+    gr.Markdown(value="---")  # 添加分割线
     gr.Markdown(value="## 全球在线MaiMBot数量: " + str((online_maimbot_data or {}).get("online_clients", 0)))
     gr.Markdown(value="## 当前WebUI版本: " + str(WEBUI_VERSION))
-    gr.Markdown(value="### 配置文件版本：" + config_data["inner"]["version"])
+    gr.Markdown(value="## 配置文件版本：" + config_data["inner"]["version"])
+    gr.Markdown(value="---")  # 添加分割线
     with gr.Tabs():
         with gr.TabItem("0-环境设置"):
             with gr.Row():
@@ -1182,6 +1212,23 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                 with gr.Column(scale=3):
                     with gr.Row():
                         gr.Markdown("""### 回复设置""")
+                    if PARSED_CONFIG_VERSION >= version.parse("0.0.10"):
+                        with gr.Row():
+                            gr.Markdown("""#### 回复意愿模式""")
+                        with gr.Row():
+                            gr.Markdown("""回复意愿模式说明：\n
+                                        classical为经典回复意愿管理器\n
+                                        dynamic为动态意愿管理器\n
+                                        custom为自定义意愿管理器
+                                        """)
+                        with gr.Row():
+                            willing_mode = gr.Dropdown(
+                                choices=WILLING_MODE_CHOICES,
+                                value=config_data["willing"]["willing_mode"],
+                                label="回复意愿模式",
+                            )
+                    else:
+                        willing_mode = gr.Textbox(visible=False, value="disabled")
                     with gr.Row():
                         model_r1_probability = gr.Slider(
                             minimum=0,
@@ -1355,6 +1402,7 @@ with gr.Blocks(title="MaimBot配置文件编辑") as app:
                         save_model_btn.click(
                             save_response_model_config,
                             inputs=[
+                                willing_mode,
                                 model_r1_probability,
                                 model_r2_probability,
                                 model_r3_probability,

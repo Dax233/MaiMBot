@@ -147,9 +147,7 @@ enable_check = false  # 是否要检查表情包是不是合适的喵
 check_prompt = "符合公序良俗"  # 检查表情包的标准呢
 
 [others]
-enable_advance_output = true # 是否要显示更多的运行信息呢
 enable_kuuki_read = true # 让机器人能够"察言观色"喵
-enable_debug_output = false # 是否启用调试输出喵
 enable_friend_chat = false # 是否启用好友聊天喵
 
 [groups]

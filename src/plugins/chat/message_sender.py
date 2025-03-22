@@ -220,7 +220,7 @@ class MessageManager:
 
             message_timeout = container.get_timeout_messages()
             if message_timeout:
-                logger.warning(f"发现{len(message_timeout)}条超时消息")
+                logger.debug(f"发现{len(message_timeout)}条超时消息")
                 for msg in message_timeout:
                     if msg == message_earliest:
                         continue

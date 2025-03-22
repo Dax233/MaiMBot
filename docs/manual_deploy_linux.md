@@ -6,7 +6,7 @@
 - QQ小号（QQ框架的使用可能导致qq被风控，严重（小概率）可能会导致账号封禁，强烈不推荐使用大号）
 - 可用的大模型API
 - 一个AI助手，网上随便搜一家打开来用都行，可以帮你解决一些不懂的问题
-- 以下内容假设你对Linux系统有一定的了解，如果觉得难以理解，请直接用Windows系统部署[Windows系统部署指南](./manual_deploy_windows.md)
+- 以下内容假设你对Linux系统有一定的了解，如果觉得难以理解，请直接用Windows系统部署[Windows系统部署指南](./manual_deploy_windows.md)或[使用Windows一键包部署](https://github.com/MaiM-with-u/MaiBot/releases/tag/EasyInstall-windows)
 
 ## 你需要知道什么？
 
@@ -24,6 +24,9 @@
 
 ---
 
+## 一键部署
+请下载并运行项目根目录中的run.sh并按照提示安装，部署完成后请参照后续配置指南进行配置
+
 ## 环境配置
 
 ### 1️⃣ **确认Python版本**
@@ -36,16 +39,25 @@ python --version
 python3 --version
 ```
 
-如果版本低于3.9，请更新Python版本。
+如果版本低于3.9，请更新Python版本，目前建议使用python3.12
 
 ```bash
-# Ubuntu/Debian
+# Debian
 sudo apt update
-sudo apt install python3.9
-# 如执行了这一步，建议在执行时将python3指向python3.9
-# 更新替代方案，设置 python3.9 为默认的 python3 版本:
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1
+sudo apt install python3.12
+# Ubuntu
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt update
+sudo apt install python3.12
+
+# 执行完以上命令后，建议在执行时将python3指向python3.12
+# 更新替代方案，设置 python3.12 为默认的 python3 版本:
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
 sudo update-alternatives --config python3
+```
+建议再执行以下命令，使后续运行命令中的`python3`等同于`python`
+```bash
+sudo apt install python-is-python3
 ```
 
 ### 2️⃣ **创建虚拟环境**
@@ -73,7 +85,7 @@ pip install -r requirements.txt
 
 ### 3️⃣ **安装并启动MongoDB**
 
-- 安装与启动：Debian参考[官方文档](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-debian/)，Ubuntu参考[官方文档](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/)
+- 安装与启动：请参考[官方文档](https://www.mongodb.com/zh-cn/docs/manual/administration/install-on-linux/#std-label-install-mdb-community-edition-linux)，进入后选择自己的系统版本即可
 - 默认连接本地27017端口
 
 ---
@@ -82,7 +94,11 @@ pip install -r requirements.txt
 
 ### 4️⃣ **安装NapCat框架**
 
-- 参考[NapCat官方文档](https://www.napcat.wiki/guide/boot/Shell#napcat-installer-linux%E4%B8%80%E9%94%AE%E4%BD%BF%E7%94%A8%E8%84%9A%E6%9C%AC-%E6%94%AF%E6%8C%81ubuntu-20-debian-10-centos9)安装
+- 执行NapCat的Linux一键使用脚本(支持Ubuntu 20+/Debian 10+/Centos9) 
+```bash
+curl -o napcat.sh https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh && sudo bash napcat.sh
+```
+- 如果你不想使用Napcat的脚本安装，可参考[Napcat-Linux手动安装](https://www.napcat.wiki/guide/boot/Shell-Linux-SemiAuto)
 
 -  使用QQ小号登录，添加反向WS地址: `ws://127.0.0.1:8080/onebot/v11/ws`
 
@@ -91,9 +107,17 @@ pip install -r requirements.txt
 ## 配置文件设置
 
 ### 5️⃣ **配置文件设置，让麦麦Bot正常工作**
-
-- 修改环境配置文件：`.env.prod`
-- 修改机器人配置文件：`bot_config.toml`
+可先运行一次
+```bash
+# 在项目目录下操作
+nb run
+# 或
+python3 bot.py
+```
+之后你就可以找到`.env.prod`和`bot_config.toml`这两个文件了
+关于文件内容的配置请参考：
+- [🎀 新手配置指南](./installation_cute.md) - 通俗易懂的配置教程，适合初次使用的猫娘
+- [⚙️ 标准配置指南](./installation_standard.md) - 简明专业的配置说明，适合有经验的用户
 
 ---
 

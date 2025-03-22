@@ -115,9 +115,7 @@ talk_frequency_down = []   # 降低回复频率的群号
 ban_user_id = []      # 禁止回复的用户QQ号
 
 [others]
-enable_advance_output = true # 是否启用高级输出
 enable_kuuki_read = true # 是否启用读空气功能
-enable_debug_output = false # 是否启用调试输出
 enable_friend_chat = false # 是否启用好友聊天
 
 # 模型配置

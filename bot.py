@@ -204,8 +204,8 @@ def check_eula():
             eula_confirmed = True
             eula_updated = False
     if eula_new_hash == os.getenv("EULA_AGREE"):
-            eula_confirmed = True
-            eula_updated = False
+        eula_confirmed = True
+        eula_updated = False
 
     # 检查隐私条款确认文件是否存在
     if privacy_confirm_file.exists():
@@ -214,14 +214,16 @@ def check_eula():
         if privacy_new_hash == confirmed_content:
             privacy_confirmed = True
             privacy_updated = False
-    if privacy_new_hash  == os.getenv("PRIVACY_AGREE"):
-            privacy_confirmed = True
-            privacy_updated = False
+    if privacy_new_hash == os.getenv("PRIVACY_AGREE"):
+        privacy_confirmed = True
+        privacy_updated = False
 
     # 如果EULA或隐私条款有更新，提示用户重新确认
     if eula_updated or privacy_updated:
         print("EULA或隐私条款内容已更新，请在阅读后重新确认，继续运行视为同意更新后的以上两款协议")
-        print(f'输入"同意"或"confirmed"或设置环境变量"EULA_AGREE={eula_new_hash}"和"PRIVACY_AGREE={privacy_new_hash}"继续运行')
+        print(
+            f'输入"同意"或"confirmed"或设置环境变量"EULA_AGREE={eula_new_hash}"和"PRIVACY_AGREE={privacy_new_hash}"继续运行'
+        )
         while True:
             user_input = input().strip().lower()
             if user_input in ["同意", "confirmed"]:

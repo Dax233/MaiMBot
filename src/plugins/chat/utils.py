@@ -55,9 +55,9 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> bool:
     return False
 
 
-async def get_embedding(text):
+async def get_embedding(text, request_type="embedding"):
     """获取文本的embedding向量"""
-    llm = LLM_request(model=global_config.embedding, request_type="embedding")
+    llm = LLM_request(model=global_config.embedding, request_type=request_type)
     # return llm.get_embedding_sync(text)
     return await llm.get_embedding(text)
 
@@ -76,18 +76,11 @@ def calculate_information_content(text):
 
 
 def get_closest_chat_from_db(length: int, timestamp: str):
-    """从数据库中获取最接近指定时间戳的聊天记录
-
-    Args:
-        length: 要获取的消息数量
-        timestamp: 时间戳
-
-    Returns:
-        list: 消息记录列表，每个记录包含时间和文本信息
-    """
+    # print(f"获取最接近指定时间戳的聊天记录，长度: {length}, 时间戳: {timestamp}")
+    # print(f"当前时间: {timestamp},转换后时间: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))}")
     chat_records = []
     closest_record = db.messages.find_one({"time": {"$lte": timestamp}}, sort=[("time", -1)])
-
+    # print(f"最接近的记录: {closest_record}")
     if closest_record:
         closest_time = closest_record["time"]
         chat_id = closest_record["chat_id"]  # 获取chat_id
@@ -102,7 +95,9 @@ def get_closest_chat_from_db(length: int, timestamp: str):
             .sort("time", 1)
             .limit(length)
         )
-
+        # print(f"获取到的记录: {chat_records}")
+        length = len(chat_records)
+        # print(f"获取到的记录长度: {length}")
         # 转换记录格式
         formatted_records = []
         for record in chat_records:
@@ -265,14 +260,15 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
 
     # print(f"处理前的文本: {text}")
 
+    # 检查是否为西文字符段落
     if not is_western_paragraph(text):
         # 当语言为中文时，统一将英文逗号转换为中文逗号
-        text = text.replace(',', '，')
-        text = text.replace('\n', ' ')
+        text = text.replace(",", "，")
+        text = text.replace("\n", " ")
     else:
-        # 用奇怪的字符分开
-        text = re.sub(r'([.!?]) +', r'\1\|seg\|', text)
-        text = text.replace('\n', '\|seg\|')
+        # 用"|seg|"作为分割符分开
+        text = re.sub(r"([.!?]) +", r"\1\|seg\|", text)
+        text = text.replace("\n", "\|seg\|")
     text, mapping = protect_kaomoji(text)
     # print(f"处理前的文本: {text}")
 
@@ -301,19 +297,19 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
                     new_sentences.append(current_sentence.strip())
                     current_sentence = part
                 else:
-                    current_sentence += '，' + part
+                    current_sentence += "，" + part
             # 处理空格分割
-            space_parts = current_sentence.split(' ')
+            space_parts = current_sentence.split(" ")
             current_sentence = space_parts[0]
             for part in space_parts[1:]:
                 if random.random() < split_strength:
                     new_sentences.append(current_sentence.strip())
                     current_sentence = part
                 else:
-                    current_sentence += ' ' + part
+                    current_sentence += " " + part
         else:
-            # 处理奇怪字符分割
-            space_parts = current_sentence.split('\|seg\|')
+            # 处理分割符
+            space_parts = current_sentence.split("\|seg\|")
             current_sentence = space_parts[0]
             for part in space_parts[1:]:
                 new_sentences.append(current_sentence.strip())
@@ -325,16 +321,16 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
     # print(f"分割后的句子: {sentences}")
     sentences_done = []
     for sentence in sentences:
-        sentence = sentence.rstrip('，,')
+        sentence = sentence.rstrip("，,")
         # 西文字符句子不进行随机合并
-        if  not is_western_paragraph(sentence):
+        if  not is_western_paragraph(current_sentence):
             if random.random() < split_strength * 0.5:
-                sentence = sentence.replace('，', '').replace(',', '')
+                sentence = sentence.replace("，", "").replace(",", "")
             elif random.random() < split_strength:
-                sentence = sentence.replace('，', ' ').replace(',', ' ')
+                sentence = sentence.replace("，", " ").replace(",", " ")
         sentences_done.append(sentence)
 
-    logger.info(f"处理后的句子: {sentences_done}")
+    logger.debug(f"处理后的句子: {sentences_done}")
     return sentences_done
 
 
@@ -367,10 +363,11 @@ def random_remove_punctuation(text: str) -> str:
 
 def process_llm_response(text: str) -> List[str]:
     # processed_response = process_text_with_typos(content)
-    if len(text) > 200 and not is_western_paragraph(text) :
+    # 对西文字符段落的回复长度设置为汉字字符的两倍
+    if len(text) > 100 and not is_western_paragraph(text) :
         logger.warning(f"回复过长 ({len(text)} 字符)，返回默认回复")
-        return ['懒得说']
-    elif len(text) > 300 :
+        return ["懒得说"]
+    elif len(text) > 200 :
         logger.warning(f"回复过长 ({len(text)} 字符)，返回默认回复")
         return ['懒得说']
     # 处理长消息
@@ -539,6 +536,7 @@ def recover_kaomoji(sentences, placeholder_to_kaomoji):
         recovered_sentences.append(sentence)
     return recovered_sentences
 
+  
 def is_western_char(char):
     """检测是否为西文字符"""
     return len(char.encode('utf-8')) <= 2
@@ -546,3 +544,4 @@ def is_western_char(char):
 def is_western_paragraph(paragraph):
     """检测是否为西文字符段落"""
     return all(is_western_char(char) for char in paragraph if char.isalnum())
+  

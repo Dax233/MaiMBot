@@ -522,11 +522,11 @@ class LLM_request:
             return {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
             # 防止小朋友们截图自己的key
 
-    async def generate_response(self, prompt: str) -> Tuple[str, str]:
+    async def generate_response(self, prompt: str) -> Tuple[str, str, str]:
         """根据输入的提示生成模型的异步响应"""
 
         content, reasoning_content = await self._execute_request(endpoint="/chat/completions", prompt=prompt)
-        return content, reasoning_content
+        return content, reasoning_content, self.model_name
 
     async def generate_response_for_image(self, prompt: str, image_base64: str, image_format: str) -> Tuple[str, str]:
         """根据输入的提示和图片生成模型的异步响应"""
@@ -581,7 +581,8 @@ class LLM_request:
                         completion_tokens=completion_tokens,
                         total_tokens=total_tokens,
                         user_id="system",  # 可以根据需要修改 user_id
-                        request_type="embedding",  # 请求类型为 embedding
+                        # request_type="embedding",  # 请求类型为 embedding
+                        request_type=self.request_type,  # 请求类型为 text
                         endpoint="/embeddings",  # API 端点
                     )
                     return result["data"][0].get("embedding", None)

@@ -1,48 +1,51 @@
 # 面向纯新手的Linux服务器麦麦部署指南
 
-## 你得先有一个服务器
 
-为了能使麦麦在你的电脑关机之后还能运行，你需要一台不间断开机的主机，也就是我们常说的服务器。
+## 事前准备
+为了能使麦麦不间断的运行，你需要一台一直开着的主机。
 
+### 如果你想购买服务器
 华为云、阿里云、腾讯云等等都是在国内可以选择的选择。
 
-你可以去租一台最低配置的就足敷需要了，按月租大概十几块钱就能租到了。
+租一台最低配置的就足敷需要了，按月租大概十几块钱就能租到了。
 
-我们假设你已经租好了一台Linux架构的云服务器。我用的是阿里云ubuntu24.04，其他的原理相似。
+### 如果你不想购买服务器
+你可以准备一台可以一直开着的电脑/主机，只需要保证能够正常访问互联网即可
+
+我们假设你已经有了一台Linux架构的服务器。举例使用的是Ubuntu24.04，其他的原理相似。
 
 ## 0.我们就从零开始吧
 
 ### 网络问题
 
-为访问github相关界面，推荐去下一款加速器，新手可以试试watttoolkit。
+为访问Github相关界面，推荐去下一款加速器，新手可以试试[Watt Toolkit](https://gitee.com/rmbgame/SteamTools/releases/latest)。
 
 ### 安装包下载
 
 #### MongoDB
+进入[MongoDB下载页](https://www.mongodb.com/try/download/community-kubernetes-operator)，并选择版本
 
-对于ubuntu24.04 x86来说是这个：
+以Ubuntu24.04 x86为例，保持如图所示选项，点击`Download`即可，如果是其他系统，请在`Platform`中自行选择：
 
-https://repo.mongodb.org/apt/ubuntu/dists/noble/mongodb-org/8.0/multiverse/binary-amd64/mongodb-org-server_8.0.5_amd64.deb
+![](./pic/MongoDB_Ubuntu_guide.png)
 
-如果不是就在这里自行选择对应版本
 
-https://www.mongodb.com/try/download/community-kubernetes-operator
+不想使用上述方式？你也可以参考[官方文档](https://www.mongodb.com/zh-cn/docs/manual/administration/install-on-linux/#std-label-install-mdb-community-edition-linux)进行安装，进入后选择自己的系统版本即可
 
-#### Napcat
-
-在这里选择对应版本。
-
-https://github.com/NapNeko/NapCatQQ/releases/tag/v4.6.7
-
-对于ubuntu24.04 x86来说是这个：
-
-https://dldir1.qq.com/qqfile/qq/QQNT/ee4bd910/linuxqq_3.2.16-32793_amd64.deb
+#### QQ（可选）/Napcat
+*如果你使用Napcat的脚本安装，可以忽略此步*
+访问https://github.com/NapNeko/NapCatQQ/releases/latest
+在图中所示区域可以找到QQ的下载链接，选择对应版本下载即可
+从这里下载，可以保证你下载到的QQ版本兼容最新版Napcat
+![](./pic/QQ_Download_guide_Linux.png)
+如果你不想使用Napcat的脚本安装，还需参考[Napcat-Linux手动安装](https://www.napcat.wiki/guide/boot/Shell-Linux-SemiAuto)
 
 #### 麦麦
 
-https://github.com/SengokuCola/MaiMBot/archive/refs/tags/0.5.8-alpha.zip
-
-下载这个官方压缩包。
+先打开https://github.com/MaiM-with-u/MaiBot/releases
+往下滑找到这个
+![下载指引](./pic/linux_beginner_downloadguide.png "")
+下载箭头所指这个压缩包。
 
 ### 路径
 
@@ -53,10 +56,10 @@ https://github.com/SengokuCola/MaiMBot/archive/refs/tags/0.5.8-alpha.zip
 ```
 moi
 └─ mai
-   ├─ linuxqq_3.2.16-32793_amd64.deb
-   ├─ mongodb-org-server_8.0.5_amd64.deb
+   ├─ linuxqq_3.2.16-32793_amd64.deb   # linuxqq安装包
+   ├─ mongodb-org-server_8.0.5_amd64.deb  # MongoDB的安装包
    └─ bot
-      └─ MaiMBot-0.5.8-alpha.zip
+      └─ MaiMBot-0.5.8-alpha.zip # 麦麦的压缩包
 ```
 
 ### 网络
@@ -69,7 +72,7 @@ moi
 
 ## 2. Python的安装
 
-- 导入 Python 的稳定版 PPA：
+- 导入 Python 的稳定版 PPA（Ubuntu需执行此步，Debian可忽略）：
 
 ```bash
 sudo add-apt-repository ppa:deadsnakes/ppa
@@ -91,6 +94,11 @@ sudo apt install python3.12
 
 ```bash
 python3.12 --version
+```
+- （可选）更新替代方案，设置 python3.12 为默认的 python3 版本:
+```bash
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
+sudo update-alternatives --config python3
 ```
 
 - 在「终端」中，执行以下命令安装 pip：
@@ -141,23 +149,17 @@ systemctl status mongod #通过这条指令检查运行状态
 sudo systemctl enable mongod
 ```
 
-## 5.napcat的安装
+## 5.Napcat的安装
 
 ``` bash
+# 该脚本适用于支持Ubuntu 20+/Debian 10+/Centos9
 curl -o napcat.sh https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh && sudo bash napcat.sh
 ```
-
-上面的不行试试下面的
-
-``` bash
-dpkg -i linuxqq_3.2.16-32793_amd64.deb
-apt-get install -f
-dpkg -i linuxqq_3.2.16-32793_amd64.deb
-```
+执行后，脚本会自动帮你部署好QQ及Napcat
 
 成功的标志是输入``` napcat ```出来炫酷的彩虹色界面
 
-## 6.napcat的运行
+## 6.Napcat的运行
 
 此时你就可以根据提示在```napcat```里面登录你的QQ号了。
 
@@ -170,6 +172,13 @@ napcat status #检查运行状态
 
 ```http://<你服务器的公网IP>:6099/webui?token=napcat```
 
+如果你部署在自己的电脑上：
+```http://127.0.0.1:6099/webui?token=napcat```
+
+> [!WARNING]
+> 如果你的麦麦部署在公网，请**务必**修改Napcat的默认密码
+
+
 第一次是这个，后续改了密码之后token就会对应修改。你也可以使用```napcat log <你的QQ号>```来查看webui地址。把里面的```127.0.0.1```改成<你服务器的公网IP>即可。
 
 登录上之后在网络配置界面添加websocket客户端，名称随便输一个，url改成`ws://127.0.0.1:8080/onebot/v11/ws`保存之后点启用，就大功告成了。
@@ -178,7 +187,7 @@ napcat status #检查运行状态
 
 ### step 1 安装解压软件
 
-```
+```bash
 sudo apt-get install unzip
 ```
 
@@ -229,138 +238,11 @@ bot
 
 你可以注册一个硅基流动的账号，通过邀请码注册有14块钱的免费额度：https://cloud.siliconflow.cn/i/7Yld7cfg。
 
-#### 在.env.prod中定义API凭证：
+#### 修改配置文件
+请参考
+- [🎀 新手配置指南](./installation_cute.md) - 通俗易懂的配置教程，适合初次使用的猫娘
+- [⚙️ 标准配置指南](./installation_standard.md) - 简明专业的配置说明，适合有经验的用户
 
-```
-# API凭证配置
-SILICONFLOW_KEY=your_key        # 硅基流动API密钥
-SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1/  # 硅基流动API地址
-
-DEEP_SEEK_KEY=your_key          # DeepSeek API密钥
-DEEP_SEEK_BASE_URL=https://api.deepseek.com/v1  # DeepSeek API地址
-
-CHAT_ANY_WHERE_KEY=your_key     # ChatAnyWhere API密钥
-CHAT_ANY_WHERE_BASE_URL=https://api.chatanywhere.tech/v1  # ChatAnyWhere API地址
-```
-
-#### 在bot_config.toml中引用API凭证：
-
-```
-[model.llm_reasoning]
-name = "Pro/deepseek-ai/DeepSeek-R1"
-base_url = "SILICONFLOW_BASE_URL"  # 引用.env.prod中定义的地址
-key = "SILICONFLOW_KEY"            # 引用.env.prod中定义的密钥
-```
-
-如需切换到其他API服务，只需修改引用：
-
-```
-[model.llm_reasoning]
-name = "Pro/deepseek-ai/DeepSeek-R1"
-base_url = "DEEP_SEEK_BASE_URL"  # 切换为DeepSeek服务
-key = "DEEP_SEEK_KEY"            # 使用DeepSeek密钥
-```
-
-#### 配置文件详解
-
-##### 环境配置文件 (.env.prod)
-
-```
-# API配置
-SILICONFLOW_KEY=your_key
-SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1/
-DEEP_SEEK_KEY=your_key
-DEEP_SEEK_BASE_URL=https://api.deepseek.com/v1
-CHAT_ANY_WHERE_KEY=your_key
-CHAT_ANY_WHERE_BASE_URL=https://api.chatanywhere.tech/v1
-
-# 服务配置
-HOST=127.0.0.1  # 如果使用Docker部署，需要改成0.0.0.0，否则QQ消息无法传入
-PORT=8080
-
-# 数据库配置
-MONGODB_HOST=127.0.0.1  # 如果使用Docker部署，需要改成数据库容器的名字，默认是mongodb
-MONGODB_PORT=27017
-DATABASE_NAME=MegBot
-MONGODB_USERNAME = ""  # 数据库用户名
-MONGODB_PASSWORD = ""  # 数据库密码
-MONGODB_AUTH_SOURCE = ""  # 认证数据库
-
-# 插件配置
-PLUGINS=["src2.plugins.chat"]
-```
-
-##### 机器人配置文件 (bot_config.toml)
-
-```
-[bot]
-qq = "机器人QQ号"  # 必填
-nickname = "麦麦"  # 机器人昵称（你希望机器人怎么称呼它自己）
-
-[personality]
-prompt_personality = [
-    "曾经是一个学习地质的女大学生，现在学习心理学和脑科学，你会刷贴吧",
-    "是一个女大学生，你有黑色头发，你会刷小红书"
-]
-prompt_schedule = "一个曾经学习地质,现在学习心理学和脑科学的女大学生，喜欢刷qq，贴吧，知乎和小红书"
-
-[message]
-min_text_length = 2  # 最小回复长度
-max_context_size = 15  # 上下文记忆条数
-emoji_chance = 0.2  # 表情使用概率
-ban_words = []  # 禁用词列表
-
-[emoji]
-auto_save = true  # 自动保存表情
-enable_check = false  # 启用表情审核
-check_prompt = "符合公序良俗"
-
-[groups]
-talk_allowed = []      # 允许对话的群号
-talk_frequency_down = []   # 降低回复频率的群号
-ban_user_id = []      # 禁止回复的用户QQ号
-
-[others]
-enable_advance_output = true  # 启用详细日志
-enable_kuuki_read = true  # 启用场景理解
-
-# 模型配置
-[model.llm_reasoning]  # 推理模型
-name = "Pro/deepseek-ai/DeepSeek-R1"
-base_url = "SILICONFLOW_BASE_URL"
-key = "SILICONFLOW_KEY"
-
-[model.llm_reasoning_minor]  # 轻量推理模型
-name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
-base_url = "SILICONFLOW_BASE_URL"
-key = "SILICONFLOW_KEY"
-
-[model.llm_normal]  # 对话模型
-name = "Pro/deepseek-ai/DeepSeek-V3"
-base_url = "SILICONFLOW_BASE_URL"
-key = "SILICONFLOW_KEY"
-
-[model.llm_normal_minor]  # 备用对话模型
-name = "deepseek-ai/DeepSeek-V2.5"
-base_url = "SILICONFLOW_BASE_URL"
-key = "SILICONFLOW_KEY"
-
-[model.vlm]  # 图像识别模型
-name = "deepseek-ai/deepseek-vl2"
-base_url = "SILICONFLOW_BASE_URL"
-key = "SILICONFLOW_KEY"
-
-[model.embedding]  # 文本向量模型
-name = "BAAI/bge-m3"
-base_url = "SILICONFLOW_BASE_URL"
-key = "SILICONFLOW_KEY"
-
-
-[topic.llm_topic]
-name = "Pro/deepseek-ai/DeepSeek-V3"
-base_url = "SILICONFLOW_BASE_URL"
-key = "SILICONFLOW_KEY"
-```
 
 **step # 6** 运行
 
@@ -438,7 +320,7 @@ sudo systemctl enable bot.service # 启动bot服务
 sudo systemctl status bot.service # 检查bot服务状态
 ```
 
-```
-python bot.py
+```bash
+python bot.py  # 运行麦麦
 ```
 

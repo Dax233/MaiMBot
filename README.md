@@ -101,7 +101,7 @@
 
 <div align="center">
 <a href="https://www.bilibili.com/video/BV1amAneGE3P" target="_blank">
-    <img src="docs/video.png" width="300" alt="麦麦演示视频">
+    <img src="docs/pic/video.png" width="300" alt="麦麦演示视频">
     <br>
     👆 点击观看麦麦演示视频 👆
 
@@ -148,6 +148,8 @@ MaiMBot是一个开源项目，我们非常欢迎你的参与。你的贡献，�
 - [📦 Windows 手动部署指南 ](docs/manual_deploy_windows.md)
 
 - [📦 Linux 手动部署指南 ](docs/manual_deploy_linux.md)
+
+- [📦 macOS 手动部署指南 ](docs/manual_deploy_macos.md)
 
 如果你不知道Docker是什么，建议寻找相关教程或使用手动部署 **（现在不建议使用docker，更新慢，可能不适配）**
 

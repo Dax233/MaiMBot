@@ -33,7 +33,7 @@ class TopicIdentifier:
 消息内容：{text}"""
 
         # 使用 LLM_request 类进行请求
-        topic, _ = await self.llm_topic_judge.generate_response(prompt)
+        topic, _, _ = await self.llm_topic_judge.generate_response(prompt)
 
         if not topic:
             logger.error("LLM API 返回为空")
