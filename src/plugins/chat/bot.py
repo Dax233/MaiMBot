@@ -296,7 +296,7 @@ class ChatBot:
                     return
 
             raw_message = f"[戳了戳]{global_config.BOT_NICKNAME}"  # 默认类型
-            if info := event.raw_info:
+            if info := event.model_extra["raw_info"]:
                 poke_type = info[2].get("txt", "戳了戳")  # 戳戳类型，例如“拍一拍”、“揉一揉”、“捏一捏”
                 custom_poke_message = info[4].get("txt", "")  # 自定义戳戳消息，若不存在会为空字符串
                 raw_message = f"[{poke_type}]{global_config.BOT_NICKNAME}{custom_poke_message}"

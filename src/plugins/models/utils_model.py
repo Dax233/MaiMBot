@@ -274,6 +274,7 @@ class LLM_request:
                             raise RuntimeError(f"请求被拒绝: {error_code_mapping.get(response.status)}")
 
                         response.raise_for_status()
+                        reasoning_content = ""
 
                         # 将流式输出转化为非流式输出
                         if stream_mode:
@@ -303,6 +304,8 @@ class LLM_request:
                                             accumulated_content += delta_content
                                             # 检测流式输出文本是否结束
                                             finish_reason = chunk["choices"][0].get("finish_reason")
+                                            if delta.get("reasoning_content", None):
+                                                reasoning_content += delta["reasoning_content"]
                                             if finish_reason == "stop":
                                                 chunk_usage = chunk.get("usage", None)
                                                 if chunk_usage:
@@ -314,7 +317,6 @@ class LLM_request:
                                     except Exception as e:
                                         logger.exception(f"解析流式输出错误: {str(e)}")
                             content = accumulated_content
-                            reasoning_content = ""
                             think_match = re.search(r"<think>(.*?)</think>", content, re.DOTALL)
                             if think_match:
                                 reasoning_content = think_match.group(1).strip()

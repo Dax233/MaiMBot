@@ -2,7 +2,7 @@
 
 
 ## 事前准备
-为了能使麦麦不间断的运行，你需要一台一直开着的主机。
+为了能使麦麦不间断的运行，你需要一台一直开着的服务器。
 
 ### 如果你想购买服务器
 华为云、阿里云、腾讯云等等都是在国内可以选择的选择。
@@ -11,6 +11,8 @@
 
 ### 如果你不想购买服务器
 你可以准备一台可以一直开着的电脑/主机，只需要保证能够正常访问互联网即可
+
+**下文将统称它们为`服务器`**
 
 我们假设你已经有了一台Linux架构的服务器。举例使用的是Ubuntu24.04，其他的原理相似。
 
@@ -120,6 +122,7 @@ sudo apt install python-is-python3
 ```
 
 ## 3.MongoDB的安装
+*如果你是参考[官方文档](https://www.mongodb.com/zh-cn/docs/manual/administration/install-on-linux/#std-label-install-mdb-community-edition-linux)进行安装的，可跳过此步*
 
 ``` bash
 cd /moi/mai
@@ -156,6 +159,7 @@ sudo systemctl enable mongod
 curl -o napcat.sh https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh && sudo bash napcat.sh
 ```
 执行后，脚本会自动帮你部署好QQ及Napcat
+*注：如果你已经手动安装了Napcat和QQ，可忽略此步*
 
 成功的标志是输入``` napcat ```出来炫酷的彩虹色界面
 
@@ -225,7 +229,8 @@ bot
    └─ bot_config.toml
 ```
 
-你要会vim直接在终端里修改也行，不过也可以把它们下到本地改好再传上去：
+你可以使用vim、nano等编辑器直接在终端里修改这些配置文件，但如果你不熟悉它们的操作，也可以使用带图形界面的编辑器。
+如果你的麦麦部署在远程服务器，也可以把它们下载到本地改好再传上去
 
 ### step 5 文件配置
 
@@ -244,7 +249,7 @@ bot
 - [⚙️ 标准配置指南](./installation_standard.md) - 简明专业的配置说明，适合有经验的用户
 
 
-**step # 6** 运行
+### step 6 运行
 
 现在再运行
 

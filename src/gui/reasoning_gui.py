@@ -6,6 +6,8 @@ import time
 from datetime import datetime
 from typing import Dict, List
 from typing import Optional
+sys.path.insert(0, sys.path[0]+"/../")
+sys.path.insert(0, sys.path[0]+"/../")
 from src.common.logger import get_module_logger
 
 import customtkinter as ctk

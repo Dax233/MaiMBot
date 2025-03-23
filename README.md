@@ -155,6 +155,8 @@ MaiMBot是一个开源项目，我们非常欢迎你的参与。你的贡献，�
 
 - [🐳 Docker部署指南](docs/docker_deploy.md)
 
+- [🖥️群晖 NAS 部署指南](docs/synology_deploy.md)
+
 ### 配置说明
 
 - [🎀 新手配置指南](docs/installation_cute.md) - 通俗易懂的配置教程，适合初次使用的猫娘

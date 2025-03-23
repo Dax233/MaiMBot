@@ -1,5 +1,5 @@
-call conda activate niuniu
-cd src\gui
-start /b python reasoning_gui.py
+@REM call conda activate niuniu
+cd ../src\gui
+start /b ../../venv/scripts/python.exe reasoning_gui.py
 exit
 

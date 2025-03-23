@@ -41,8 +41,8 @@ class WillingManager:
 
         interested_rate = interested_rate * config.response_interested_rate_amplifier
 
-        if interested_rate > 0.5:
-            current_willing += interested_rate - 0.5
+        if interested_rate > 0.4:
+            current_willing += interested_rate - 0.3
 
         if is_mentioned_bot and current_willing < 1.0:
             current_willing += 1
