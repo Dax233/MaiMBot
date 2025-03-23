@@ -249,10 +249,10 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
             return list(text)  # 如果文本很短且触发随机条件,直接按字符分割
         else:
             return [text]
-    if len_text < 12:
-        split_strength = 0.3
-    elif len_text < 32:
-        split_strength = 0.7
+    if len_text < 48:
+        split_strength = 0.2
+    elif len_text < 96:
+        split_strength = 0.5
     else:
         split_strength = 0.9
     # 先移除换行符
