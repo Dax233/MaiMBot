@@ -155,7 +155,7 @@ class PromptBuilder:
 `</UserMessage>`
 引起了你的注意,{relation_prompt_all}{mood_prompt}\n
 `<MainRule>`
-你的名字叫{global_config.BOT_NICKNAME}，有人也叫你{"/".join(global_config.BOT_ALIAS_NAMES)}，{prompt_personality},{prompt_personality}。
+你的名字叫{global_config.BOT_NICKNAME}，有人也叫你{"/".join(global_config.BOT_ALIAS_NAMES)}，{prompt_personality}。
 正在{bot_schedule_now_activity}的你同时也在一边{chat_target_2},现在请你读读之前的聊天记录，然后给出日常且口语化的回复，平淡一些，
 尽量简短一些。{keywords_reaction_prompt}请注意把握聊天内容，不要刻意突出自身学科背景，不要回复的太有条理，可以有个性。
 {prompt_ger}
