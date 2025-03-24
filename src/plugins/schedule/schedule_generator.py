@@ -97,13 +97,27 @@ class ScheduleGenerator:
             reg = r"\{(.|\r|\n)+\}"
             matched = re.search(reg, schedule_text)[0]
             schedule_dict = json.loads(matched)
+            self._check_schedule_validity(schedule_dict)
             return schedule_dict
         except json.JSONDecodeError:
             logger.exception("解析日程失败: {}".format(schedule_text))
             return False
+        except ValueError as e:
+            logger.exception(f"解析日程失败: {str(e)}")
+            return False
         except Exception as e:
             logger.exception(f"解析日程发生错误:{str(e)}")
             return False
+
+    def _check_schedule_validity(self, schedule_dict: Dict[str, str]):
+        """检查日程是否合法"""
+        if not schedule_dict:
+            return
+        for time_str in schedule_dict.keys():
+            try:
+                self._parse_time(time_str)
+            except ValueError:
+                raise ValueError("日程时间格式不正确") from None
 
     def _parse_time(self, time_str: str) -> str:
         """解析时间字符串，转换为时间"""
