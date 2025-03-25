@@ -311,7 +311,7 @@ class RelationshipManager:
             level_num = 0
         elif -227 <= relationship_value < -73:
             level_num = 1
-        elif -76 <= relationship_value < 227:
+        elif -73 <= relationship_value < 227:
             level_num = 2
         elif 227 <= relationship_value < 587:
             level_num = 3
