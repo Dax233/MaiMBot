@@ -244,8 +244,8 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
         List[str]: 分割后的句子列表
     """
     len_text = len(text)
-    if len_text < 5:
-        if random.random() < 0.01:
+    if len_text < 12:
+        if random.random() < 0.001:
             return list(text)  # 如果文本很短且触发随机条件,直接按字符分割
         else:
             return [text]
