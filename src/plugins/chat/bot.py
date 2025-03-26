@@ -1,6 +1,6 @@
 import re
 import time
-from random import random, randint
+from random import random
 from nonebot.adapters.onebot.v11 import (
     Bot,
     MessageEvent,
@@ -135,14 +135,14 @@ class ChatBot:
 
         await self.storage.store_message(message, chat, topic[0] if topic else None)
 
-        if ( f"[CQ:at,qq={global_config.BOT_QQ},name=" in message_cq.raw_message ) and global_config.at_bot_inevitable_reply:
+        if (f"[CQ:at,qq={global_config.BOT_QQ}" in message_cq.raw_message) and global_config.at_bot_inevitable_reply:
             reply_probability = 1
-            logger.info(f"被@，回复概率设置为100%")
+            logger.info("被@，回复概率设置为100%")
         else:
             is_mentioned = is_mentioned_bot_in_message(message)
             if is_mentioned and global_config.metioned_bot_inevitable_reply:
                 reply_probability = 1
-                logger.info(f"被提及，回复概率设置为100%")
+                logger.info("被提及，回复概率设置为100%")
             else:
                 reply_probability = await willing_manager.change_reply_willing_received(
                     chat_stream=chat,
@@ -421,7 +421,8 @@ class ChatBot:
                 if event.group_id not in global_config.talk_allowed_groups:
                     return
 
-            user_infot_api = await bot.call_api('get_group_member_info',group_id = event.group_id, user_id = event.user_id, no_cache = True)
+            user_infot_api = await bot.call_api(
+                'get_group_member_info',group_id = event.group_id, user_id = event.user_id, no_cache = True)
             cardname = user_infot_api['title'] or event.sender.card
             user_info = UserInfo(
                 user_id=event.user_id,

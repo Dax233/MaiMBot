@@ -21,7 +21,8 @@ class SubHeartflow:
         self.current_mind = ""
         self.past_mind = []
         self.current_state : CuttentState = CuttentState()
-        self.llm_model = LLM_request(model=global_config.llm_topic_judge, temperature=0.7, max_tokens=600, request_type="sub_heart_flow")
+        self.llm_model = LLM_request(
+            model=global_config.llm_topic_judge, temperature=0.7, max_tokens=600, request_type="sub_heart_flow")
         self.outer_world = None
         
         self.main_heartflow_info = ""
@@ -51,15 +52,17 @@ class SubHeartflow:
         mood_info = self.current_state.mood
         related_memory_info = 'memory'
         message_stream_info = self.outer_world.talking_summary
-        
-        prompt = f""
+
+        prompt = ""
         # prompt += f"枫的总体想法是：{self.main_heartflow_info}\n\n"
         prompt += f"{personality_info}\n"
         prompt += f"现在你正在上网，和qq群里的网友们聊天，群里正在聊的话题是：{message_stream_info}\n"
         prompt += f"你想起来{related_memory_info}。"
         prompt += f"刚刚你的想法是{current_thinking_info}。"
         prompt += f"你现在{mood_info}。"
-        prompt += f"现在你接下去继续思考，产生新的想法，不要分点输出，输出连贯的内心独白，不要太长，但是记得结合上述的消息，要记得维持住你的人设，关注聊天和新内容，不要思考太多:"
+        prompt += """
+现在你接下去继续思考，产生新的想法，不要分点输出，输出连贯的内心独白，不要太长，
+但是记得结合上述的消息，要记得维持住你的人设，关注聊天和新内容，不要思考太多:"""
         
         reponse, reasoning_content = await self.llm_model.generate_response_async(prompt)
         
@@ -80,7 +83,7 @@ class SubHeartflow:
         message_new_info = chat_talking_prompt
         reply_info = reply_content
         
-        prompt = f""
+        prompt = ""
         prompt += f"{personality_info}\n"
         prompt += f"现在你正在上网，和qq群里的网友们聊天，群里正在聊的话题是：{message_stream_info}\n"
         prompt += f"你想起来{related_memory_info}。"
@@ -88,7 +91,9 @@ class SubHeartflow:
         prompt += f"你现在看到了网友们发的新消息:{message_new_info}\n"
         prompt += f"你刚刚回复了群友们:{reply_info}"
         prompt += f"你现在{mood_info}。"
-        prompt += f"现在你接下去继续思考，产生新的想法，记得保留你刚刚的想法，不要分点输出，输出连贯的内心独白，不要太长，但是记得结合上述的消息，要记得你的人设，关注聊天和新内容，以及你回复的内容，不要思考太多:"
+        prompt += """
+现在你接下去继续思考，产生新的想法，记得保留你刚刚的想法，不要分点输出，输出连贯的内心独白，不要太长，
+但是记得结合上述的消息，要记得你的人设，关注聊天和新内容，以及你回复的内容，不要思考太多:"""
         
         reponse, reasoning_content = await self.llm_model.generate_response_async(prompt)
         
@@ -103,13 +108,13 @@ class SubHeartflow:
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
         # print("枫闹情绪了2")
-        prompt = f""
+        prompt = ""
         prompt += f"{personality_info}\n"
-        prompt += f"现在你正在上网，和qq群里的网友们聊天"
+        prompt += "现在你正在上网，和qq群里的网友们聊天"
         prompt += f"你现在的想法是{current_thinking_info}。"
         prompt += f"你现在{mood_info}。"
-        prompt += f"现在请你思考，你想不想发言或者回复，请你输出一个数字，1-10，1表示非常不想，10表示非常想。"
-        prompt += f"请你用<>包裹你的回复意愿，例如输出<1>表示不想回复，输出<10>表示非常想回复。<5>表示想回复，但是需要思考一下。"
+        prompt += "现在请你思考，你想不想发言或者回复，请你输出一个数字，1-10，1表示非常不想，10表示非常想。"
+        prompt += "请你用<>包裹你的回复意愿，例如输出<1>表示不想回复，输出<10>表示非常想回复。<5>表示想回复，但是需要思考一下。"
         
         response, reasoning_content = await self.llm_model.generate_response_async(prompt)
         # 解析willing值
