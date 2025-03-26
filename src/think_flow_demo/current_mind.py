@@ -114,7 +114,9 @@ class SubHeartflow:
         prompt += f"你现在的想法是{current_thinking_info}。"
         prompt += f"你现在{mood_info}。"
         prompt += "现在请你思考，你想不想发言或者回复，请你输出一个数字，1-10，1表示非常不想，10表示非常想。"
-        prompt += "请你用<>包裹你的回复意愿，例如输出<1>表示不想回复，输出<10>表示非常想回复。<5>表示想回复，但是需要思考一下。"
+        prompt += """
+请你用<>包裹你的回复意愿，例如输出<1>表示不想回复，输出<10>表示非常想回复。
+<5>表示想回复，但是需要思考一下。"""
         
         response, reasoning_content = await self.llm_model.generate_response_async(prompt)
         # 解析willing值
