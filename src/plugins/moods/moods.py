@@ -122,7 +122,7 @@ class MoodManager:
         time_diff = current_time - self.last_update
 
         # Valence 向中性（0）回归
-        valence_target = 0.0
+        valence_target = 0
         self.current_mood.valence = valence_target + (self.current_mood.valence - valence_target) * math.exp(
             -self.decay_rate_valence * time_diff
         )
