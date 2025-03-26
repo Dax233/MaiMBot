@@ -156,10 +156,14 @@ class PromptBuilder:
 
         prompt = f"""
 {prompt_info}
-{memory_prompt}
-你刚刚脑子里在想：
-{current_mind_info}
+{memory_prompt}"""
 
+        if global_config.enable_think_flow:
+            prompt += f"""
+你刚刚脑子里在想：
+{current_mind_info}"""
+
+        prompt += f"""
 {chat_target}
 {chat_talking_prompt}
 现在"{sender_name}"说的:{message_txt}。引起了你的注意,{relation_prompt_all}{mood_prompt}\n
