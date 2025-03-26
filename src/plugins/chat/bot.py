@@ -324,7 +324,7 @@ class ChatBot:
                 raw_message = f"[{poke_type}]{global_config.BOT_NICKNAME}{custom_poke_message}"
 
                 raw_message += "，作为一个类似摸摸头的友善行为"
-                if randint < 0.9:
+                if random() < 0.9:
                     return
 
             user_info = UserInfo(
