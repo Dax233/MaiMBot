@@ -48,6 +48,8 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> bool:
     nicknames = global_config.BOT_ALIAS_NAMES
     message_content = re.sub(r'\[CQ:reply,[\s\S]*?\]','', message.raw_message)
     for keyword in keywords:
+        if f"[回复 {keyword} 的消息:  " in message.processed_plain_text:
+            return True
         if keyword in message_content:
             return True
     for nickname in nicknames:
@@ -245,14 +247,14 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
         List[str]: 分割后的句子列表
     """
     len_text = len(text)
-    if len_text < 12:
-        if random.random() < 0.001:
+    if len_text < 4:
+        if random.random() < 0.01:
             return list(text)  # 如果文本很短且触发随机条件,直接按字符分割
         else:
             return [text]
-    if len_text < 48:
+    if len_text < 12:
         split_strength = 0.2
-    elif len_text < 96:
+    elif len_text < 32:
         split_strength = 0.6
     else:
         split_strength = 0.7
@@ -368,7 +370,7 @@ def process_llm_response(text: str) -> List[str]:
         return ["懒得说"]
     elif len(text) > max_length * 2 :
         logger.warning(f"回复过长 ({len(text)} 字符)，返回默认回复")
-        return ['懒得说']
+        return ["懒得说"]
     # 处理长消息
     typo_generator = ChineseTypoGenerator(
         error_rate=global_config.chinese_typo_error_rate,
@@ -391,15 +393,9 @@ def process_llm_response(text: str) -> List[str]:
             sentences.append(sentence)
     # 检查分割后的消息数量是否过多（超过3条）
 
-    if len(sentences) > ( max_sentence_num * 2 ):
+    if len(sentences) > max_sentence_num:
         logger.warning(f"分割后消息数量过多 ({len(sentences)} 条)，返回默认回复")
-        return [f'{global_config.BOT_NICKNAME}不知道哦']
-    elif len(sentences) > max_sentence_num:
-        while len(sentences) > max_sentence_num:
-            # 随机选择两个索引进行合并
-            idx1, idx2 = random.sample(range(len(sentences)), 2)
-            sentences[idx1] = sentences[idx1] + " " + sentences[idx2]
-            del sentences[idx2]
+        return [f"{global_config.BOT_NICKNAME}不知道哦"]
 
     return sentences
 
