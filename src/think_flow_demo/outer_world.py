@@ -91,7 +91,7 @@ class OuterWorld:
     def __init__(self):
         self.talking_info_list = [] #装的一堆talking_info
         self.shedule_info = "无日程"
-        # self.interest_info = "麦麦你好"
+        # self.interest_info = "枫你好"
         self.outer_world_info = ""
         self.start_time = int(datetime.now().timestamp())
     

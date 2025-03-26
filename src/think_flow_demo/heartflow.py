@@ -34,7 +34,7 @@ class Heartflow:
             await asyncio.sleep(60)
     
     async def do_a_thinking(self):
-        print("麦麦大脑袋转起来了")
+        print("枫的大脑袋转起来了")
         self.current_state.update_current_state_info()
         
         personality_info = open("src/think_flow_demo/personality_info.txt", "r", encoding="utf-8").read()
@@ -58,7 +58,7 @@ class Heartflow:
         self.update_current_mind(reponse)
         
         self.current_mind = reponse
-        print(f"麦麦的总体脑内状态：{self.current_mind}")
+        print(f"枫的总体脑内状态：{self.current_mind}")
         
         for _, subheartflow in self._subheartflows.items():
             subheartflow.main_heartflow_info = reponse
@@ -82,8 +82,8 @@ class Heartflow:
         
         prompt = ""
         prompt += f"{personality_info}\n"
-        prompt += f"现在麦麦的想法是：{self.current_mind}\n"
-        prompt += f"现在麦麦在qq群里进行聊天，聊天的话题如下：{minds_str}\n"
+        prompt += f"现在枫的想法是：{self.current_mind}\n"
+        prompt += f"现在枫在qq群里进行聊天，聊天的话题如下：{minds_str}\n"
         prompt += f"你现在{mood_info}\n"
         prompt += '''现在请你总结这些聊天内容，注意关注聊天内容对原有的想法的影响，输出连贯的内心独白
         不要太长，但是记得结合上述的消息，要记得你的人设，关注新内容:'''

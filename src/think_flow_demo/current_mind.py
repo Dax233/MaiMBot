@@ -38,12 +38,12 @@ class SubHeartflow:
     async def subheartflow_start_working(self):
         while True:
             await self.do_a_thinking()
-            print("麦麦闹情绪了")
+            print("枫闹情绪了")
             await self.judge_willing()
             await asyncio.sleep(20)
     
     async def do_a_thinking(self):
-        print("麦麦小脑袋转起来了")
+        print("枫的小脑袋转起来了")
         self.current_state.update_current_state_info()
         
         personality_info = open("src/think_flow_demo/personality_info.txt", "r", encoding="utf-8").read()
@@ -53,7 +53,7 @@ class SubHeartflow:
         message_stream_info = self.outer_world.talking_summary
         
         prompt = f""
-        # prompt += f"麦麦的总体想法是：{self.main_heartflow_info}\n\n"
+        # prompt += f"枫的总体想法是：{self.main_heartflow_info}\n\n"
         prompt += f"{personality_info}\n"
         prompt += f"现在你正在上网，和qq群里的网友们聊天，群里正在聊的话题是：{message_stream_info}\n"
         prompt += f"你想起来{related_memory_info}。"
@@ -66,10 +66,10 @@ class SubHeartflow:
         self.update_current_mind(reponse)
         
         self.current_mind = reponse
-        print(f"麦麦的脑内状态：{self.current_mind}")
+        print(f"枫的脑内状态：{self.current_mind}")
     
     async def do_after_reply(self,reply_content,chat_talking_prompt):
-        # print("麦麦脑袋转起来了")
+        # print("枫的脑袋转起来了")
         self.current_state.update_current_state_info()
         
         personality_info = open("src/think_flow_demo/personality_info.txt", "r", encoding="utf-8").read()
@@ -95,14 +95,14 @@ class SubHeartflow:
         self.update_current_mind(reponse)
         
         self.current_mind = reponse
-        print(f"{self.observe_chat_id}麦麦的脑内状态：{self.current_mind}")
+        print(f"{self.observe_chat_id}枫的脑内状态：{self.current_mind}")
         
     async def judge_willing(self):
-        # print("麦麦闹情绪了1")
+        # print("枫闹情绪了1")
         personality_info = open("src/think_flow_demo/personality_info.txt", "r", encoding="utf-8").read()
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
-        # print("麦麦闹情绪了2")
+        # print("枫闹情绪了2")
         prompt = f""
         prompt += f"{personality_info}\n"
         prompt += f"现在你正在上网，和qq群里的网友们聊天"
