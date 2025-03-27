@@ -10,7 +10,7 @@ from .message import MessageSending, MessageThinking, MessageSet
 
 from .storage import MessageStorage
 from .config import global_config
-from .utils import truncate_message
+from .utils import truncate_message, calculate_typing_time
 
 from src.common.logger import LogConfig, SENDER_STYLE_CONFIG
 
