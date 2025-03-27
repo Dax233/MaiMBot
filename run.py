@@ -51,7 +51,7 @@ def run_cmd(command: str, open_new_window: bool = True):
 
 
 def run_maimbot():
-    run_cmd(r"napcat\NapCatWinBootMain.exe 10001", False)
+    # run_cmd(r"napcat\NapCatWinBootMain.exe 10001", False)
     if not os.path.exists(r"mongodb\db"):
         os.makedirs(r"mongodb\db")
     run_cmd(r"mongodb\bin\mongod.exe --dbpath=" + os.getcwd() + r"\mongodb\db --port 27017")
