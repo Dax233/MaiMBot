@@ -57,9 +57,7 @@ class PromptBuilder:
         mood_prompt = mood_manager.get_prompt()
 
         # 日程构建
-        # current_date = time.strftime("%Y-%m-%d", time.localtime())
-        # current_time = time.strftime("%H:%M:%S", time.localtime())
-        # bot_schedule_now_time, bot_schedule_now_activity = bot_schedule.get_current_task()
+        # schedule_prompt = f'''你现在正在做的事情是：{bot_schedule.get_current_num_task(num = 1,time_info = False)}'''
 
         # 获取聊天上下文
         chat_in_group = True
@@ -176,8 +174,6 @@ class PromptBuilder:
 
         prompt_check_if_response = ""
         
-        
-        # print(prompt)
         
         return prompt, prompt_check_if_response
 

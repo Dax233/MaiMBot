@@ -2,8 +2,11 @@ from .outer_world import outer_world
 import asyncio
 from src.plugins.moods.moods import MoodManager
 from src.plugins.models.utils_model import LLM_request
-from src.plugins.chat.config import global_config
+from src.plugins.chat.config import global_config, BotConfig
 import re
+import time
+from src.plugins.schedule.schedule_generator import bot_schedule
+
 class CuttentState:
     def __init__(self):
         self.willing = 0
@@ -29,8 +32,12 @@ class SubHeartflow:
         
         self.observe_chat_id = None
         
+        self.last_reply_time = time.time()
+        
         if not self.current_mind:
             self.current_mind = "你什么也没想"
+            
+        self.personality_info = " ".join(BotConfig.PROMPT_PERSONALITY)
     
     def assign_observe(self,stream_id):
         self.outer_world = outer_world.get_world_by_stream_id(stream_id)
@@ -38,32 +45,35 @@ class SubHeartflow:
 
     async def subheartflow_start_working(self):
         while True:
-            await self.do_a_thinking()
-            print("枫闹情绪了")
-            await self.judge_willing()
-            await asyncio.sleep(20)
+            current_time = time.time()
+            if current_time - self.last_reply_time > 180:  # 3分钟 = 180秒
+                # print(f"{self.observe_chat_id}麦麦已经3分钟没有回复了，暂时停止思考")
+                await asyncio.sleep(60)  # 每30秒检查一次
+            else:
+                await self.do_a_thinking()
+                await self.judge_willing()
+                await asyncio.sleep(60)
     
     async def do_a_thinking(self):
         print("枫的小脑袋转起来了")
         self.current_state.update_current_state_info()
         
-        personality_info = open("src/think_flow_demo/personality_info.txt", "r", encoding="utf-8").read()
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
-        related_memory_info = 'memory'
+        related_memory_info = ''
         message_stream_info = self.outer_world.talking_summary
-
+        schedule_info = bot_schedule.get_current_num_task(num = 2,time_info = False)
+        
         prompt = ""
-        # prompt += f"枫的总体想法是：{self.main_heartflow_info}\n\n"
-        prompt += f"{personality_info}\n"
+        prompt += f"你刚刚在做的事情是：{schedule_info}\n"
+        # prompt += f"麦麦的总体想法是：{self.main_heartflow_info}\n\n"
+        prompt += f"{self.personality_info}\n"
         prompt += f"现在你正在上网，和qq群里的网友们聊天，群里正在聊的话题是：{message_stream_info}\n"
         prompt += f"你想起来{related_memory_info}。"
         prompt += f"刚刚你的想法是{current_thinking_info}。"
         prompt += f"你现在{mood_info}。"
-        prompt += """
-现在你接下去继续思考，产生新的想法，不要分点输出，输出连贯的内心独白，不要太长，
-但是记得结合上述的消息，要记得维持住你的人设，关注聊天和新内容，不要思考太多:"""
-        
+        prompt += "现在你接下去继续思考，产生新的想法，不要分点输出，输出连贯的内心独白，不要太长，"
+        prompt += "但是记得结合上述的消息，要记得维持住你的人设，关注聊天和新内容，不要思考太多:"
         reponse, reasoning_content = await self.llm_model.generate_response_async(prompt)
         
         self.update_current_mind(reponse)
@@ -75,7 +85,6 @@ class SubHeartflow:
         # print("枫的脑袋转起来了")
         self.current_state.update_current_state_info()
         
-        personality_info = open("src/think_flow_demo/personality_info.txt", "r", encoding="utf-8").read()
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
         related_memory_info = 'memory'
@@ -84,16 +93,15 @@ class SubHeartflow:
         reply_info = reply_content
         
         prompt = ""
-        prompt += f"{personality_info}\n"
+        prompt += f"{self.personality_info}\n"
         prompt += f"现在你正在上网，和qq群里的网友们聊天，群里正在聊的话题是：{message_stream_info}\n"
         prompt += f"你想起来{related_memory_info}。"
         prompt += f"刚刚你的想法是{current_thinking_info}。"
         prompt += f"你现在看到了网友们发的新消息:{message_new_info}\n"
         prompt += f"你刚刚回复了群友们:{reply_info}"
         prompt += f"你现在{mood_info}。"
-        prompt += """
-现在你接下去继续思考，产生新的想法，记得保留你刚刚的想法，不要分点输出，输出连贯的内心独白，不要太长，
-但是记得结合上述的消息，要记得你的人设，关注聊天和新内容，以及你回复的内容，不要思考太多:"""
+        prompt += "现在你接下去继续思考，产生新的想法，记得保留你刚刚的想法，不要分点输出，输出连贯的内心独白"
+        prompt += "不要太长，但是记得结合上述的消息，要记得你的人设，关注聊天和新内容，以及你回复的内容，不要思考太多:"
         
         reponse, reasoning_content = await self.llm_model.generate_response_async(prompt)
         
@@ -102,21 +110,20 @@ class SubHeartflow:
         self.current_mind = reponse
         print(f"{self.observe_chat_id}枫的脑内状态：{self.current_mind}")
         
+        self.last_reply_time = time.time()
+        
     async def judge_willing(self):
         # print("枫闹情绪了1")
-        personality_info = open("src/think_flow_demo/personality_info.txt", "r", encoding="utf-8").read()
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
         # print("枫闹情绪了2")
         prompt = ""
-        prompt += f"{personality_info}\n"
+        prompt += f"{self.personality_info}\n"
         prompt += "现在你正在上网，和qq群里的网友们聊天"
         prompt += f"你现在的想法是{current_thinking_info}。"
         prompt += f"你现在{mood_info}。"
         prompt += "现在请你思考，你想不想发言或者回复，请你输出一个数字，1-10，1表示非常不想，10表示非常想。"
-        prompt += """
-请你用<>包裹你的回复意愿，例如输出<1>表示不想回复，输出<10>表示非常想回复。
-<5>表示想回复，但是需要思考一下。"""
+        prompt += "请你用<>包裹你的回复意愿，输出<1>表示不想回复，输出<10>表示非常想回复。请你考虑，你完全可以不回复"
         
         response, reasoning_content = await self.llm_model.generate_response_async(prompt)
         # 解析willing值
