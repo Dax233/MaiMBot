@@ -61,7 +61,7 @@ class Message_Sender:
             if not is_recalled:
                 
                 typing_time = calculate_typing_time(message.processed_plain_text)
-                logger.info(f"麦麦正在打字，预计需要{typing_time}秒")
+                logger.info(f"枫正在打字，预计需要{typing_time}秒")
                 await asyncio.sleep(typing_time)
                 
                 message_json = message.to_dict()
