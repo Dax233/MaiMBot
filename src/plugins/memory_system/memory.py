@@ -27,10 +27,6 @@ memory_config = LogConfig(
     console_format=MEMORY_STYLE_CONFIG["console_format"],
     file_format=MEMORY_STYLE_CONFIG["file_format"],
 )
-# print(f"memory_config: {memory_config}")
-# print(f"MEMORY_STYLE_CONFIG: {MEMORY_STYLE_CONFIG}")
-# print(f"MEMORY_STYLE_CONFIG['console_format']: {MEMORY_STYLE_CONFIG['console_format']}")
-# print(f"MEMORY_STYLE_CONFIG['file_format']: {MEMORY_STYLE_CONFIG['file_format']}")
 
 
 logger = get_module_logger("memory_system", config=memory_config)
