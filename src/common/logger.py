@@ -128,14 +128,14 @@ HEARTFLOW_STYLE_CONFIG = {
             "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
             "<level>{level: <8}</level> | "
             "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-yellow>麦麦大脑袋</light-yellow> | "
+            "<light-yellow>枫大脑袋</light-yellow> | "
             "<level>{message}</level>"
         ),
-        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦大脑袋 | {message}"),
+        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫大脑袋 | {message}"),
     },
     "simple": {
-        "console_format": ("<green>{time:MM-DD HH:mm}</green> | <light-green>麦麦大脑袋</light-green> | <light-green>{message}</light-green>"),  # noqa: E501
-        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦大脑袋 | {message}"),
+        "console_format": ("<green>{time:MM-DD HH:mm}</green> | <light-green>枫大脑袋</light-green> | <light-green>{message}</light-green>"),  # noqa: E501
+        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫大脑袋 | {message}"),
     },
 }
 
