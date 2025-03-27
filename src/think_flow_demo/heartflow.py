@@ -46,7 +46,7 @@ class Heartflow:
         print("枫的大脑袋转起来了")
         self.current_state.update_current_state_info()
         
-        personality_info = " ".join(BotConfig.PROMPT_PERSONALITY)
+        personality_info = " ".join(global_config.PROMPT_SCHEDULE_GEN)
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
         related_memory_info = 'memory'
@@ -54,14 +54,14 @@ class Heartflow:
         
         schedule_info = bot_schedule.get_current_num_task(num = 5,time_info = True)
         
-        prompt = ""
+        prompt = f"你是{global_config.BOT_NICKNAME},"
         prompt += f"你刚刚在做的事情是：{schedule_info}\n"
         prompt += f"{personality_info}\n"
         prompt += f"你想起来{related_memory_info}。"
         prompt += f"刚刚你的主要想法是{current_thinking_info}。"
         prompt += f"你还有一些小想法，因为你在参加不同的群聊天，是你正在做的事情：{sub_flows_info}\n"
         prompt += f"你现在{mood_info}。"
-        prompt += "现在你接下去继续思考，产生新的想法，但是要基于原有的主要想法，不要分点输出，"
+        prompt += "现在你以第一人称接下去继续思考，产生新的想法，但是要基于原有的主要想法，不要分点输出，"
         prompt += "输出连贯的内心独白，不要太长，但是记得结合上述的消息，关注新内容:"
         
         reponse, reasoning_content = await self.llm_model.generate_response_async(prompt)
@@ -91,7 +91,7 @@ class Heartflow:
         return await self.minds_summary(sub_minds)
     
     async def minds_summary(self,minds_str):
-        personality_info = " ".join(BotConfig.PROMPT_PERSONALITY)
+        personality_info = " ".join(global_config.PROMPT_PERSONALITY)
         mood_info = self.current_state.mood
         
         prompt = ""
