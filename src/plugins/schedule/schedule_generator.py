@@ -10,7 +10,7 @@ sys.path.append(root_path)
 from src.common.database import db # noqa: E402
 from src.common.logger import get_module_logger, SCHEDULE_STYLE_CONFIG, LogConfig # noqa: E402
 from src.plugins.models.utils_model import LLM_request # noqa: E402
-from src.plugins.chat.config import global_config # noqa: E402
+from src.plugins.config.config import global_config # noqa: E402
 
 
 schedule_config = LogConfig(
@@ -158,8 +158,8 @@ class ScheduleGenerator:
         if mind_thinking:
             prompt += f"你脑子里在想：{mind_thinking}\n"
         prompt += f"现在是{now_time}，结合你的个人特点和行为习惯,注意关注你今天的日程安排和想法，这很重要，"
-        prompt += "推测你现在和之后做什么，具体一些，详细一些\n"
-        prompt += "直接返回你在做的事情，不要输出其他内容："
+        prompt += "推测你现在在做什么，具体一些，详细一些\n"
+        prompt += "直接返回你在做的事情，注意是当前时间，不要输出其他内容："
         return prompt
     
     async def generate_daily_schedule(

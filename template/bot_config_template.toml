@@ -3,7 +3,7 @@ version = "0.0.11"
 
 [mai_version]
 version = "0.6.0"
-version-fix = "snapshot-1"
+version-fix = "snapshot-2"
 
 #以下是给开发人员阅读的，一般用户不需要阅读
 #如果你想要修改配置文件，请在修改后将version的值进行变更
@@ -86,7 +86,7 @@ check_prompt = "符合公序良俗" # 表情包过滤要求
 
 [memory]
 build_memory_interval = 2000 # 记忆构建间隔 单位秒   间隔越低，麦麦学习越多，但是冗余信息也会增多
-build_memory_distribution = [4,2,0.6,24,8,0.4] # 记忆构建分布，参数：分布1均值，标准差，权重，分布2均值，标准差，权重
+build_memory_distribution = [4.0,2.0,0.6,24.0,8.0,0.4] # 记忆构建分布，参数：分布1均值，标准差，权重，分布2均值，标准差，权重
 build_memory_sample_num = 10 # 采样数量，数值越高记忆采样次数越多
 build_memory_sample_length = 20 # 采样长度，数值越高一段记忆内容越丰富
 memory_compress_rate = 0.1 # 记忆压缩率 控制记忆精简程度 建议保持默认,调高可以获得更多信息，但是冗余信息也会增多

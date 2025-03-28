@@ -1,7 +1,7 @@
-from .current_mind import SubHeartflow
+from .sub_heartflow import SubHeartflow
 from src.plugins.moods.moods import MoodManager
 from src.plugins.models.utils_model import LLM_request
-from src.plugins.chat.config import global_config, BotConfig
+from src.plugins.config.config import global_config, BotConfig
 from src.plugins.schedule.schedule_generator import bot_schedule
 import asyncio
 from src.common.logger import get_module_logger, LogConfig, HEARTFLOW_STYLE_CONFIG # noqa: E402
@@ -46,7 +46,7 @@ class Heartflow:
         print("枫的大脑袋转起来了")
         self.current_state.update_current_state_info()
         
-        personality_info = " ".join(global_config.PROMPT_SCHEDULE_GEN)
+        personality_info = " ".join(global_config.PROMPT_PERSONALITY)
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
         related_memory_info = 'memory'

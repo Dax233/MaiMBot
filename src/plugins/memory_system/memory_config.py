@@ -29,6 +29,6 @@ class MemoryConfig:
             memory_compress_rate=global_config.memory_compress_rate,
             memory_forget_time=global_config.memory_forget_time,
             memory_ban_words=global_config.memory_ban_words,
-            llm_topic_judge=global_config.topic_judge_model,
-            llm_summary_by_topic=global_config.summary_by_topic_model
+            llm_topic_judge=global_config.llm_topic_judge,
+            llm_summary_by_topic=global_config.llm_summary_by_topic
         ) 
