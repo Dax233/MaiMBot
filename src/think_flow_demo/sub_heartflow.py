@@ -48,6 +48,8 @@ class SubHeartflow:
             self.current_mind = "你什么也没想"
             
         self.personality_info = " ".join(global_config.PROMPT_PERSONALITY)
+        
+        self.is_active = False
     
     def assign_observe(self,stream_id):
         self.outer_world = outer_world.get_world_by_stream_id(stream_id)
@@ -58,8 +60,10 @@ class SubHeartflow:
             current_time = time.time()
             if current_time - self.last_reply_time > 180:  # 3分钟 = 180秒
                 # print(f"{self.observe_chat_id}麦麦已经3分钟没有回复了，暂时停止思考")
+                self.is_active = False
                 await asyncio.sleep(60)  # 每30秒检查一次
             else:
+                self.is_active = True
                 await self.do_a_thinking()
                 await self.judge_willing()
                 await asyncio.sleep(60)
@@ -88,7 +92,7 @@ class SubHeartflow:
         else:
             related_memory_info = ''
             
-        print(f"相关记忆：{related_memory_info}")
+        # print(f"相关记忆：{related_memory_info}")
         
         schedule_info = bot_schedule.get_current_num_task(num = 1,time_info = False)
         
