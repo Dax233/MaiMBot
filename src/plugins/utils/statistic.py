@@ -44,13 +44,19 @@ class LLMStatistics:
 
     def _record_online_time(self):
         """记录在线时间"""
-        try:
+        current_time = datetime.now()
+        # 检查5分钟内是否已有记录
+        recent_record = db.online_time.find_one({
+            "timestamp": {
+                "$gte": current_time - timedelta(minutes=5)
+            }
+        })
+        
+        if not recent_record:
             db.online_time.insert_one({
-                "timestamp": datetime.now(),
+                "timestamp": current_time,
                 "duration": 5  # 5分钟
             })
-        except Exception:
-            logger.exception("记录在线时间失败")
 
     def _collect_statistics_for_period(self, start_time: datetime) -> Dict[str, Any]:
         """收集指定时间段的LLM请求统计数据

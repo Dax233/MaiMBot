@@ -1046,14 +1046,14 @@ class Hippocampus:
             # 将选中的节点添加到remember_map
             for node, normalized_activation in sorted_nodes:
                 remember_map[node] = activate_map[node]  # 使用原始激活值
-                logger.info(
+                logger.debug(
                     f"节点 '{node}' (归一化激活值: {normalized_activation:.2f}, 激活值: {activate_map[node]:.2f})")
         else:
             logger.info("没有有效的激活值")
 
         # 从选中的节点中提取记忆
         all_memories = []
-        logger.info("开始从选中的节点中提取记忆:")
+        # logger.info("开始从选中的节点中提取记忆:")
         for node, activation in remember_map.items():
             logger.debug(f"处理节点 '{node}' (激活值: {activation:.2f}):")
             node_data = self.memory_graph.G.nodes[node]
