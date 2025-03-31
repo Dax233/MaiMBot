@@ -59,13 +59,14 @@ class Message_Sender:
                     logger.warning(f"消息“{message.processed_plain_text}”已被撤回，不发送")
                     break
             if not is_recalled:
+
+                message_json = message.to_dict()
+                message_send = MessageSendCQ(data=message_json)
                 
-                typing_time = calculate_typing_time(message.processed_plain_text)
+                typing_time = calculate_typing_time(message_send.raw_message)
                 logger.info(f"枫正在打字，预计需要{typing_time}秒")
                 await asyncio.sleep(typing_time)
                 
-                message_json = message.to_dict()
-                message_send = MessageSendCQ(data=message_json)
                 message_preview = truncate_message(message.processed_plain_text)
                 if message_send.message_info.group_info and message_send.message_info.group_info.group_id:
                     try:
