@@ -58,7 +58,7 @@ class CQCode:
         elif self.type == "image":
             base64_data = await self.translate_image()
             if base64_data:
-                if self.params.get("sub_type") == "0":
+                if self.params.get("subType") == "0":
                     self.translated_segments = Seg(type="image", data=base64_data)
                 else:
                     self.translated_segments = Seg(type="emoji", data=base64_data)
