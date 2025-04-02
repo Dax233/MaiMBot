@@ -366,6 +366,9 @@ def calculate_typing_time(input_string: str, chinese_time: float = 0.2, english_
     - 如果只有一个中文字符，将使用3倍的中文输入时间
     - 在所有输入结束后，额外加上回车时间0.3秒
     """
+    pattern = re.compile(r'\[[回复 ,表情包：,图片：][\s\S]*?\]')
+    input_string = re.sub(pattern, '   ', input_string)
+
     mood_manager = MoodManager.get_instance()
     # 将0-1的唤醒度映射到-1到1
     mood_arousal = mood_manager.current_mood.arousal
