@@ -371,7 +371,7 @@ def calculate_typing_time(input_string: str, chinese_time: float = 0.2, english_
     pattern = re.compile(r'\[[回复 ,表情包：,图片：][\s\S]*?\]')
     if re.match(pattern, input_string):
         input_string = re.sub(pattern, '', input_string)
-        total_time += random.randrange(1, 3, 0.1)
+        total_time += random.randrange(1, 3)
 
     mood_manager = MoodManager.get_instance()
     # 将0-1的唤醒度映射到-1到1
