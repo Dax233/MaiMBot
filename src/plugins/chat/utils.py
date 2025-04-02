@@ -211,7 +211,7 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
     new_text = []
     for i, char in enumerate(text):
         if char == ' ' and should_split(text, i):
-            new_text.append('|seg|')
+            new_text.append('，')
         else:
             new_text.append(char)
     text = ''.join(new_text)
