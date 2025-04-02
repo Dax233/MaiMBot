@@ -366,8 +366,12 @@ def calculate_typing_time(input_string: str, chinese_time: float = 0.2, english_
     - 如果只有一个中文字符，将使用3倍的中文输入时间
     - 在所有输入结束后，额外加上回车时间0.3秒
     """
+    # 回复、发送图片/表情包操作短暂计时
+    total_time = 0.0
     pattern = re.compile(r'\[[回复 ,表情包：,图片：][\s\S]*?\]')
-    input_string = re.sub(pattern, '   ', input_string)
+    if re.match(pattern, input_string):
+        input_string = re.sub(pattern, '', input_string)
+        total_time += random.randrange(1, 3, 0.1)
 
     mood_manager = MoodManager.get_instance()
     # 将0-1的唤醒度映射到-1到1
@@ -377,16 +381,15 @@ def calculate_typing_time(input_string: str, chinese_time: float = 0.2, english_
     chinese_time *= 1 / typing_speed_multiplier
     english_time *= 1 / typing_speed_multiplier
     # 计算中文字符数
-    chinese_chars = sum(1 for char in input_string if is_western_char(char))
+    chinese_chars = sum(1 for char in input_string if not is_western_char(char))
 
     # 如果只有一个中文字符，使用3倍时间
     if chinese_chars == 1 and len(input_string.strip()) == 1:
         return chinese_time * 3 + 0.3  # 加上回车时间
 
     # 正常计算所有字符的输入时间
-    total_time = 0.0
     for char in input_string:
-        if is_western_char(char):  # 判断是否为中文字符
+        if not is_western_char(char):  # 判断是否为中文字符
             total_time += chinese_time
         else:  # 其他字符（如英文）
             total_time += english_time
