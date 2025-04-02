@@ -14,6 +14,16 @@ from .utils import truncate_message, calculate_typing_time
 
 from src.common.logger import LogConfig, SENDER_STYLE_CONFIG
 
+import pyttsx3
+
+# 初始化TTS引擎
+tts_engine = pyttsx3.init()
+tts_engine.setProperty('rate', 250)  # 设置语速
+
+def tts_broadcast(text):
+    tts_engine.say(text)
+    tts_engine.runAndWait()
+
 # 定义日志配置
 sender_config = LogConfig(
     # 使用消息发送专用样式
@@ -60,6 +70,7 @@ class Message_Sender:
                     break
             if not is_recalled:
                 
+                tts_broadcast(message.processed_plain_text)
                 typing_time = calculate_typing_time(message.processed_plain_text)
                 logger.info(f"枫正在打字，预计需要{typing_time}秒")
                 await asyncio.sleep(typing_time)
