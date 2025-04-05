@@ -193,15 +193,22 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
     else:
         split_strength = 0.9
 
+    # 处理文本，分行区分西文和中文字符
+    new_text = []
+    for i, char in enumerate(text):
+        if char == ' ' and should_split(text, i):
+            new_text.append('|seg|')
+        else:
+            new_text.append(char)
+    text = ''.join(new_text)
+
     # 检查是否为西文字符段落
     if not is_western_paragraph(text):
         # 当语言为中文时，统一将英文逗号转换为中文逗号
         text = text.replace(",", "，")
-        text = text.replace("\n", " ")
-    else:
-        # 用"|seg|"作为分割符分开
-        text = re.sub(r"([.!?]) +", r"\1\|seg\|", text)
         text = text.replace("\n", "|seg|")
+        # 用"|seg|"作为分割符分开
+    text = text.replace("\n", "|seg|")
     text, mapping = protect_kaomoji(text)
     # print(f"处理前的文本: {text}")
 
@@ -232,14 +239,14 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
                 else:
                     current_sentence += "，" + part
             # 处理空格分割
-            space_parts = current_sentence.split(" ")
+            space_parts = current_sentence.split("|seg|")
             current_sentence = space_parts[0]
             for part in space_parts[1:]:
                 if random.random() < split_strength:
                     new_sentences.append(current_sentence.strip())
                     current_sentence = part
                 else:
-                    current_sentence += " " + part
+                    current_sentence += part
         else:
             # 处理分割符
             space_parts = current_sentence.split("|seg|")
@@ -603,3 +610,9 @@ def count_messages_between(start_time: float, end_time: float, stream_id: str) -
     except Exception as e:
         logger.error(f"计算消息数量时出错: {str(e)}")
         return 0, 0
+
+def should_split(text, index):
+    """检测空格两边的字符是否为西文字符"""
+    if index == 0 or index == len(text) - 1:
+        return False
+    return not (is_western_char(text[index - 1]) or is_western_char(text[index + 1]))
