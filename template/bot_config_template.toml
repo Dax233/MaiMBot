@@ -162,7 +162,7 @@ pfc_chatting = false # 是否启用PFC聊天
 # stream = <true|false> : 用于指定模型是否是使用流式输出
 # 如果不指定，则该项是 False
 
-[model.llm_reasoning] #暂时未使用
+[model.llm_reasoning] #只在回复模式为reasoning时启用
 name = "Pro/deepseek-ai/DeepSeek-R1"
 # name = "Qwen/QwQ-32B"
 provider = "SILICONFLOW"

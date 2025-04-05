@@ -64,7 +64,7 @@ class Message_Sender:
                     logger.warning(f"消息“{message.processed_plain_text}”已被撤回，不发送")
                     break
             if not is_recalled:
-                typing_time = calculate_typing_time(message.processed_plain_text)
+                typing_time = calculate_typing_time(message.processed_plain_text,message.is_emoji)
                 await asyncio.sleep(typing_time)
 
                 message_json = message.to_dict()
