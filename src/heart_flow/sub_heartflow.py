@@ -124,7 +124,7 @@ class SubHeartflow:
 
         prompt = ""
         prompt += f"你刚刚在做的事情是：{schedule_info}\n"
-        # prompt += f"麦麦的总体想法是：{self.main_heartflow_info}\n\n"
+        # prompt += f"枫的总体想法是：{self.main_heartflow_info}\n\n"
         prompt += f"你{self.personality_info}\n"
         if related_memory_info:
             prompt += f"你想起来你之前见过的回忆：{related_memory_info}。\n以上是你的回忆，不一定是目前聊天里的人说的，也不一定是现在发生的事情，请记住。\n"
@@ -140,7 +140,7 @@ class SubHeartflow:
 
         self.current_mind = reponse
         logger.debug(f"prompt:\n{prompt}\n")
-        logger.info(f"麦麦的脑内状态：{self.current_mind}")
+        logger.info(f"枫の脑内状态：{self.current_mind}")
         
     async def do_observe(self):
         observation = self.observations[0]
@@ -171,7 +171,7 @@ class SubHeartflow:
         schedule_info = bot_schedule.get_current_num_task(num=1, time_info=False)
 
         prompt = ""
-        # prompt += f"麦麦的总体想法是：{self.main_heartflow_info}\n\n"
+        # prompt += f"枫の总体想法是：{self.main_heartflow_info}\n\n"
         prompt += f"你{self.personality_info}\n"
         prompt += f"你刚刚在做的事情是：{schedule_info}\n"
         if related_memory_info:
@@ -189,10 +189,10 @@ class SubHeartflow:
 
         self.current_mind = reponse
         logger.debug(f"prompt:\n{prompt}\n")
-        logger.info(f"麦麦的思考前脑内状态：{self.current_mind}")
+        logger.info(f"枫の思考前脑内状态：{self.current_mind}")
 
     async def do_thinking_after_reply(self, reply_content, chat_talking_prompt):
-        # print("麦麦回复之后脑袋转起来了")
+        # print("枫回复之后脑袋转起来了")
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
 
@@ -219,15 +219,15 @@ class SubHeartflow:
         self.update_current_mind(reponse)
 
         self.current_mind = reponse
-        logger.info(f"麦麦回复后的脑内状态：{self.current_mind}")
+        logger.info(f"枫回复后的脑内状态：{self.current_mind}")
 
         self.last_reply_time = time.time()
 
     async def judge_willing(self):
-        # print("麦麦闹情绪了1")
+        # print("枫闹情绪了1")
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
-        # print("麦麦闹情绪了2")
+        # print("枫闹情绪了2")
         prompt = ""
         prompt += f"{self.personality_info}\n"
         prompt += "现在你正在上网，和qq群里的网友们聊天"

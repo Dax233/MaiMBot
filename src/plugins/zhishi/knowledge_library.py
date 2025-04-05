@@ -301,8 +301,8 @@ if __name__ == "__main__":
 
     while True:
         console.print("\n请选择要执行的操作：")
-        console.print("[1] 麦麦开始学习")
-        console.print("[2] 麦麦全部忘光光（仅知识）")
+        console.print("[1] 枫开始学习")
+        console.print("[2] 枫全部忘光光（仅知识）")
         console.print("[q] 退出程序")
 
         choice = input("\n请输入选项: ").strip()

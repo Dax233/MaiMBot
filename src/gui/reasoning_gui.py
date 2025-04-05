@@ -47,7 +47,7 @@ class ReasoningGUI:
 
         # 创建主窗口
         self.root = ctk.CTk()
-        self.root.title("麦麦推理")
+        self.root.title("枫の推理")
         self.root.geometry("800x600")
         self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
 
@@ -62,7 +62,7 @@ class ReasoningGUI:
         self.frame.pack(pady=20, padx=20, fill="both", expand=True)
 
         # 添加标题
-        self.title = ctk.CTkLabel(self.frame, text="麦麦的脑内所想", font=("Arial", 24))
+        self.title = ctk.CTkLabel(self.frame, text="枫の脑内所想", font=("Arial", 24))
         self.title.pack(pady=10, padx=10)
 
         # 创建左右分栏

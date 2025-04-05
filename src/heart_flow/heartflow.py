@@ -78,7 +78,7 @@ class Heartflow:
             await asyncio.sleep(global_config.heart_flow_update_interval)  # 5分钟思考一次
 
     async def do_a_thinking(self):
-        logger.debug("麦麦大脑袋转起来了")
+        logger.debug("枫の大脑袋转起来了")
         self.current_state.update_current_state_info()
 
         personality_info = self.personality_info
@@ -104,8 +104,8 @@ class Heartflow:
         self.update_current_mind(reponse)
 
         self.current_mind = reponse
-        logger.info(f"麦麦的总体脑内状态：{self.current_mind}")
-        # logger.info("麦麦想了想，当前活动:")
+        logger.info(f"枫の总体脑内状态：{self.current_mind}")
+        # logger.info("枫想了想，当前活动:")
         # await bot_schedule.move_doing(self.current_mind)
 
         for _, subheartflow in self._subheartflows.items():

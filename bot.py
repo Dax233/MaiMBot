@@ -99,14 +99,14 @@ def scan_provider(env_config: dict):
 
 async def graceful_shutdown():
     try:
-        logger.info("正在优雅关闭麦麦...")
+        logger.info("正在优雅关闭枫...")
         tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
 
     except Exception as e:
-        logger.error(f"麦麦关闭失败: {e}")
+        logger.error(f"枫关闭失败: {e}")
 
 
 def check_eula():
@@ -195,7 +195,7 @@ def raw_main():
 
     check_eula()
     print("检查EULA和隐私条款完成")
-    easter_egg()
+    # easter_egg()
     init_config()
     init_env()
     load_env()

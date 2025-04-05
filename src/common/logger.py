@@ -166,16 +166,16 @@ HEARTFLOW_STYLE_CONFIG = {
             "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
             "<level>{level: <8}</level> | "
             "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-yellow>麦麦大脑袋</light-yellow> | "
+            "<light-yellow>枫の大脑袋</light-yellow> | "
             "<level>{message}</level>"
         ),
-        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦大脑袋 | {message}"),
+        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の大脑袋 | {message}"),
     },
     "simple": {
         "console_format": (
-            "<green>{time:MM-DD HH:mm}</green> | <light-green>麦麦大脑袋</light-green> | <light-green>{message}</light-green>"
+            "<green>{time:MM-DD HH:mm}</green> | <light-green>枫の大脑袋</light-green> | <light-green>{message}</light-green>"
         ),  # noqa: E501
-        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦大脑袋 | {message}"),
+        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の大脑袋 | {message}"),
     },
 }
 
@@ -202,14 +202,14 @@ LLM_STYLE_CONFIG = {
             "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
             "<level>{level: <8}</level> | "
             "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-yellow>麦麦组织语言</light-yellow> | "
+            "<light-yellow>枫组织语言</light-yellow> | "
             "<level>{message}</level>"
         ),
-        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦组织语言 | {message}"),
+        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫组织语言 | {message}"),
     },
     "simple": {
-        "console_format": ("<green>{time:MM-DD HH:mm}</green> | <light-green>麦麦组织语言</light-green> | {message}"),
-        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦组织语言 | {message}"),
+        "console_format": ("<green>{time:MM-DD HH:mm}</green> | <light-green>枫组织语言</light-green> | {message}"),
+        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫组织语言 | {message}"),
     },
 }
 
@@ -258,16 +258,16 @@ SUB_HEARTFLOW_STYLE_CONFIG = {
             "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
             "<level>{level: <8}</level> | "
             "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-blue>麦麦小脑袋</light-blue> | "
+            "<light-blue>枫の小脑袋</light-blue> | "
             "<level>{message}</level>"
         ),
-        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦小脑袋 | {message}"),
+        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の小脑袋 | {message}"),
     },
     "simple": {
         "console_format": (
-            "<green>{time:MM-DD HH:mm}</green> | <light-blue>麦麦小脑袋</light-blue> | <light-blue>{message}</light-blue>"
+            "<green>{time:MM-DD HH:mm}</green> | <light-blue>枫の小脑袋</light-blue> | <light-blue>{message}</light-blue>"
         ),  # noqa: E501
-        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦小脑袋 | {message}"),
+        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の小脑袋 | {message}"),
     },
 }
 
