@@ -368,7 +368,7 @@ def calculate_typing_time(input_string: str, chinese_time: float = 0.2, english_
         input_string = str(input_string)
 
     total_time = 0.0
-    pattern = re.compile(r'\[[回复 |表情包：|图片：][\s\S]*?\]')
+    pattern = re.compile(r'\[表情包：|图片：][\s\S]*?\]')
     if re.match(pattern, input_string):
         input_string = re.sub(pattern, '', input_string)
         total_time += random.randrange(1, 3)

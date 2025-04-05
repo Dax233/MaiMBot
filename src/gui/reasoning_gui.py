@@ -258,7 +258,7 @@ class ReasoningGUI:
                         logger.debug(f"记录时间: {item['time']}, 类型: {type(item['time'])}")
 
                     total_count += 1
-                    group_id = str(item.get("group_id", "unknown"))
+                    group_id = str(item.get("chat_id", "unknown"))
                     if group_id not in new_data:
                         new_data[group_id] = []
 
