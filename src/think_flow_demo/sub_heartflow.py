@@ -158,7 +158,7 @@ class SubHeartflow:
         prompt += f"你现在看到了网友们发的新消息:{message_new_info}\n"
         prompt += f"你刚刚回复了群友们:{reply_info}"
         prompt += f"你现在{mood_info}。"
-        prompt += f"现在你以{global_config.BOT_NICKNAME}的第一人称接下去继续思考，产生新的想法，记得保留你刚刚的想法，不要分点输出，输出连贯的内心独白"
+        prompt += f"现在你以{global_config.BOT_NICKNAME}的第一人称接下去继续思考，产生新的想法，不要分点输出，输出连贯的内心独白，不要太长，"
         prompt += "不要太长，但是记得结合上述的消息，要记得你的人设，关注聊天和新内容，以及你回复的内容，不要思考太多:"
         
         reponse, reasoning_content = await self.llm_model.generate_response_async(prompt)

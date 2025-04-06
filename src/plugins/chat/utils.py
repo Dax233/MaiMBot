@@ -255,7 +255,7 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
                     new_sentences.append(current_sentence.strip())
                     current_sentence = part
                 else:
-                    current_sentence += "." + part
+                    current_sentence += "\n" + part
         else:
             # 处理分割符
             space_parts = current_sentence.split("|seg|")
