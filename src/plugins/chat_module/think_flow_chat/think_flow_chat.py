@@ -215,7 +215,7 @@ class ThinkFlowChat:
         reply_probability = 0
         is_at = False
         is_mentioned = False
-        if f"@{global_config.BOT_NICKNAME}({global_config.BOT_QQ})" in message.processed_plain_text:
+        if f"@{global_config.BOT_NICKNAME}（{global_config.BOT_QQ})）" in message.processed_plain_text:
             is_at = True
             is_mentioned = True
 
