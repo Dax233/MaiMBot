@@ -64,8 +64,14 @@ class Message_Sender:
                     logger.warning(f"消息“{message.processed_plain_text}”已被撤回，不发送")
                     break
             if not is_recalled:
-                typing_time = calculate_typing_time(message.processed_plain_text,message.is_emoji)
+                # print(message.processed_plain_text + str(message.is_emoji))
+                typing_time = calculate_typing_time(
+                    input_string=message.processed_plain_text,
+                    thinking_start_time=message.thinking_start_time,
+                    is_emoji=message.is_emoji)
+                logger.debug(f"{message.processed_plain_text},{typing_time},计算输入时间结束")
                 await asyncio.sleep(typing_time)
+                logger.debug(f"{message.processed_plain_text},{typing_time},等待输入时间结束")
 
                 message_json = message.to_dict()
 
@@ -220,6 +226,8 @@ class MessageManager:
 
                 await message_earliest.process()
 
+                # print(f"message_earliest.thinking_start_tim22222e:{message_earliest.thinking_start_time}")
+                
                 await message_sender.send_message(message_earliest)
 
                 await self.storage.store_message(message_earliest, message_earliest.chat_stream)

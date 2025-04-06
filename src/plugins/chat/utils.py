@@ -347,7 +347,7 @@ def process_llm_response(text: str) -> List[str]:
     return sentences
 
 
-def calculate_typing_time(input_string: str, chinese_time: float = 0.2, english_time: float = 0.1, is_emoji: bool = False) -> float:
+def calculate_typing_time(input_string: str, thinking_start_time: float, chinese_time: float = 0.2, english_time: float = 0.1, is_emoji: bool = False) -> float:
     """
     计算输入字符串所需的时间，中文和英文字符有不同的输入时间
         input_string (str): 输入的字符串
@@ -360,15 +360,6 @@ def calculate_typing_time(input_string: str, chinese_time: float = 0.2, english_
     - 在所有输入结束后，额外加上回车时间0.3秒
     - 如果is_emoji为True，将使用固定1秒的输入时间
     """
-
-    # 如果输入是列表，将其连接成字符串
-    if isinstance(input_string, list):
-        input_string = ''.join(input_string)
-    
-    # 确保现在是字符串类型
-    if not isinstance(input_string, str):
-        input_string = str(input_string)
-
     total_time = 0.0
     pattern = re.compile(r'\[表情包：|图片：][\s\S]*?\]')
     if re.match(pattern, input_string):
@@ -396,10 +387,19 @@ def calculate_typing_time(input_string: str, chinese_time: float = 0.2, english_
         else:  # 其他字符（如英文）
             total_time += english_time
     
-    if is_emoji:
-        total_time = 0.7
     
-    return total_time + 0.3  # 加上回车时间
+    if is_emoji:
+        total_time = 1
+    
+    if time.time() - thinking_start_time > 10:
+        total_time = 1
+    
+    # print(f"thinking_start_time:{thinking_start_time}")
+    # print(f"nowtime:{time.time()}")
+    # print(f"nowtime - thinking_start_time:{time.time() - thinking_start_time}")
+    # print(f"{total_time}")
+    
+    return total_time  # 加上回车时间
 
 
 def cosine_similarity(v1, v2):

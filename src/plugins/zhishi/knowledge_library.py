@@ -41,7 +41,7 @@ class KnowledgeLibrary:
             return f.read()
 
     def split_content(self, content: str, max_length: int = 512) -> list:
-        """将内容分割成适当大小的块，保持段落完整性
+        """将内容分割成适当大小的块，按空行分割
 
         Args:
             content: 要分割的文本内容
@@ -50,67 +50,21 @@ class KnowledgeLibrary:
         Returns:
             list: 分割后的文本块列表
         """
-        # 首先按段落分割
+        # 按空行分割内容
         paragraphs = [p.strip() for p in content.split("\n\n") if p.strip()]
         chunks = []
-        current_chunk = []
-        current_length = 0
-
+        
         for para in paragraphs:
             para_length = len(para)
-
-            # 如果单个段落就超过最大长度
-            if para_length > max_length:
-                # 如果当前chunk不为空，先保存
-                if current_chunk:
-                    chunks.append("\n".join(current_chunk))
-                    current_chunk = []
-                    current_length = 0
-
-                # 将长段落按句子分割
-                sentences = [
-                    s.strip()
-                    for s in para.replace("。", "。\n").replace("！", "！\n").replace("？", "？\n").split("\n")
-                    if s.strip()
-                ]
-                temp_chunk = []
-                temp_length = 0
-
-                for sentence in sentences:
-                    sentence_length = len(sentence)
-                    if sentence_length > max_length:
-                        # 如果单个句子超长，强制按长度分割
-                        if temp_chunk:
-                            chunks.append("\n".join(temp_chunk))
-                            temp_chunk = []
-                            temp_length = 0
-                        for i in range(0, len(sentence), max_length):
-                            chunks.append(sentence[i : i + max_length])
-                    elif temp_length + sentence_length + 1 <= max_length:
-                        temp_chunk.append(sentence)
-                        temp_length += sentence_length + 1
-                    else:
-                        chunks.append("\n".join(temp_chunk))
-                        temp_chunk = [sentence]
-                        temp_length = sentence_length
-
-                if temp_chunk:
-                    chunks.append("\n".join(temp_chunk))
-
-            # 如果当前段落加上现有chunk不超过最大长度
-            elif current_length + para_length + 1 <= max_length:
-                current_chunk.append(para)
-                current_length += para_length + 1
+            
+            # 如果段落长度小于等于最大长度，直接添加
+            if para_length <= max_length:
+                chunks.append(para)
             else:
-                # 保存当前chunk并开始新的chunk
-                chunks.append("\n".join(current_chunk))
-                current_chunk = [para]
-                current_length = para_length
-
-        # 添加最后一个chunk
-        if current_chunk:
-            chunks.append("\n".join(current_chunk))
-
+                # 如果段落超过最大长度，则按最大长度切分
+                for i in range(0, para_length, max_length):
+                    chunks.append(para[i:i + max_length])
+        
         return chunks
 
     def get_embedding(self, text: str) -> list:

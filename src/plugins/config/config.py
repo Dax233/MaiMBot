@@ -25,12 +25,19 @@ config_config = LogConfig(
 logger = get_module_logger("config", config=config_config)
 
 #考虑到，实际上配置文件中的mai_version是不会自动更新的,所以采用硬编码
+is_test = True
 mai_version_main = "0.6.1"
-mai_version_fix = "snapshot-1"
+mai_version_fix = "snapshot-2"
 if mai_version_fix:
-    mai_version = f"{mai_version_main}-{mai_version_fix}"
+    if is_test:
+        mai_version = f"test-{mai_version_main}-{mai_version_fix}"
+    else:
+        mai_version = f"{mai_version_main}-{mai_version_fix}"
 else:
-    mai_version = mai_version_main
+    if is_test:
+        mai_version = f"test-{mai_version_main}"
+    else:
+        mai_version = mai_version_main
 
 def update_config():
     # 获取根目录路径
@@ -141,14 +148,22 @@ class BotConfig:
     ban_user_id = set()
 
     # personality
-    PROMPT_PERSONALITY = [
-        "用一句话或几句话描述性格特点和其他特征",
-        "例如，是一个热爱国家热爱党的新时代好青年",
-        "例如，曾经是一个学习地质的女大学生，现在学习心理学和脑科学，你会刷贴吧",
-    ]
-    PERSONALITY_1: float = 0.6  # 第一种人格概率
-    PERSONALITY_2: float = 0.3  # 第二种人格概率
-    PERSONALITY_3: float = 0.1  # 第三种人格概率
+    personality_core = "用一句话或几句话描述人格的核心特点" # 建议20字以内，谁再写3000字小作文敲谁脑袋
+    personality_sides: List[str] = field(default_factory=lambda: [
+        "用一句话或几句话描述人格的一些侧面",
+        "用一句话或几句话描述人格的一些侧面",
+        "用一句话或几句话描述人格的一些侧面"
+    ])
+    # identity
+    identity_detail: List[str] = field(default_factory=lambda: [
+        "身份特点",
+        "身份特点",
+    ])
+    height: int = 170  # 身高 单位厘米
+    weight: int = 50  # 体重 单位千克
+    age: int = 20  # 年龄 单位岁
+    gender: str = "男"  # 性别
+    appearance: str = "用几句话描述外貌特征"  # 外貌特征
 
     # schedule
     ENABLE_SCHEDULE_GEN: bool = False  # 是否启用日程生成
@@ -162,6 +177,7 @@ class BotConfig:
     emoji_chance: float = 0.2  # 发送表情包的基础概率
     thinking_timeout: int = 120  # 思考时间
     max_response_length: int = 1024  # 最大回复长度
+    message_buffer: bool = True  # 消息缓冲器
 
     ban_words = set()
     ban_msgs_regex = set()
@@ -339,14 +355,19 @@ class BotConfig:
 
         def personality(parent: dict):
             personality_config = parent["personality"]
-            personality = personality_config.get("prompt_personality")
-            if len(personality) >= 2:
-                logger.info(f"载入自定义人格:{personality}")
-                config.PROMPT_PERSONALITY = personality_config.get("prompt_personality", config.PROMPT_PERSONALITY)
+            if config.INNER_VERSION in SpecifierSet(">=1.2.4"):
+                config.personality_core = personality_config.get("personality_core", config.personality_core)
+                config.personality_sides = personality_config.get("personality_sides", config.personality_sides)
 
-            config.PERSONALITY_1 = personality_config.get("personality_1_probability", config.PERSONALITY_1)
-            config.PERSONALITY_2 = personality_config.get("personality_2_probability", config.PERSONALITY_2)
-            config.PERSONALITY_3 = personality_config.get("personality_3_probability", config.PERSONALITY_3)
+        def identity(parent: dict):
+            identity_config = parent["identity"]
+            if config.INNER_VERSION in SpecifierSet(">=1.2.4"):
+                config.identity_detail = identity_config.get("identity_detail", config.identity_detail)
+                config.height = identity_config.get("height", config.height)
+                config.weight = identity_config.get("weight", config.weight)
+                config.age = identity_config.get("age", config.age)
+                config.gender = identity_config.get("gender", config.gender)
+                config.appearance = identity_config.get("appearance", config.appearance)
 
         def schedule(parent: dict):
             schedule_config = parent["schedule"]
@@ -505,6 +526,8 @@ class BotConfig:
 
             if config.INNER_VERSION in SpecifierSet(">=0.0.11"):
                 config.max_response_length = msg_config.get("max_response_length", config.max_response_length)
+            if config.INNER_VERSION in SpecifierSet(">=1.1.4"):
+                config.message_buffer = msg_config.get("message_buffer", config.message_buffer)
 
         def memory(parent: dict):
             memory_config = parent["memory"]
@@ -601,6 +624,7 @@ class BotConfig:
             "bot": {"func": bot, "support": ">=0.0.0"},
             "groups": {"func": groups, "support": ">=0.0.0"},
             "personality": {"func": personality, "support": ">=0.0.0"},
+            "identity": {"func": identity, "support": ">=1.2.4"},
             "schedule": {"func": schedule, "support": ">=0.0.11", "necessary": False},
             "message": {"func": message, "support": ">=0.0.0"},
             "willing": {"func": willing, "support": ">=0.0.9", "necessary": False},

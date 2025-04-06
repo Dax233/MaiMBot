@@ -2,8 +2,14 @@ from src.common.logger import get_module_logger
 from ...common.database import db
 import copy
 import hashlib
-from typing import Any, Callable, Dict, TypeVar
-T = TypeVar('T')  # 泛型类型
+from typing import Any, Callable, Dict
+import datetime
+import asyncio
+import numpy
+import matplotlib.pyplot as plt
+from pathlib import Path
+import pandas as pd
+
 
 """
 PersonInfoManager 类方法功能摘要：
@@ -15,6 +21,7 @@ PersonInfoManager 类方法功能摘要：
 6. get_values - 批量获取字段值（任一字段无效则返回空字典）
 7. del_all_undefined_field - 清理全集合中未定义的字段
 8. get_specific_value_list - 根据指定条件，返回person_id,value字典
+9. personal_habit_deduction - 定时推断个人习惯
 """
 
 logger = get_module_logger("person_info")
@@ -30,6 +37,8 @@ person_info_default = {
     # "impression" : None,
     # "gender" : Unkown,
     "konw_time" : 0,
+    "msg_interval": 3000,
+    "msg_interval_list": []
 }  # 个人信息的各项与默认值在此定义，以下处理会自动创建/补全每一项
 
 class PersonInfoManager:
@@ -108,8 +117,9 @@ class PersonInfoManager:
         if document and field_name in document:
             return document[field_name]
         else:
-            logger.debug(f"获取{person_id}的{field_name}失败，已返回默认值{person_info_default[field_name]}")
-            return person_info_default[field_name]
+            default_value = copy.deepcopy(person_info_default[field_name])
+            logger.debug(f"获取{person_id}的{field_name}失败，已返回默认值{default_value}")
+            return default_value
         
     async def get_values(self, person_id: str, field_names: list) -> dict:
         """获取指定person_id文档的多个字段值，若不存在该字段，则返回该字段的全局默认值"""
@@ -133,7 +143,10 @@ class PersonInfoManager:
 
         result = {}
         for field in field_names:
-            result[field] = document.get(field, person_info_default[field]) if document else person_info_default[field]
+            result[field] = copy.deepcopy(
+                document.get(field, person_info_default[field]) 
+                if document else person_info_default[field]
+            )
 
         return result
     
@@ -209,5 +222,76 @@ class PersonInfoManager:
         except Exception as e:
             logger.error(f"数据库查询失败: {str(e)}", exc_info=True)
             return {}
+        
+    async def personal_habit_deduction(self):
+        """启动个人信息推断，每天根据一定条件推断一次"""
+        try:
+            while(1):
+                await asyncio.sleep(60)
+                current_time = datetime.datetime.now()
+                logger.info(f"个人信息推断启动: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+                # "msg_interval"推断
+                msg_interval_map = False
+                msg_interval_lists = await self.get_specific_value_list(
+                    "msg_interval_list", 
+                    lambda x: isinstance(x, list) and len(x) >= 100
+                )
+                for person_id, msg_interval_list_ in msg_interval_lists.items():
+                    try:
+                        time_interval = []
+                        for t1, t2 in zip(msg_interval_list_, msg_interval_list_[1:]):
+                            delta = t2 - t1
+                            if delta < 8000 and delta > 0:  # 小于8秒
+                                time_interval.append(delta)
+
+                        if len(time_interval) > 30:
+                            time_interval.sort()
+
+                            # 画图(log)
+                            msg_interval_map = True
+                            log_dir = Path("logs/person_info")
+                            log_dir.mkdir(parents=True, exist_ok=True)
+                            plt.figure(figsize=(10, 6))
+
+                            time_series = pd.Series(time_interval)
+
+                            # 绘制直方图
+                            plt.hist(time_series, bins=50, density=True, alpha=0.4, color='pink', label='Histogram')
+
+                            # 绘制KDE曲线（使用相同的实际数据）
+                            time_series.plot(kind='kde', color='mediumpurple', linewidth=1, label='Density')
+
+                            plt.grid(True, alpha=0.2)
+                            plt.xlim(0, 8000)
+                            plt.title(f"Message Interval Distribution (User: {person_id[:8]}...)")
+                            plt.xlabel("Interval (ms)")
+                            plt.ylabel("Density")
+                            plt.legend(framealpha=0.9, facecolor='white')
+
+                            img_path = log_dir / f"interval_distribution_{person_id[:8]}.png"
+                            plt.savefig(img_path)
+                            plt.close()
+                            # 画图
+                            
+                            filtered_intervals = [t for t in time_interval if t >= 500]
+                            if len(filtered_intervals) > 25:
+                                msg_interval = int(round(numpy.percentile(filtered_intervals, 80)))
+                                await self.update_one_field(person_id, "msg_interval", msg_interval)
+                                logger.debug(f"用户{person_id}的msg_interval已经被更新为{msg_interval}")
+                    except Exception as e:
+                        logger.debug(f"处理用户{person_id}msg_interval推断时出错: {str(e)}")
+                        continue
+
+                # 其他...
+
+                if msg_interval_map:
+                    logger.info("已保存分布图到: logs/person_info")
+                logger.info(f"个人信息推断结束: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                await asyncio.sleep(86400)
+
+        except Exception as e:
+            logger.error(f"个人信息推断运行时出错: {str(e)}")
+            logger.exception("详细错误信息：")
 
 person_info_manager =  PersonInfoManager()

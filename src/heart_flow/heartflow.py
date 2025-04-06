@@ -6,7 +6,9 @@ from src.plugins.config.config import global_config
 from src.plugins.schedule.schedule_generator import bot_schedule
 import asyncio
 from src.common.logger import get_module_logger, LogConfig, HEARTFLOW_STYLE_CONFIG  # noqa: E402
+from src.individuality.individuality import Individuality
 import time
+import random
 
 heartflow_config = LogConfig(
     # 使用海马体专用样式
@@ -40,7 +42,6 @@ class Heartflow:
         self._subheartflows = {}
         self.active_subheartflows_nums = 0
 
-        self.personality_info = " ".join(global_config.PROMPT_PERSONALITY)
 
     async def _cleanup_inactive_subheartflows(self):
         """定期清理不活跃的子心流"""
@@ -81,7 +82,27 @@ class Heartflow:
         logger.debug("枫の大脑袋转起来了")
         self.current_state.update_current_state_info()
 
-        personality_info = self.personality_info
+        # 开始构建prompt
+        prompt_personality = "你"
+        #person
+        individuality = Individuality.get_instance()
+        
+        personality_core = individuality.personality.personality_core
+        prompt_personality += personality_core
+        
+        personality_sides = individuality.personality.personality_sides
+        random.shuffle(personality_sides)
+        prompt_personality += f",{personality_sides[0]}"
+        
+        identity_detail = individuality.identity.identity_detail
+        random.shuffle(identity_detail)
+        prompt_personality += f",{identity_detail[0]}"
+        
+        
+        
+        personality_info = prompt_personality
+        
+        
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
         related_memory_info = "memory"
@@ -132,7 +153,25 @@ class Heartflow:
         return await self.minds_summary(sub_minds)
 
     async def minds_summary(self, minds_str):
-        personality_info = self.personality_info
+        # 开始构建prompt
+        prompt_personality = "你"
+        #person
+        individuality = Individuality.get_instance()
+        
+        personality_core = individuality.personality.personality_core
+        prompt_personality += personality_core
+        
+        personality_sides = individuality.personality.personality_sides
+        random.shuffle(personality_sides)
+        prompt_personality += f",{personality_sides[0]}"
+        
+        identity_detail = individuality.identity.identity_detail
+        random.shuffle(identity_detail)
+        prompt_personality += f",{identity_detail[0]}"
+        
+        
+        
+        personality_info = prompt_personality
         mood_info = self.current_state.mood
 
         prompt = ""

@@ -15,6 +15,7 @@ from .plugins.config.config import global_config
 from .plugins.chat.bot import chat_bot
 from .common.logger import get_module_logger
 from .plugins.remote import heartbeat_thread  # noqa: F401
+from .individuality.individuality import Individuality
 
 
 logger = get_module_logger("main")
@@ -26,6 +27,7 @@ class MainSystem:
         self.mood_manager = MoodManager.get_instance()
         self.hippocampus_manager = HippocampusManager.get_instance()
         self._message_manager_started = False
+        self.individuality = Individuality.get_instance()
 
         # 使用消息API替代直接的FastAPI实例
         from .plugins.message import global_api
@@ -56,8 +58,9 @@ class MainSystem:
         self.mood_manager.start_mood_update(update_interval=global_config.mood_update_interval)
         logger.success("情绪管理器启动成功")
 
-        # 检查并清除person_info冗余字段
+        # 检查并清除person_info冗余字段，启动个人习惯推断
         await person_info_manager.del_all_undefined_field()
+        asyncio.create_task(person_info_manager.personal_habit_deduction())
 
         # 启动愿望管理器
         await willing_manager.ensure_started()
@@ -78,7 +81,7 @@ class MainSystem:
         # 初始化日程
         bot_schedule.initialize(
             name=global_config.BOT_NICKNAME,
-            personality=global_config.PROMPT_PERSONALITY,
+            personality=global_config.personality_core,
             behavior=global_config.PROMPT_SCHEDULE_GEN,
             interval=global_config.SCHEDULE_DOING_UPDATE_INTERVAL,
         )
@@ -86,6 +89,20 @@ class MainSystem:
 
         # 启动FastAPI服务器
         self.app.register_message_handler(chat_bot.message_process)
+
+        # 初始化个体特征
+        self.individuality.initialize(
+            bot_nickname=global_config.BOT_NICKNAME,
+            personality_core=global_config.personality_core,
+            personality_sides=global_config.personality_sides,
+            identity_detail=global_config.identity_detail,
+            height=global_config.height,
+            weight=global_config.weight,
+            age=global_config.age,
+            gender=global_config.gender,
+            appearance=global_config.appearance
+        )
+        logger.success("个体特征初始化成功")
 
         try:
             # 启动心流系统

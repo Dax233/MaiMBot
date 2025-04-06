@@ -18,6 +18,7 @@ from src.heart_flow.heartflow import heartflow
 from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
 from ...chat.chat_stream import chat_manager
 from ...person_info.relationship_manager import relationship_manager
+from ...chat.message_buffer import message_buffer
 
 # 定义日志配置
 chat_config = LogConfig(
@@ -95,6 +96,8 @@ class ThinkFlowChat:
             )
             if not mark_head:
                 mark_head = True
+                
+            # print(f"thinking_start_time:{bot_message.thinking_start_time}")
             message_set.add_message(bot_message)
         message_manager.add_message(message_set)
 
@@ -161,6 +164,8 @@ class ThinkFlowChat:
         userinfo = message.message_info.user_info
         messageinfo = message.message_info
 
+        # 消息加入缓冲池
+        await message_buffer.start_caching_messages(message)
 
         # 创建聊天流
         chat = await chat_manager.get_or_create_stream(
@@ -195,7 +200,19 @@ class ThinkFlowChat:
         timing_results["记忆激活"] = timer2 - timer1
         logger.debug(f"记忆激活: {interested_rate}")
 
+        # 查询缓冲器结果，会整合前面跳过的消息，改变processed_plain_text
+        buffer_result = await message_buffer.query_buffer_result(message)
+        if not buffer_result:
+            if message.message_segment.type == "text":
+                logger.info(f"触发缓冲，已炸飞消息：{message.processed_plain_text}")
+            elif message.message_segment.type == "image":
+                logger.info("触发缓冲，已炸飞表情包/图片")
+            elif message.message_segment.type == "seglist":
+                logger.info("触发缓冲，已炸飞消息列")
+            return
+
         is_mentioned = is_mentioned_bot_in_message(message)
+
 
         # 计算回复意愿
         current_willing_old = willing_manager.get_willing(chat_stream=chat)
@@ -236,59 +253,84 @@ class ThinkFlowChat:
 
         do_reply = False
         if random() < reply_probability:
-            do_reply = True
-            
-            # 创建思考消息
-            timer1 = time.time()
-            thinking_id = await self._create_thinking_message(message, chat, userinfo, messageinfo)
-            timer2 = time.time()
-            timing_results["创建思考消息"] = timer2 - timer1
-            
-            # 观察
-            timer1 = time.time()
-            await heartflow.get_subheartflow(chat.stream_id).do_observe()
-            timer2 = time.time()
-            timing_results["观察"] = timer2 - timer1
-            
-            # 思考前脑内状态
-            timer1 = time.time()
-            await heartflow.get_subheartflow(chat.stream_id).do_thinking_before_reply(message.processed_plain_text)
-            timer2 = time.time()
-            timing_results["思考前脑内状态"] = timer2 - timer1
-            
-            # 生成回复
-            timer1 = time.time()
-            response_set = await self.gpt.generate_response(message)
-            timer2 = time.time()
-            timing_results["生成回复"] = timer2 - timer1
+            try:
+                do_reply = True
+                
+                # 创建思考消息
+                try:
+                    timer1 = time.time()
+                    thinking_id = await self._create_thinking_message(message, chat, userinfo, messageinfo)
+                    timer2 = time.time()
+                    timing_results["创建思考消息"] = timer2 - timer1
+                except Exception as e:
+                    logger.error(f"心流创建思考消息失败: {e}")
+                
+                try:
+                # 观察
+                    timer1 = time.time()
+                    await heartflow.get_subheartflow(chat.stream_id).do_observe()
+                    timer2 = time.time()
+                    timing_results["观察"] = timer2 - timer1
+                except Exception as e:
+                    logger.error(f"心流观察失败: {e}")
 
-            if not response_set:
-                logger.info("为什么生成回复失败？")
-                return
+                # 思考前脑内状态
+                try:
+                    timer1 = time.time()
+                    await heartflow.get_subheartflow(chat.stream_id).do_thinking_before_reply(message.processed_plain_text)
+                    timer2 = time.time()
+                    timing_results["思考前脑内状态"] = timer2 - timer1
+                except Exception as e:
+                    logger.error(f"心流思考前脑内状态失败: {e}")
+                
+                # 生成回复
+                timer1 = time.time()
+                response_set = await self.gpt.generate_response(message)
+                timer2 = time.time()
+                timing_results["生成回复"] = timer2 - timer1
 
-            # 发送消息
-            timer1 = time.time()
-            await self._send_response_messages(message, chat, response_set, thinking_id)
-            timer2 = time.time()
-            timing_results["发送消息"] = timer2 - timer1
+                if not response_set:
+                    logger.info("为什么生成回复失败？")
+                    return
 
-            # 处理表情包
-            timer1 = time.time()
-            await self._handle_emoji(message, chat, response_set)
-            timer2 = time.time()
-            timing_results["处理表情包"] = timer2 - timer1
+                # 发送消息
+                try:
+                    timer1 = time.time()
+                    await self._send_response_messages(message, chat, response_set, thinking_id)
+                    timer2 = time.time()
+                    timing_results["发送消息"] = timer2 - timer1
+                except Exception as e:
+                    logger.error(f"心流发送消息失败: {e}")
 
-            # 更新心流
-            timer1 = time.time()
-            await self._update_using_response(message, response_set)
-            timer2 = time.time()
-            timing_results["更新心流"] = timer2 - timer1
+                # 处理表情包
+                try:
+                    timer1 = time.time()
+                    await self._handle_emoji(message, chat, response_set)
+                    timer2 = time.time()
+                    timing_results["处理表情包"] = timer2 - timer1
+                except Exception as e:
+                    logger.error(f"心流处理表情包失败: {e}")
 
-            # 更新关系情绪
-            timer1 = time.time()
-            await self._update_relationship(message, response_set)
-            timer2 = time.time()
-            timing_results["更新关系情绪"] = timer2 - timer1
+                # 更新心流
+                try:
+                    timer1 = time.time()
+                    await self._update_using_response(message, response_set)
+                    timer2 = time.time()
+                    timing_results["更新心流"] = timer2 - timer1
+                except Exception as e:
+                    logger.error(f"心流更新失败: {e}")
+
+                # 更新关系情绪
+                try:
+                    timer1 = time.time()
+                    await self._update_relationship(message, response_set)
+                    timer2 = time.time()
+                    timing_results["更新关系情绪"] = timer2 - timer1
+                except Exception as e:
+                    logger.error(f"心流更新关系情绪失败: {e}")
+
+            except Exception as e:
+                logger.error(f"心流处理消息失败: {e}")
 
         # 输出性能计时结果
         if do_reply:

@@ -91,8 +91,13 @@ class ChatBot:
         try:
             message = MessageRecv(message_data)
             groupinfo = message.message_info.group_info
-            logger.debug(f"处理消息:{str(message_data)[:50]}...")
+            userinfo = message.message_info.user_info
+            logger.debug(f"处理消息:{str(message_data)[:80]}...")
 
+            if userinfo.user_id in global_config.ban_user_id:
+                logger.debug(f"用户{userinfo.user_id}被禁止回复")
+                return
+            
             if global_config.enable_pfc_chatting:
                 try:
                     if groupinfo is None and global_config.enable_friend_chat:

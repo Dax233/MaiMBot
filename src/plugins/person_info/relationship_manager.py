@@ -63,7 +63,15 @@ class RelationshipManager:
         value += value * mood_gain
         logger.info(f"当前relationship增益系数：{mood_gain:.3f}")
         return value
-
+    
+    def feedback_to_mood(self, mood_value):
+        """对情绪的反馈"""
+        coefficient = self.gain_coefficient[abs(self.positive_feedback_value)]
+        if (mood_value > 0 and self.positive_feedback_value > 0 
+            or mood_value < 0 and self.positive_feedback_value < 0):
+            return mood_value*coefficient
+        else:
+            return mood_value/coefficient
 
     async def calculate_update_relationship_value(self, chat_stream: ChatStream, label: str, stance: str) -> None:
         """计算并变更关系值

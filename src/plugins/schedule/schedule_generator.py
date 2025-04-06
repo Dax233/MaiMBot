@@ -62,9 +62,7 @@ class ScheduleGenerator:
         self.name = name
         self.behavior = behavior
         self.schedule_doing_update_interval = interval
-
-        for pers in personality:
-            self.personality += pers + "\n"
+        self.personality = personality
 
     async def mai_schedule_start(self):
         """启动日程系统，每5分钟执行一次move_doing，并在日期变化时重新检查日程"""

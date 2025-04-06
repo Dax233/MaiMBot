@@ -237,7 +237,7 @@ class MoodManager:
         old_arousal = self.current_mood.arousal
         old_mood = self.current_mood.text
 
-        valence_change *= relationship_manager.gain_coefficient[relationship_manager.positive_feedback_value]
+        valence_change = relationship_manager.feedback_to_mood(valence_change)
 
         # 应用情绪强度
         valence_change *= intensity
