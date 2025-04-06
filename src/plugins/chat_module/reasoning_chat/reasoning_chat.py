@@ -190,7 +190,7 @@ class ReasoningChat:
         reply_probability = 0
         is_at = False
         is_mentioned = False
-        if re.match(f"@[\s\S]*?（id:{global_config.BOT_QQ}）", message.processed_plain_text):
+        if re.search(f"@[\s\S]*?（id:{global_config.BOT_QQ}）", message.processed_plain_text):
             is_at = True
             is_mentioned = True
 
