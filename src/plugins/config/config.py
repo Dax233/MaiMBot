@@ -195,7 +195,7 @@ class BotConfig:
     response_interested_rate_amplifier: float = 1.0  # 回复兴趣度放大系数
     down_frequency_rate: float = 3  # 降低回复频率的群组回复意愿降低系数
     emoji_response_penalty: float = 0.0  # 表情包回复惩罚
-    metioned_bot_inevitable_reply: bool = False # 提及 bot 必然回复
+    mentioned_bot_inevitable_reply: bool = False # 提及 bot 必然回复
     at_bot_inevitable_reply: bool = False # @bot 必然回复
 
     # response
@@ -441,8 +441,8 @@ class BotConfig:
                 config.emoji_response_penalty = willing_config.get(
                     "emoji_response_penalty", config.emoji_response_penalty
                 )
-                config.metioned_bot_inevitable_reply = willing_config.get(
-                    "metioned_bot_inevitable_reply", config.metioned_bot_inevitable_reply
+                config.mentioned_bot_inevitable_reply = willing_config.get(
+                    "mentioned_bot_inevitable_reply", config.mentioned_bot_inevitable_reply
                 )
                 config.at_bot_inevitable_reply = willing_config.get(
                     "at_bot_inevitable_reply", config.at_bot_inevitable_reply

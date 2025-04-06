@@ -212,22 +212,7 @@ class ThinkFlowChat:
             return
 
         # 处理提及
-        reply_probability = 0
-        is_at = False
-        is_mentioned = False
-        if re.search(f"@[\s\S]*?（id:{global_config.BOT_QQ}）", message.processed_plain_text):
-            is_at = True
-            is_mentioned = True
-
-        if is_at and global_config.at_bot_inevitable_reply:
-            reply_probability = 1
-            logger.info("被@，回复概率设置为100%")
-        else:
-            if not is_mentioned:
-                is_mentioned = is_mentioned_bot_in_message(message)
-            if is_mentioned and global_config.metioned_bot_inevitable_reply:
-                reply_probability = 1
-                logger.info("被提及，回复概率设置为100%")
+        is_mentioned, reply_probability = is_mentioned_bot_in_message(message)
 
 
         # 计算回复意愿

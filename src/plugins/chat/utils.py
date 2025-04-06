@@ -42,17 +42,38 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> bool:
     """检查消息是否提到了机器人"""
     keywords = [global_config.BOT_NICKNAME]
     nicknames = global_config.BOT_ALIAS_NAMES
-    if re.match(f"回复[\s\S]*?\({global_config.BOT_QQ}\)的消息，说：", message.processed_plain_text):
-        return True
-    message_content = re.sub(r'\@[\s\S]*?（(\d+)）','', message.processed_plain_text)
-    message_content = re.sub(r'回复[\s\S]*?\((\d+)\)的消息，说：','', message_content)
-    for keyword in keywords:
-        if keyword in message_content:
-            return True
-    for nickname in nicknames:
-        if nickname in message_content:
-            return True
-    return False
+    reply_probability = 0
+    is_at = False
+    is_mentioned = False
+
+    # 判断是否被@
+    if re.search(f"@[\s\S]*?（id:{global_config.BOT_QQ}）", message.processed_plain_text):
+        is_at = True
+        is_mentioned = True
+
+    if is_at and global_config.at_bot_inevitable_reply:
+        reply_probability = 1
+        logger.info("被@，回复概率设置为100%")
+    else:
+        if not is_mentioned:
+
+            # 判断是否被回复
+            if re.match(f"回复[\s\S]*?\({global_config.BOT_QQ}\)的消息，说：", message.processed_plain_text):
+                is_mentioned = True
+            
+            # 判断内容中是否被提及
+            message_content = re.sub(r'\@[\s\S]*?（(\d+)）','', message.processed_plain_text)
+            message_content = re.sub(r'回复[\s\S]*?\((\d+)\)的消息，说： ','', message_content)
+            for keyword in keywords:
+                if keyword in message_content:
+                    is_mentioned = True
+            for nickname in nicknames:
+                if nickname in message_content:
+                    is_mentioned = True
+        if is_mentioned and global_config.mentioned_bot_inevitable_reply:
+            reply_probability = 1
+            logger.info("被提及，回复概率设置为100%")
+    return is_mentioned, reply_probability
 
 
 async def get_embedding(text, request_type="embedding"):
