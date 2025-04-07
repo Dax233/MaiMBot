@@ -20,7 +20,7 @@ class LLM_request_off:
         if not self.api_key or not self.base_url:
             raise ValueError("环境变量未正确加载：SILICONFLOW_KEY 或 SILICONFLOW_BASE_URL 未设置")
 
-        logger.info(f"API URL: {self.base_url}")  # 使用 logger 记录 base_url
+        # logger.info(f"API URL: {self.base_url}")  # 使用 logger 记录 base_url
 
     def generate_response(self, prompt: str) -> Union[str, Tuple[str, str]]:
         """根据输入的提示生成模型的响应"""
@@ -30,7 +30,7 @@ class LLM_request_off:
         data = {
             "model": self.model_name,
             "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.5,
+            "temperature": 0.4,
             **self.params,
         }
 

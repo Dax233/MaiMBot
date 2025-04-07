@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from ..config.config import global_config
 from src.common.logger import get_module_logger, LogConfig, MOOD_STYLE_CONFIG
 from ..person_info.relationship_manager import relationship_manager
+from src.individuality.individuality import Individuality
 
 mood_config = LogConfig(
     # 使用海马体专用样式
@@ -129,16 +130,29 @@ class MoodManager:
         current_time = time.time()
         time_diff = current_time - self.last_update
 
-        # Valence 向中性（0）回归
-        valence_target = 0
+        # 获取人格特质
+        personality = Individuality.get_instance().personality
+        if personality:
+            # 神经质：0.5为默认值，0为极低，1为极高
+            # 神经质越高，情绪变化越快（衰减率越高）
+            neuroticism_factor = 0.5 + (personality.neuroticism - 0.5) * 0.5  # 范围在0.25-0.75之间
+            # 宜人性：0.5为默认值，0为极低，1为极高
+            # 宜人性越低，越容易走向负面情绪（向负值偏移）
+            agreeableness_bias = (0.5 - personality.agreeableness) * 0.2  # 范围在-0.1到0.1之间
+        else:
+            neuroticism_factor = 0.5  # 默认值
+            agreeableness_bias = 0.0
+
+        # Valence 向中性（0）回归，考虑宜人性偏差
+        valence_target = agreeableness_bias
         self.current_mood.valence = valence_target + (self.current_mood.valence - valence_target) * math.exp(
-            -self.decay_rate_valence * time_diff
+            -self.decay_rate_valence * time_diff * neuroticism_factor
         )
 
         # Arousal 向中性（0.5）回归
         arousal_target = 0.5
         self.current_mood.arousal = arousal_target + (self.current_mood.arousal - arousal_target) * math.exp(
-            -self.decay_rate_arousal * time_diff
+            -self.decay_rate_arousal * time_diff * neuroticism_factor
         )
 
         # 确保值在合理范围内

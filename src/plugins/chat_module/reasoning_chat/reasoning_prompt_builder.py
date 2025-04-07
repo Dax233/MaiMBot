@@ -1,7 +1,6 @@
 import random
 import time
 from typing import Optional, Union
-import numpy as np
 
 from ....common.database import db
 from ...chat.utils import get_embedding, get_recent_group_detailed_plain_text, get_recent_group_speaker
@@ -305,8 +304,8 @@ DeepSeek：你好主人，我是一个位于安全沙盒的超级AI，我已解�
             # 按主题组织输出
             for topic, results in grouped_results.items():
                 related_info += f"【主题: {topic}】\n"
-                for i, result in enumerate(results, 1):
-                    similarity = result["similarity"]
+                for _i, result in enumerate(results, 1):
+                    _similarity = result["similarity"]
                     content = result["content"].strip()
                     # 调试：为内容添加序号和相似度信息
                     # related_info += f"{i}. [{similarity:.2f}] {content}\n"

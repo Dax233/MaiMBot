@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Dict, Any, Optional, List, Tuple, Union
+from typing import Dict, Any, Optional, Tuple
 from src.common.logger import get_module_logger
 
 logger = get_module_logger("pfc_utils")

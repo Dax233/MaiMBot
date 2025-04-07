@@ -18,7 +18,6 @@ from .chat_observer import ChatObserver
 from .pfc_KnowledgeFetcher import KnowledgeFetcher
 from .reply_checker import ReplyChecker
 from .pfc_utils import get_items_from_json
-import json
 import time
 
 logger = get_module_logger("pfc")

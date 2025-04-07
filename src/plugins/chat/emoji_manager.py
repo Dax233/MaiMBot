@@ -249,7 +249,22 @@ class EmojiManager:
                 f for f in os.listdir(emoji_dir) if f.lower().endswith((".jpg", ".jpeg", ".png", ".gif"))
             ]
 
+            # 检查当前表情包数量
+            self._update_emoji_count()
+            if self.emoji_num >= self.emoji_num_max:
+                logger.warning(f"[警告] 表情包数量已达到上限({self.emoji_num}/{self.emoji_num_max})，跳过注册")
+                return
+
+            # 计算还可以注册的数量
+            remaining_slots = self.emoji_num_max - self.emoji_num
+            logger.info(f"[注册] 还可以注册 {remaining_slots} 个表情包")
+
             for filename in files_to_process:
+                # 如果已经达到上限，停止注册
+                if self.emoji_num >= self.emoji_num_max:
+                    logger.warning(f"[警告] 表情包数量已达到上限({self.emoji_num}/{self.emoji_num_max})，停止注册")
+                    break
+
                 image_path = os.path.join(emoji_dir, filename)
 
                 # 获取图片的base64编码和哈希值
@@ -339,6 +354,10 @@ class EmojiManager:
                     db["emoji"].insert_one(emoji_record)
                     logger.success(f"[注册] 新表情包: {filename}")
                     logger.info(f"[描述] {description}")
+
+                    # 更新当前表情包数量
+                    self.emoji_num += 1
+                    logger.info(f"[统计] 当前表情包数量: {self.emoji_num}/{self.emoji_num_max}")
 
                     # 保存到images数据库
                     image_doc = {

@@ -6,9 +6,9 @@ from typing import Any, Callable, Dict
 import datetime
 import asyncio
 import numpy
-import matplotlib.pyplot as plt
-from pathlib import Path
-import pandas as pd
+# import matplotlib.pyplot as plt
+# from pathlib import Path
+# import pandas as pd
 
 
 """
@@ -232,7 +232,6 @@ class PersonInfoManager:
                 logger.info(f"个人信息推断启动: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
                 # "msg_interval"推断
-                msg_interval_map = False
                 msg_interval_lists = await self.get_specific_value_list(
                     "msg_interval_list", 
                     lambda x: isinstance(x, list) and len(x) >= 100
@@ -246,33 +245,7 @@ class PersonInfoManager:
                                 time_interval.append(delta)
 
                         if len(time_interval) > 30:
-                            time_interval.sort()
-
-                            # 画图(log)
-                            msg_interval_map = True
-                            log_dir = Path("logs/person_info")
-                            log_dir.mkdir(parents=True, exist_ok=True)
-                            plt.figure(figsize=(10, 6))
-
-                            time_series = pd.Series(time_interval)
-
-                            # 绘制直方图
-                            plt.hist(time_series, bins=50, density=True, alpha=0.4, color='pink', label='Histogram')
-
-                            # 绘制KDE曲线（使用相同的实际数据）
-                            time_series.plot(kind='kde', color='mediumpurple', linewidth=1, label='Density')
-
-                            plt.grid(True, alpha=0.2)
-                            plt.xlim(0, 8000)
-                            plt.title(f"Message Interval Distribution (User: {person_id[:8]}...)")
-                            plt.xlabel("Interval (ms)")
-                            plt.ylabel("Density")
-                            plt.legend(framealpha=0.9, facecolor='white')
-
-                            img_path = log_dir / f"interval_distribution_{person_id[:8]}.png"
-                            plt.savefig(img_path)
-                            plt.close()
-                            # 画图
+                            # 移除matplotlib相关的绘图功能
                             
                             filtered_intervals = [t for t in time_interval if t >= 500]
                             if len(filtered_intervals) > 25:
@@ -285,8 +258,6 @@ class PersonInfoManager:
 
                 # 其他...
 
-                if msg_interval_map:
-                    logger.info("已保存分布图到: logs/person_info")
                 logger.info(f"个人信息推断结束: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
                 await asyncio.sleep(86400)
 
@@ -294,4 +265,4 @@ class PersonInfoManager:
             logger.error(f"个人信息推断运行时出错: {str(e)}")
             logger.exception("详细错误信息：")
 
-person_info_manager =  PersonInfoManager()
+person_info_manager = PersonInfoManager()

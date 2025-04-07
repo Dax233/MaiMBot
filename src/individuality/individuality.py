@@ -75,3 +75,31 @@ class Individuality:
         if data.get("identity"):
             instance.identity = Identity.from_dict(data["identity"])
         return instance 
+    
+    def get_prompt(self,type,x_person,level):
+        """
+        获取个体特征的prompt
+        """
+        if type == "personality":
+            return self.personality.get_prompt(x_person,level)
+        elif type == "identity":
+            return self.identity.get_prompt(x_person,level)
+        else:
+            return ""
+    
+    def get_traits(self,factor):
+        """
+        获取个体特征的特质
+        """
+        if factor == "openness":
+            return self.personality.openness
+        elif factor == "conscientiousness":
+            return self.personality.conscientiousness
+        elif factor == "extraversion":
+            return self.personality.extraversion
+        elif factor == "agreeableness":
+            return self.personality.agreeableness
+        elif factor == "neuroticism":
+            return self.personality.neuroticism
+            
+            

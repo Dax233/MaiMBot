@@ -202,7 +202,7 @@ class SubHeartflow:
 
         related_info,grouped_results = await self.get_prompt_info(chat_observe_info + message_txt, 0.4)
         print(related_info)
-        for topic, results in grouped_results.items():
+        for _topic, results in grouped_results.items():
             for result in results:
                 print(result)
                 self.running_knowledges.append(result)
@@ -475,8 +475,8 @@ class SubHeartflow:
             # 按主题组织输出
             for topic, results in grouped_results.items():
                 related_info += f"【主题: {topic}】\n"
-                for i, result in enumerate(results, 1):
-                    similarity = result["similarity"]
+                for _i, result in enumerate(results, 1):
+                    _similarity = result["similarity"]
                     content = result["content"].strip()
                     # 调试：为内容添加序号和相似度信息
                     # related_info += f"{i}. [{similarity:.2f}] {content}\n"
