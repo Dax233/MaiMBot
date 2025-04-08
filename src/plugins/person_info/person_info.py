@@ -5,10 +5,13 @@ import hashlib
 from typing import Any, Callable, Dict
 import datetime
 import asyncio
-import numpy
-# import matplotlib.pyplot as plt
-# from pathlib import Path
-# import pandas as pd
+import numpy as np
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from pathlib import Path
+import pandas as pd
 
 
 """
@@ -232,6 +235,7 @@ class PersonInfoManager:
                 logger.info(f"个人信息推断启动: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
                 # "msg_interval"推断
+                msg_interval_map = False
                 msg_interval_lists = await self.get_specific_value_list(
                     "msg_interval_list", 
                     lambda x: isinstance(x, list) and len(x) >= 100
@@ -241,28 +245,54 @@ class PersonInfoManager:
                         time_interval = []
                         for t1, t2 in zip(msg_interval_list_, msg_interval_list_[1:]):
                             delta = t2 - t1
-                            if delta < 8000 and delta > 0:  # 小于8秒
+                            if delta > 0:
                                 time_interval.append(delta)
 
-                        if len(time_interval) > 30:
-                            # 移除matplotlib相关的绘图功能
+                        time_interval = [t for t in time_interval if 500 <= t <= 8000]
+                        if len(time_interval) >= 30:
+                            time_interval.sort()
+
+                            # 画图(log)
+                            msg_interval_map = True
+                            log_dir = Path("logs/person_info")
+                            log_dir.mkdir(parents=True, exist_ok=True)
+                            plt.figure(figsize=(10, 6))
+                            time_series = pd.Series(time_interval)
+                            plt.hist(time_series, bins=50, density=True, alpha=0.4, color='pink', label='Histogram')
+                            time_series.plot(kind='kde', color='mediumpurple', linewidth=1, label='Density')
+                            plt.grid(True, alpha=0.2)
+                            plt.xlim(0, 8000)
+                            plt.title(f"Message Interval Distribution (User: {person_id[:8]}...)")
+                            plt.xlabel("Interval (ms)")
+                            plt.ylabel("Density")
+                            plt.legend(framealpha=0.9, facecolor='white')
+                            img_path = log_dir / f"interval_distribution_{person_id[:8]}.png"
+                            plt.savefig(img_path)
+                            plt.close()
+                            # 画图
+        
+                            q25, q75 = np.percentile(time_interval, [25, 75])
+                            iqr = q75 - q25
+                            filtered = [x for x in time_interval if (q25 - 1.5*iqr) <= x <= (q75 + 1.5*iqr)]
                             
-                            filtered_intervals = [t for t in time_interval if t >= 500]
-                            if len(filtered_intervals) > 25:
-                                msg_interval = int(round(numpy.percentile(filtered_intervals, 80)))
-                                await self.update_one_field(person_id, "msg_interval", msg_interval)
-                                logger.debug(f"用户{person_id}的msg_interval已经被更新为{msg_interval}")
+                            msg_interval = int(round(np.percentile(filtered, 80)))
+                            await self.update_one_field(person_id, "msg_interval", msg_interval)
+                            logger.debug(f"用户{person_id}的msg_interval已经被更新为{msg_interval}")
                     except Exception as e:
-                        logger.debug(f"处理用户{person_id}msg_interval推断时出错: {str(e)}")
+                        logger.debug(f"用户{person_id}消息间隔计算失败: {type(e).__name__}: {str(e)}")
                         continue
 
                 # 其他...
 
+                if msg_interval_map:
+                    logger.info("已保存分布图到: logs/person_info")
+                current_time = datetime.datetime.now()
                 logger.info(f"个人信息推断结束: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
                 await asyncio.sleep(86400)
 
         except Exception as e:
             logger.error(f"个人信息推断运行时出错: {str(e)}")
             logger.exception("详细错误信息：")
+
 
 person_info_manager = PersonInfoManager()

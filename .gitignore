@@ -4,7 +4,9 @@ mongodb/
 NapCat.Framework.Windows.Once/
 log/
 logs/
+run_ad.bat
 MaiBot-Napcat-Adapter-main
+MaiBot-Napcat-Adapter
 /test
 /src/test
 nonebot-maibot-adapter/

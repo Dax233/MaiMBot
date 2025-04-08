@@ -33,7 +33,7 @@ talk_allowed = [
 talk_frequency_down = []  #降低回复频率的群号码
 ban_user_id = []  #禁止回复和读取消息的QQ号
 
-[personality]
+[personality] #未完善
 personality_core = "用一句话或几句话描述人格的核心特点" # 建议20字以内，谁再写3000字小作文敲谁脑袋
 personality_sides = [
     "用一句话或几句话描述人格的一些细节",
@@ -44,7 +44,7 @@ personality_sides = [
 ]# 条数任意
 
 [identity] #アイデンティティがない 生まれないらららら
-# 兴趣爱好
+# 兴趣爱好 未完善，有些条目未使用
 identity_detail = [
     "身份特点",
     "身份特点",
@@ -73,7 +73,7 @@ response_mode = "heart_flow" # 回复策略，可选值：heart_flow（心流）
 model_r1_probability = 0.7 # 麦麦回答时选择主要回复模型1 模型的概率
 model_v3_probability = 0.3 # 麦麦回答时选择次要回复模型2 模型的概率
 
-[heartflow] # 注意：可能会消耗大量token，请谨慎开启
+[heartflow] # 注意：可能会消耗大量token，请谨慎开启，仅会使用v3模型
 sub_heart_flow_update_interval = 60 # 子心流更新频率，间隔 单位秒
 sub_heart_flow_freeze_time = 120 # 子心流冻结时间，超过这个时间没有回复，子心流会冻结，间隔 单位秒
 sub_heart_flow_stop_time = 600 # 子心流停止时间，超过这个时间没有回复，子心流会停止，间隔 单位秒
@@ -99,7 +99,7 @@ ban_msgs_regex = [
 
 [willing]
 willing_mode = "classical" # 回复意愿模式 经典模式
-# willing_mode = "dynamic" # 动态模式(可能不兼容)
+# willing_mode = "dynamic" # 动态模式(不兼容，需要维护)
 # willing_mode = "custom" # 自定义模式（可自行调整
 response_willing_amplifier = 1 # 麦麦回复意愿放大系数，一般为1
 response_interested_rate_amplifier = 1 # 麦麦回复兴趣度放大系数,听到记忆里的内容时放大系数
@@ -166,7 +166,7 @@ enable = true
 
 [experimental]
 enable_friend_chat = false # 是否启用好友聊天
-pfc_chatting = false # 是否启用PFC聊天
+pfc_chatting = false # 是否启用PFC聊天，该功能仅作用于私聊，与回复模式独立
 
 #下面的模型若使用硅基流动则不需要更改，使用ds官方则改成.env自定义的宏，使用自定义模型则选择定位相似的模型自己填写
 #推理模型

@@ -18,6 +18,7 @@ from .chat_observer import ChatObserver
 from .pfc_KnowledgeFetcher import KnowledgeFetcher
 from .reply_checker import ReplyChecker
 from .pfc_utils import get_items_from_json
+from src.individuality.individuality import Individuality
 import time
 
 logger = get_module_logger("pfc")
@@ -51,7 +52,7 @@ class ActionPlanner:
             max_tokens=1000,
             request_type="action_planning"
         )
-        self.personality_info = " ".join(global_config.PROMPT_PERSONALITY)
+        self.personality_info = Individuality.get_instance().get_prompt(type = "personality", x_person = 2, level = 2)
         self.name = global_config.BOT_NICKNAME
         self.chat_observer = ChatObserver.get_instance(stream_id)
         
@@ -67,7 +68,6 @@ class ActionPlanner:
         
         Args:
             goal: 对话目标
-            method: 实现方式
             reasoning: 目标原因
             action_history: 行动历史记录
             
@@ -166,11 +166,14 @@ class GoalAnalyzer:
             request_type="conversation_goal"
         )
         
-        self.personality_info = " ".join(global_config.PROMPT_PERSONALITY)
+        self.personality_info = Individuality.get_instance().get_prompt(type = "personality", x_person = 2, level = 2)
         self.name = global_config.BOT_NICKNAME
         self.nick_name = global_config.BOT_ALIAS_NAMES
         self.chat_observer = ChatObserver.get_instance(stream_id)
         
+        # 多目标存储结构
+        self.goals = []  # 存储多个目标
+        self.max_goals = 3  # 同时保持的最大目标数量
         self.current_goal_and_reason = None
 
     async def analyze_goal(self) -> Tuple[str, str, str]:
@@ -197,12 +200,29 @@ class GoalAnalyzer:
                     chat_history_text += f"{time_str},{sender}:{msg.get('processed_plain_text', '')}\n"
                     
                 personality_text = f"你的名字是{self.name}，{self.personality_info}"
+                
+                # 构建当前已有目标的文本
+                existing_goals_text = ""
+                if self.goals:
+                    existing_goals_text = "当前已有的对话目标:\n"
+                    for i, (goal, _, reason) in enumerate(self.goals):
+                        existing_goals_text += f"{i+1}. 目标: {goal}, 原因: {reason}\n"
                     
-                prompt = f"""{personality_text}。现在你在参与一场QQ聊天，请分析以下聊天记录，并根据你的性格特征确定一个明确的对话目标。
-这个目标应该反映出对话的意图和期望的结果。
+                prompt = f"""{personality_text}。现在你在参与一场QQ聊天，请分析以下聊天记录，并根据你的性格特征确定多个明确的对话目标。
+这些目标应该反映出对话的不同方面和意图。
+
+{existing_goals_text}
+
 聊天记录：
 {chat_history_text}
-请以JSON格式输出，包含以下字段：
+
+请分析当前对话并确定最适合的对话目标。你可以：
+1. 保持现有目标不变
+2. 修改现有目标
+3. 添加新目标
+4. 删除不再相关的目标
+
+请以JSON格式输出一个当前最主要的对话目标，包含以下字段：
 1. goal: 对话目标（简短的一句话）
 2. reasoning: 对话原因，为什么设定这个目标（简要解释）
 
@@ -232,7 +252,16 @@ class GoalAnalyzer:
                 
                 # 使用默认的方法
                 method = "以友好的态度回应"
-                return goal, method, reasoning
+                
+                # 更新目标列表
+                await self._update_goals(goal, method, reasoning)
+                
+                # 返回当前最主要的目标
+                if self.goals:
+                    current_goal, current_method, current_reasoning = self.goals[0]
+                    return current_goal, current_method, current_reasoning
+                else:
+                    return goal, method, reasoning
                 
             except Exception as e:
                 logger.error(f"分析对话目标时出错: {str(e)}，重试第{retry + 1}次")
@@ -242,8 +271,69 @@ class GoalAnalyzer:
         
         # 所有重试都失败后的默认返回
         return "保持友好的对话", "以友好的态度回应", "确保对话顺利进行"
+    
+    async def _update_goals(self, new_goal: str, method: str, reasoning: str):
+        """更新目标列表
+        
+        Args:
+            new_goal: 新的目标
+            method: 实现目标的方法
+            reasoning: 目标的原因
+        """
+        # 检查新目标是否与现有目标相似
+        for i, (existing_goal, _, _) in enumerate(self.goals):
+            if self._calculate_similarity(new_goal, existing_goal) > 0.7:  # 相似度阈值
+                # 更新现有目标
+                self.goals[i] = (new_goal, method, reasoning)
+                # 将此目标移到列表前面（最主要的位置）
+                self.goals.insert(0, self.goals.pop(i))
+                return
+        
+        # 添加新目标到列表前面
+        self.goals.insert(0, (new_goal, method, reasoning))
+        
+        # 限制目标数量
+        if len(self.goals) > self.max_goals:
+            self.goals.pop()  # 移除最老的目标
+    
+    def _calculate_similarity(self, goal1: str, goal2: str) -> float:
+        """简单计算两个目标之间的相似度
+        
+        这里使用一个简单的实现，实际可以使用更复杂的文本相似度算法
+        
+        Args:
+            goal1: 第一个目标
+            goal2: 第二个目标
+            
+        Returns:
+            float: 相似度得分 (0-1)
+        """
+        # 简单实现：检查重叠字数比例
+        words1 = set(goal1)
+        words2 = set(goal2)
+        overlap = len(words1.intersection(words2))
+        total = len(words1.union(words2))
+        return overlap / total if total > 0 else 0
+    
+    async def get_all_goals(self) -> List[Tuple[str, str, str]]:
+        """获取所有当前目标
+        
+        Returns:
+            List[Tuple[str, str, str]]: 目标列表，每项为(目标, 方法, 原因)
+        """
+        return self.goals.copy()
+    
+    async def get_alternative_goals(self) -> List[Tuple[str, str, str]]:
+        """获取除了当前主要目标外的其他备选目标
+        
+        Returns:
+            List[Tuple[str, str, str]]: 备选目标列表
+        """
+        if len(self.goals) <= 1:
+            return []
+        return self.goals[1:].copy()
 
-    async def analyze_conversation(self,goal,reasoning):
+    async def analyze_conversation(self, goal, reasoning):
         messages = self.chat_observer.get_message_history()
         chat_history_text = ""
         for msg in messages:
@@ -293,6 +383,16 @@ class GoalAnalyzer:
             if not success:
                 return False, False, "确保对话顺利进行"
             
+            # 如果当前目标达成，从目标列表中移除
+            if result["goal_achieved"] and not result["stop_conversation"]:
+                for i, (g, _, _) in enumerate(self.goals):
+                    if g == goal:
+                        self.goals.pop(i)
+                        # 如果还有其他目标，不停止对话
+                        if self.goals:
+                            result["stop_conversation"] = False
+                        break
+            
             return result["goal_achieved"], result["stop_conversation"], result["reason"]
             
         except Exception as e:
@@ -304,7 +404,7 @@ class Waiter:
     """快 速 等 待"""
     def __init__(self, stream_id: str):
         self.chat_observer = ChatObserver.get_instance(stream_id)
-        self.personality_info = " ".join(global_config.PROMPT_PERSONALITY)
+        self.personality_info = Individuality.get_instance().get_prompt(type = "personality", x_person = 2, level = 2)
         self.name = global_config.BOT_NICKNAME
         
     async def wait(self) -> bool:
@@ -318,8 +418,8 @@ class Waiter:
             await asyncio.sleep(1)
             logger.info("等待中...")
             # 检查是否超过60秒
-            if time.time() - wait_start_time > 60:
-                logger.info("等待超过60秒，结束对话")
+            if time.time() - wait_start_time > 300:
+                logger.info("等待超过300秒，结束对话")
                 return True
         logger.info("等待结束")
         return False
@@ -335,7 +435,7 @@ class ReplyGenerator:
             max_tokens=300,
             request_type="reply_generation"
         )
-        self.personality_info = " ".join(global_config.PROMPT_PERSONALITY)
+        self.personality_info = Individuality.get_instance().get_prompt(type = "personality", x_person = 2, level = 2)
         self.name = global_config.BOT_NICKNAME
         self.chat_observer = ChatObserver.get_instance(stream_id)
         self.reply_checker = ReplyChecker(stream_id)
@@ -643,28 +743,76 @@ class Conversation:
             )
             
             if not is_suitable:
-                    logger.warning(f"生成的回复不合适，原因: {reason}")
-                    if need_replan:
-                        self.state = ConversationState.RETHINKING
-                        self.current_goal, self.current_method, self.goal_reasoning = await self.goal_analyzer.analyze_goal()
-                        return
-                    else:
-                        # 重新生成回复
+                logger.warning(f"生成的回复不合适，原因: {reason}")
+                if need_replan:
+                    # 尝试切换到其他备选目标
+                    alternative_goals = await self.goal_analyzer.get_alternative_goals()
+                    if alternative_goals:
+                        # 有备选目标，尝试使用下一个目标
+                        self.current_goal, self.current_method, self.goal_reasoning = alternative_goals[0]
+                        logger.info(f"切换到备选目标: {self.current_goal}")
+                        # 使用新目标生成回复
                         self.generated_reply = await self.reply_generator.generate(
                             self.current_goal,
                             self.current_method,
                             [self._convert_to_message(msg) for msg in messages],
-                            self.knowledge_cache,
-                            self.generated_reply  # 将不合适的回复作为previous_reply传入
+                            self.knowledge_cache
                         )
+                        # 检查使用新目标生成的回复是否合适
+                        is_suitable, reason, _ = await self.reply_generator.check_reply(
+                            self.generated_reply,
+                            self.current_goal
+                        )
+                        if is_suitable:
+                            # 如果新目标的回复合适，调整目标优先级
+                            await self.goal_analyzer._update_goals(
+                                self.current_goal, 
+                                self.current_method, 
+                                self.goal_reasoning
+                            )
+                        else:
+                            # 如果新目标还是不合适，重新思考目标
+                            self.state = ConversationState.RETHINKING
+                            self.current_goal, self.current_method, self.goal_reasoning = await self.goal_analyzer.analyze_goal()
+                            return
+                    else:
+                        # 没有备选目标，重新分析
+                        self.state = ConversationState.RETHINKING
+                        self.current_goal, self.current_method, self.goal_reasoning = await self.goal_analyzer.analyze_goal()
+                        return
+                else:
+                    # 重新生成回复
+                    self.generated_reply = await self.reply_generator.generate(
+                        self.current_goal,
+                        self.current_method,
+                        [self._convert_to_message(msg) for msg in messages],
+                        self.knowledge_cache,
+                        self.generated_reply  # 将不合适的回复作为previous_reply传入
+                    )
             
             while self.chat_observer.check():
                 if not is_suitable:
                     logger.warning(f"生成的回复不合适，原因: {reason}")
                     if need_replan:
-                        self.state = ConversationState.RETHINKING
-                        self.current_goal, self.current_method, self.goal_reasoning = await self.goal_analyzer.analyze_goal()
-                        return
+                        # 尝试切换到其他备选目标
+                        alternative_goals = await self.goal_analyzer.get_alternative_goals()
+                        if alternative_goals:
+                            # 有备选目标，尝试使用下一个目标
+                            self.current_goal, self.current_method, self.goal_reasoning = alternative_goals[0]
+                            logger.info(f"切换到备选目标: {self.current_goal}")
+                            # 使用新目标生成回复
+                            self.generated_reply = await self.reply_generator.generate(
+                                self.current_goal,
+                                self.current_method,
+                                [self._convert_to_message(msg) for msg in messages],
+                                self.knowledge_cache
+                            )
+                            is_suitable = True  # 假设使用新目标后回复是合适的
+                        else:
+                            # 没有备选目标，重新分析
+                            self.state = ConversationState.RETHINKING
+                            self.current_goal, self.current_method, self.goal_reasoning = await self.goal_analyzer.analyze_goal()
+                            return
                     else:
                         # 重新生成回复
                         self.generated_reply = await self.reply_generator.generate(
@@ -705,9 +853,31 @@ class Conversation:
             if not is_suitable:
                 logger.warning(f"生成的回复不合适，原因: {reason}")
                 if need_replan:
-                    self.state = ConversationState.RETHINKING
-                    self.current_goal, self.current_method, self.goal_reasoning = await self.goal_analyzer.analyze_goal()
-                    return
+                    # 尝试切换到其他备选目标
+                    alternative_goals = await self.goal_analyzer.get_alternative_goals()
+                    if alternative_goals:
+                        # 有备选目标，尝试使用
+                        self.current_goal, self.current_method, self.goal_reasoning = alternative_goals[0]
+                        logger.info(f"切换到备选目标: {self.current_goal}")
+                        # 使用新目标获取知识并生成回复
+                        knowledge, sources = await self.knowledge_fetcher.fetch(
+                            self.current_goal,
+                            [self._convert_to_message(msg) for msg in messages]
+                        )
+                        if knowledge != "未找到相关知识":
+                            self.knowledge_cache[sources] = knowledge
+                            
+                        self.generated_reply = await self.reply_generator.generate(
+                            self.current_goal,
+                            self.current_method,
+                            [self._convert_to_message(msg) for msg in messages],
+                            self.knowledge_cache
+                        )
+                    else:
+                        # 没有备选目标，重新分析
+                        self.state = ConversationState.RETHINKING
+                        self.current_goal, self.current_method, self.goal_reasoning = await self.goal_analyzer.analyze_goal()
+                        return
                 else:
                     # 重新生成回复
                     self.generated_reply = await self.reply_generator.generate(
@@ -727,6 +897,16 @@ class Conversation:
         elif action == "judge_conversation":
             self.state = ConversationState.JUDGING
             self.goal_achieved, self.stop_conversation, self.reason = await self.goal_analyzer.analyze_conversation(self.current_goal, self.goal_reasoning)
+            
+            # 如果当前目标达成但还有其他目标
+            if self.goal_achieved and not self.stop_conversation:
+                alternative_goals = await self.goal_analyzer.get_alternative_goals()
+                if alternative_goals:
+                    # 切换到下一个目标
+                    self.current_goal, self.current_method, self.goal_reasoning = alternative_goals[0]
+                    logger.info(f"当前目标已达成，切换到新目标: {self.current_goal}")
+                    return
+            
             if self.stop_conversation:
                 await self._stop_conversation()
             

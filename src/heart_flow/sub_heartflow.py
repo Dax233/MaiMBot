@@ -201,10 +201,10 @@ class SubHeartflow:
             related_memory_info = ""
 
         related_info,grouped_results = await self.get_prompt_info(chat_observe_info + message_txt, 0.4)
-        print(related_info)
+        # print(related_info)
         for _topic, results in grouped_results.items():
             for result in results:
-                print(result)
+                # print(result)
                 self.running_knowledges.append(result)
 
         # print(f"相关记忆：{related_memory_info}")
@@ -374,7 +374,7 @@ class SubHeartflow:
         
         # 如果无法提取到主题，直接使用整个消息
         if not topics:
-            logger.info("未能提取到任何主题，使用整个消息进行查询")
+            logger.debug("未能提取到任何主题，使用整个消息进行查询")
             embedding = await get_embedding(message, request_type="info_retrieval")
             if not embedding:
                 logger.error("获取消息嵌入向量失败")

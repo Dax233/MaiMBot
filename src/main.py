@@ -132,17 +132,19 @@ class MainSystem:
     async def build_memory_task(self):
         """记忆构建任务"""
         while True:
+            await asyncio.sleep(global_config.build_memory_interval)
             logger.info("正在进行记忆构建")
             await HippocampusManager.get_instance().build_memory()
-            await asyncio.sleep(global_config.build_memory_interval)
+            
 
     async def forget_memory_task(self):
         """记忆遗忘任务"""
         while True:
+            await asyncio.sleep(global_config.forget_memory_interval)
             print("\033[1;32m[记忆遗忘]\033[0m 开始遗忘记忆...")
             await HippocampusManager.get_instance().forget_memory(percentage=global_config.memory_forget_percentage)
             print("\033[1;32m[记忆遗忘]\033[0m 记忆遗忘完成")
-            await asyncio.sleep(global_config.forget_memory_interval)
+            
 
     async def print_mood_task(self):
         """打印情绪状态"""

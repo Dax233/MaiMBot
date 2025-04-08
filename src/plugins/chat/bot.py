@@ -9,6 +9,7 @@ from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
 from ..chat_module.think_flow_chat.think_flow_chat import ThinkFlowChat
 from ..chat_module.reasoning_chat.reasoning_chat import ReasoningChat
 import asyncio
+import traceback
 
 # 定义日志配置
 chat_config = LogConfig(
@@ -144,6 +145,7 @@ class ChatBot:
                             logger.error(f"未知的回复模式，请检查配置文件！！: {global_config.response_mode}")
         except Exception as e:
             logger.error(f"预处理消息失败: {e}")
+            traceback.print_exc()
 
 
 # 创建全局ChatBot实例

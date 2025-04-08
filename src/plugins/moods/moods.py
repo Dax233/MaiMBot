@@ -18,8 +18,8 @@ logger = get_module_logger("mood_manager", config=mood_config)
 
 @dataclass
 class MoodState:
-    valence: float  # 愉悦度 (-1 到 1)
-    arousal: float  # 唤醒度 (0 到 1)
+    valence: float  # 愉悦度 (-1.0 到 1.0)，-1表示极度负面，1表示极度正面
+    arousal: float  # 唤醒度 (0.0 到 1.0)，0表示完全平静，1表示极度兴奋
     text: str  # 心情文本描述
 
 
@@ -126,28 +126,43 @@ class MoodManager:
             time.sleep(update_interval)
 
     def _apply_decay(self) -> None:
-        """应用情绪衰减"""
+        """应用情绪衰减，正向和负向情绪分开计算"""
         current_time = time.time()
         time_diff = current_time - self.last_update
+        agreeableness_factor = 1
+        agreeableness_bias = 0
+        neuroticism_factor = 0.5
 
         # 获取人格特质
         personality = Individuality.get_instance().personality
         if personality:
-            # 神经质：0.5为默认值，0为极低，1为极高
-            # 神经质越高，情绪变化越快（衰减率越高）
-            neuroticism_factor = 0.5 + (personality.neuroticism - 0.5) * 0.5  # 范围在0.25-0.75之间
-            # 宜人性：0.5为默认值，0为极低，1为极高
-            # 宜人性越低，越容易走向负面情绪（向负值偏移）
-            agreeableness_bias = (0.5 - personality.agreeableness) * 0.2  # 范围在-0.1到0.1之间
-        else:
-            neuroticism_factor = 0.5  # 默认值
-            agreeableness_bias = 0.0
+            # 神经质：影响情绪变化速度
+            neuroticism_factor = 1 + (personality.neuroticism - 0.5) * 0.5
+            agreeableness_factor = 1 + (personality.agreeableness - 0.5) * 0.5
+            
+            # 宜人性：影响情绪基准线
+            if personality.agreeableness < 0.2:
+                agreeableness_bias = (personality.agreeableness - 0.2) * 2
+            elif personality.agreeableness > 0.8:
+                agreeableness_bias = (personality.agreeableness - 0.8) * 2
+            else:
+                agreeableness_bias = 0
 
-        # Valence 向中性（0）回归，考虑宜人性偏差
-        valence_target = agreeableness_bias
-        self.current_mood.valence = valence_target + (self.current_mood.valence - valence_target) * math.exp(
-            -self.decay_rate_valence * time_diff * neuroticism_factor
-        )
+        # 分别计算正向和负向的衰减率
+        if self.current_mood.valence >= 0:
+            # 正向情绪衰减
+            decay_rate_positive = self.decay_rate_valence * (1/agreeableness_factor)
+            valence_target = 0 + agreeableness_bias
+            self.current_mood.valence = valence_target + (self.current_mood.valence - valence_target) * math.exp(
+                -decay_rate_positive * time_diff * neuroticism_factor
+            )
+        else:
+            # 负向情绪衰减
+            decay_rate_negative = self.decay_rate_valence * agreeableness_factor
+            valence_target = 0 + agreeableness_bias
+            self.current_mood.valence = valence_target + (self.current_mood.valence - valence_target) * math.exp(
+                -decay_rate_negative * time_diff * neuroticism_factor
+            )
 
         # Arousal 向中性（0.5）回归
         arousal_target = 0.5

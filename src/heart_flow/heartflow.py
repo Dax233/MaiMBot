@@ -71,7 +71,7 @@ class Heartflow:
         while True:
             # 检查是否存在子心流
             if not self._subheartflows:
-                logger.info("当前没有子心流，等待新的子心流创建...")
+                # logger.info("当前没有子心流，等待新的子心流创建...")
                 await asyncio.sleep(30)  # 每分钟检查一次是否有新的子心流
                 continue
 
