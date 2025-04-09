@@ -139,7 +139,7 @@ class MoodManager:
             # 神经质：影响情绪变化速度
             neuroticism_factor = 1 + (personality.neuroticism - 0.5) * 0.5
             agreeableness_factor = 1 + (personality.agreeableness - 0.5) * 0.5
-            
+
             # 宜人性：影响情绪基准线
             if personality.agreeableness < 0.2:
                 agreeableness_bias = (personality.agreeableness - 0.2) * 2
@@ -151,7 +151,7 @@ class MoodManager:
         # 分别计算正向和负向的衰减率
         if self.current_mood.valence >= 0:
             # 正向情绪衰减
-            decay_rate_positive = self.decay_rate_valence * (1/agreeableness_factor)
+            decay_rate_positive = self.decay_rate_valence * (1 / agreeableness_factor)
             valence_target = 0 + agreeableness_bias
             self.current_mood.valence = valence_target + (self.current_mood.valence - valence_target) * math.exp(
                 -decay_rate_positive * time_diff * neuroticism_factor
@@ -279,8 +279,9 @@ class MoodManager:
         # 限制范围
         self.current_mood.valence = max(-1.0, min(1.0, self.current_mood.valence))
         self.current_mood.arousal = max(0.0, min(1.0, self.current_mood.arousal))
-        
+
         self._update_mood_text()
 
-        logger.info(f"[情绪变化] {emotion}(强度:{intensity:.2f}) | 愉悦度:{old_valence:.2f}->{self.current_mood.valence:.2f}, 唤醒度:{old_arousal:.2f}->{self.current_mood.arousal:.2f} | 心情:{old_mood}->{self.current_mood.text}")
-
+        logger.info(
+            f"[情绪变化] {emotion}(强度:{intensity:.2f}) | 愉悦度:{old_valence:.2f}->{self.current_mood.valence:.2f}, 唤醒度:{old_arousal:.2f}->{self.current_mood.arousal:.2f} | 心情:{old_mood}->{self.current_mood.text}"
+        )

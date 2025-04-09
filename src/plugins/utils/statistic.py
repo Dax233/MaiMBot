@@ -2,7 +2,7 @@ import threading
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any, Dict
+from typing import Any, Dict, List
 from src.common.logger import get_module_logger
 
 from ...common.database import db
@@ -22,6 +22,7 @@ class LLMStatistics:
         self.stats_thread = None
         self.console_thread = None
         self._init_database()
+        self.name_dict: Dict[List] = {}
 
     def _init_database(self):
         """初始化数据库集合"""
@@ -137,16 +138,24 @@ class LLMStatistics:
             # user_id = str(doc.get("user_info", {}).get("user_id", "unknown"))
             chat_info = doc.get("chat_info", {})
             user_info = doc.get("user_info", {})
+            message_time = doc.get("time", 0)
             group_info = chat_info.get("group_info") if chat_info else {}
             # print(f"group_info: {group_info}")
             group_name = None
             if group_info:
+                group_id = f"g{group_info.get('group_id')}"
                 group_name = group_info.get("group_name", f"群{group_info.get('group_id')}")
             if user_info and not group_name:
+                group_id = f"u{user_info['user_id']}"
                 group_name = user_info["user_nickname"]
+            if self.name_dict.get(group_id):
+                if message_time > self.name_dict.get(group_id)[1]:
+                    self.name_dict[group_id] = [group_name, message_time]
+            else:
+                self.name_dict[group_id] = [group_name, message_time]
             # print(f"group_name: {group_name}")
             stats["messages_by_user"][user_id] += 1
-            stats["messages_by_chat"][group_name] += 1
+            stats["messages_by_chat"][group_id] += 1
 
         return stats
 
@@ -187,7 +196,7 @@ class LLMStatistics:
                 tokens = stats["tokens_by_model"][model_name]
                 cost = stats["costs_by_model"][model_name]
                 output.append(
-                    data_fmt.format(model_name[:32] + ".." if len(model_name) > 32 else model_name, count, tokens, cost)
+                    data_fmt.format(model_name[:30] + ".." if len(model_name) > 32 else model_name, count, tokens, cost)
                 )
             output.append("")
 
@@ -221,8 +230,8 @@ class LLMStatistics:
             # 添加聊天统计
             output.append("群组统计:")
             output.append(("群组名称                              消息数量"))
-            for group_name, count in sorted(stats["messages_by_chat"].items()):
-                output.append(f"{group_name[:32]:<32}  {count:>10}")
+            for group_id, count in sorted(stats["messages_by_chat"].items()):
+                output.append(f"{self.name_dict[group_id][0][:32]:<32}  {count:>10}")
 
         return "\n".join(output)
 
@@ -250,7 +259,7 @@ class LLMStatistics:
                 tokens = stats["tokens_by_model"][model_name]
                 cost = stats["costs_by_model"][model_name]
                 output.append(
-                    data_fmt.format(model_name[:32] + ".." if len(model_name) > 32 else model_name, count, tokens, cost)
+                    data_fmt.format(model_name[:30] + ".." if len(model_name) > 32 else model_name, count, tokens, cost)
                 )
             output.append("")
 
@@ -284,8 +293,8 @@ class LLMStatistics:
             # 添加聊天统计
             output.append("群组统计:")
             output.append(("群组名称                              消息数量"))
-            for group_name, count in sorted(stats["messages_by_chat"].items()):
-                output.append(f"{group_name[:32]:<32}  {count:>10}")
+            for group_id, count in sorted(stats["messages_by_chat"].items()):
+                output.append(f"{self.name_dict[group_id][0][:32]:<32}  {count:>10}")
 
         return "\n".join(output)
 

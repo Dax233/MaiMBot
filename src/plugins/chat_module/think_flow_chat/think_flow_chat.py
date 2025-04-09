@@ -28,6 +28,7 @@ chat_config = LogConfig(
 
 logger = get_module_logger("think_flow_chat", config=chat_config)
 
+
 class ThinkFlowChat:
     def __init__(self):
         self.storage = MessageStorage()
@@ -96,7 +97,7 @@ class ThinkFlowChat:
             )
             if not mark_head:
                 mark_head = True
-                
+
             # print(f"thinking_start_time:{bot_message.thinking_start_time}")
             message_set.add_message(bot_message)
         message_manager.add_message(message_set)
@@ -110,7 +111,7 @@ class ThinkFlowChat:
             if emoji_raw:
                 emoji_path, description = emoji_raw
                 emoji_cq = image_path_to_base64(emoji_path)
-                
+
                 # logger.info(emoji_cq)
 
                 thinking_time_point = round(message.message_info.time, 2)
@@ -130,7 +131,7 @@ class ThinkFlowChat:
                     is_head=False,
                     is_emoji=True,
                 )
-                
+
                 # logger.info("22222222222222")
                 message_manager.add_message(bot_message)
 
@@ -180,7 +181,7 @@ class ThinkFlowChat:
 
         await message.process()
         logger.debug(f"消息处理成功{message.processed_plain_text}")
-        
+
         # 过滤词/正则表达式过滤
         if self._check_ban_words(message.processed_plain_text, chat, userinfo) or self._check_ban_regex(
             message.raw_message, chat, userinfo
@@ -190,7 +191,7 @@ class ThinkFlowChat:
 
         await self.storage.store_message(message, chat)
         logger.debug(f"存储成功{message.processed_plain_text}")
-        
+
         # 记忆激活
         timer1 = time.time()
         interested_rate = await HippocampusManager.get_instance().get_activate_from_text(
@@ -214,14 +215,12 @@ class ThinkFlowChat:
         # 处理提及
         is_mentioned, reply_probability = is_mentioned_bot_in_message(message)
 
-
         # 计算回复意愿
         current_willing_old = willing_manager.get_willing(chat_stream=chat)
         # current_willing_new = (heartflow.get_subheartflow(chat.stream_id).current_state.willing - 5) / 4
-        # current_willing = (current_willing_old + current_willing_new) / 2 
+        # current_willing = (current_willing_old + current_willing_new) / 2
         # 有点bug
         current_willing = current_willing_old
-
 
         willing_manager.set_willing(chat.stream_id, current_willing)
 
@@ -258,7 +257,7 @@ class ThinkFlowChat:
         if random() < reply_probability:
             try:
                 do_reply = True
-                
+
                 # 创建思考消息
                 try:
                     timer1 = time.time()
@@ -267,9 +266,9 @@ class ThinkFlowChat:
                     timing_results["创建思考消息"] = timer2 - timer1
                 except Exception as e:
                     logger.error(f"心流创建思考消息失败: {e}")
-                
+
                 try:
-                # 观察
+                    # 观察
                     timer1 = time.time()
                     await heartflow.get_subheartflow(chat.stream_id).do_observe()
                     timer2 = time.time()
@@ -280,12 +279,14 @@ class ThinkFlowChat:
                 # 思考前脑内状态
                 try:
                     timer1 = time.time()
-                    await heartflow.get_subheartflow(chat.stream_id).do_thinking_before_reply(message.processed_plain_text)
+                    await heartflow.get_subheartflow(chat.stream_id).do_thinking_before_reply(
+                        message.processed_plain_text
+                    )
                     timer2 = time.time()
                     timing_results["思考前脑内状态"] = timer2 - timer1
                 except Exception as e:
                     logger.error(f"心流思考前脑内状态失败: {e}")
-                
+
                 # 生成回复
                 timer1 = time.time()
                 response_set = await self.gpt.generate_response(message)

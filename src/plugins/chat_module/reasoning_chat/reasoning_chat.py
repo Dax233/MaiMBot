@@ -27,6 +27,7 @@ chat_config = LogConfig(
 
 logger = get_module_logger("reasoning_chat", config=chat_config)
 
+
 class ReasoningChat:
     def __init__(self):
         self.storage = MessageStorage()
@@ -224,13 +225,13 @@ class ReasoningChat:
         do_reply = False
         if random() < reply_probability:
             do_reply = True
-            
+
             # 创建思考消息
             timer1 = time.time()
             thinking_id = await self._create_thinking_message(message, chat, userinfo, messageinfo)
             timer2 = time.time()
             timing_results["创建思考消息"] = timer2 - timer1
-            
+
             # 生成回复
             timer1 = time.time()
             response_set = await self.gpt.generate_response(message)

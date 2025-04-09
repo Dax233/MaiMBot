@@ -9,38 +9,31 @@ from ..message.message_base import UserInfo
 
 logger = get_module_logger("reply_checker")
 
+
 class ReplyChecker:
     """回复检查器"""
-    
+
     def __init__(self, stream_id: str):
         self.llm = LLM_request(
-            model=global_config.llm_normal,
-            temperature=0.7,
-            max_tokens=1000,
-            request_type="reply_check"
+            model=global_config.llm_normal, temperature=0.7, max_tokens=1000, request_type="reply_check"
         )
         self.name = global_config.BOT_NICKNAME
         self.chat_observer = ChatObserver.get_instance(stream_id)
         self.max_retries = 2  # 最大重试次数
-        
-    async def check(
-        self, 
-        reply: str, 
-        goal: str, 
-        retry_count: int = 0
-    ) -> Tuple[bool, str, bool]:
+
+    async def check(self, reply: str, goal: str, retry_count: int = 0) -> Tuple[bool, str, bool]:
         """检查生成的回复是否合适
-        
+
         Args:
             reply: 生成的回复
             goal: 对话目标
             retry_count: 当前重试次数
-            
+
         Returns:
             Tuple[bool, str, bool]: (是否合适, 原因, 是否需要重新规划)
         """
         # 获取最新的消息记录
-        messages = self.chat_observer.get_message_history(limit=5)
+        messages = self.chat_observer.get_cached_messages(limit=5)
         chat_history_text = ""
         for msg in messages:
             time_str = datetime.datetime.fromtimestamp(msg["time"]).strftime("%H:%M:%S")
@@ -49,7 +42,7 @@ class ReplyChecker:
             if sender == self.name:
                 sender = "你说"
             chat_history_text += f"{time_str},{sender}:{msg.get('processed_plain_text', '')}\n"
-            
+
         prompt = f"""请检查以下回复是否合适：
 
 当前对话目标：{goal}
@@ -83,7 +76,7 @@ class ReplyChecker:
         try:
             content, _ = await self.llm.generate_response_async(prompt)
             logger.debug(f"检查回复的原始返回: {content}")
-            
+
             # 清理内容，尝试提取JSON部分
             content = content.strip()
             try:
@@ -92,7 +85,8 @@ class ReplyChecker:
             except json.JSONDecodeError:
                 # 如果直接解析失败，尝试查找和提取JSON部分
                 import re
-                json_pattern = r'\{[^{}]*\}'
+
+                json_pattern = r"\{[^{}]*\}"
                 json_match = re.search(json_pattern, content)
                 if json_match:
                     try:
@@ -109,33 +103,33 @@ class ReplyChecker:
                     reason = content[:100] if content else "无法解析响应"
                     need_replan = "重新规划" in content.lower() or "目标不适合" in content.lower()
                     return is_suitable, reason, need_replan
-            
+
             # 验证JSON字段
             suitable = result.get("suitable", None)
             reason = result.get("reason", "未提供原因")
             need_replan = result.get("need_replan", False)
-            
+
             # 如果suitable字段是字符串，转换为布尔值
             if isinstance(suitable, str):
                 suitable = suitable.lower() == "true"
-            
+
             # 如果suitable字段不存在或不是布尔值，从reason中判断
             if suitable is None:
                 suitable = "不合适" not in reason.lower() and "违规" not in reason.lower()
-            
+
             # 如果不合适且未达到最大重试次数，返回需要重试
             if not suitable and retry_count < self.max_retries:
                 return False, reason, False
-            
+
             # 如果不合适且已达到最大重试次数，返回需要重新规划
             if not suitable and retry_count >= self.max_retries:
                 return False, f"多次重试后仍不合适: {reason}", True
-            
+
             return suitable, reason, need_replan
-            
+
         except Exception as e:
             logger.error(f"检查回复时出错: {e}")
             # 如果出错且已达到最大重试次数，建议重新规划
             if retry_count >= self.max_retries:
                 return False, "多次检查失败，建议重新规划", True
-            return False, f"检查过程出错，建议重试: {str(e)}", False 
+            return False, f"检查过程出错，建议重试: {str(e)}", False

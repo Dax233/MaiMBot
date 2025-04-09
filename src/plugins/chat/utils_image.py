@@ -239,13 +239,13 @@ class ImageManager:
             # 解码base64
             gif_data = base64.b64decode(gif_base64)
             gif = Image.open(io.BytesIO(gif_data))
-            
+
             # 收集所有帧
             frames = []
             try:
                 while True:
                     gif.seek(len(frames))
-                    frame = gif.convert('RGB')
+                    frame = gif.convert("RGB")
                     frames.append(frame.copy())
             except EOFError:
                 pass
@@ -264,18 +264,19 @@ class ImageManager:
 
             # 获取单帧的尺寸
             frame_width, frame_height = selected_frames[0].size
-            
+
             # 计算目标尺寸，保持宽高比
             target_height = 200  # 固定高度
             target_width = int((target_height / frame_height) * frame_width)
-            
+
             # 调整所有帧的大小
-            resized_frames = [frame.resize((target_width, target_height), Image.Resampling.LANCZOS) 
-                             for frame in selected_frames]
+            resized_frames = [
+                frame.resize((target_width, target_height), Image.Resampling.LANCZOS) for frame in selected_frames
+            ]
 
             # 创建拼接图像
             total_width = target_width * len(resized_frames)
-            combined_image = Image.new('RGB', (total_width, target_height))
+            combined_image = Image.new("RGB", (total_width, target_height))
 
             # 水平拼接图像
             for idx, frame in enumerate(resized_frames):
@@ -283,11 +284,11 @@ class ImageManager:
 
             # 转换为base64
             buffer = io.BytesIO()
-            combined_image.save(buffer, format='JPEG', quality=85)
-            result_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-            
+            combined_image.save(buffer, format="JPEG", quality=85)
+            result_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
             return result_base64
-            
+
         except Exception as e:
             logger.error(f"GIF转换失败: {str(e)}")
             return None

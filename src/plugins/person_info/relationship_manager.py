@@ -12,6 +12,7 @@ relationship_config = LogConfig(
 )
 logger = get_module_logger("rel_manager", config=relationship_config)
 
+
 class RelationshipManager:
     def __init__(self):
         self.positive_feedback_value = 0  # 正反馈系统
@@ -22,6 +23,7 @@ class RelationshipManager:
     def mood_manager(self):
         if self._mood_manager is None:
             from ..moods.moods import MoodManager  # 延迟导入
+
             self._mood_manager = MoodManager.get_instance()
         return self._mood_manager
 
@@ -51,27 +53,27 @@ class RelationshipManager:
                 self.positive_feedback_value -= 1
             elif self.positive_feedback_value > 0:
                 self.positive_feedback_value = 0
-        
+
         if abs(self.positive_feedback_value) > 1:
             logger.info(f"触发mood变更增益，当前增益系数：{self.gain_coefficient[abs(self.positive_feedback_value)]}")
 
     def mood_feedback(self, value):
         """情绪反馈"""
         mood_manager = self.mood_manager
-        mood_gain = (mood_manager.get_current_mood().valence) ** 2 \
-                 * math.copysign(1, value * mood_manager.get_current_mood().valence)
+        mood_gain = (mood_manager.get_current_mood().valence) ** 2 * math.copysign(
+            1, value * mood_manager.get_current_mood().valence
+        )
         value += value * mood_gain
         logger.info(f"当前relationship增益系数：{mood_gain:.3f}")
         return value
-    
+
     def feedback_to_mood(self, mood_value):
         """对情绪的反馈"""
         coefficient = self.gain_coefficient[abs(self.positive_feedback_value)]
-        if (mood_value > 0 and self.positive_feedback_value > 0 
-            or mood_value < 0 and self.positive_feedback_value < 0):
-            return mood_value*coefficient
+        if mood_value > 0 and self.positive_feedback_value > 0 or mood_value < 0 and self.positive_feedback_value < 0:
+            return mood_value * coefficient
         else:
-            return mood_value/coefficient
+            return mood_value / coefficient
 
     async def calculate_update_relationship_value(self, chat_stream: ChatStream, label: str, stance: str) -> None:
         """计算并变更关系值
@@ -88,7 +90,7 @@ class RelationshipManager:
             "中立": 1,
             "反对": 2,
         }
-        
+
         valuedict = {
             "开心": 1.5,
             "愤怒": -2.0,
@@ -103,10 +105,10 @@ class RelationshipManager:
 
         person_id = person_info_manager.get_person_id(chat_stream.user_info.platform, chat_stream.user_info.user_id)
         data = {
-            "platform" : chat_stream.user_info.platform,
-            "user_id" : chat_stream.user_info.user_id,
-            "nickname" : chat_stream.user_info.user_nickname,
-            "konw_time" : int(time.time())
+            "platform": chat_stream.user_info.platform,
+            "user_id": chat_stream.user_info.user_id,
+            "nickname": chat_stream.user_info.user_nickname,
+            "konw_time": int(time.time()),
         }
         old_value = await person_info_manager.get_value(person_id, "relationship_value")
         old_value = self.ensure_float(old_value, person_id)
@@ -199,5 +201,6 @@ class RelationshipManager:
         except (ValueError, TypeError, AttributeError):
             logger.warning(f"[关系管理] {person_id}值转换失败（原始值：{value}），已重置为0")
             return 0.0
+
 
 relationship_manager = RelationshipManager()

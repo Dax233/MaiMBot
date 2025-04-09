@@ -40,7 +40,7 @@ class ResponseGenerator:
 
     async def generate_response(self, message: MessageThinking) -> Optional[Union[str, List[str]]]:
         """根据当前模型类型选择对应的生成函数"""
-        #从global_config中获取模型概率值并选择模型
+        # 从global_config中获取模型概率值并选择模型
         if random.random() < global_config.MODEL_R1_PROBABILITY:
             self.current_model_type = "深深地"
             current_model = self.model_reasoning
@@ -51,7 +51,6 @@ class ResponseGenerator:
         logger.info(
             f"{self.current_model_type}思考:{message.processed_plain_text[:30] + '...' if len(message.processed_plain_text) > 30 else message.processed_plain_text}"
         )  # noqa: E501
-        
 
         model_response = await self._generate_response_with_model(message, current_model)
 

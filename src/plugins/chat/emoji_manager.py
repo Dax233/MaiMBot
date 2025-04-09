@@ -38,11 +38,11 @@ class EmojiManager:
         self.llm_emotion_judge = LLM_request(
             model=global_config.llm_emotion_judge, max_tokens=600, temperature=0.8, request_type="emoji"
         )  # 更高的温度，更少的token（后续可以根据情绪来调整温度）
-        
+
         self.emoji_num = 0
         self.emoji_num_max = global_config.max_emoji_num
         self.emoji_num_max_reach_deletion = global_config.max_reach_deletion
-        
+
         logger.info("启动表情包管理器")
 
     def _ensure_emoji_dir(self):
@@ -51,7 +51,7 @@ class EmojiManager:
 
     def _update_emoji_count(self):
         """更新表情包数量统计
-        
+
         检查数据库中的表情包数量并更新到 self.emoji_num
         """
         try:
@@ -376,7 +376,6 @@ class EmojiManager:
 
         except Exception:
             logger.exception("[错误] 扫描表情包失败")
-            
 
     def check_emoji_file_integrity(self):
         """检查表情包文件完整性
@@ -451,7 +450,7 @@ class EmojiManager:
 
     def check_emoji_file_full(self):
         """检查表情包文件是否完整，如果数量超出限制且允许删除，则删除多余的表情包
-        
+
         删除规则：
         1. 优先删除创建时间更早的表情包
         2. 优先删除使用次数少的表情包，但使用次数多的也有小概率被删除
@@ -460,23 +459,23 @@ class EmojiManager:
             self._ensure_db()
             # 更新表情包数量
             self._update_emoji_count()
-            
+
             # 检查是否超出限制
             if self.emoji_num <= self.emoji_num_max:
                 return
-                
+
             # 如果超出限制但不允许删除，则只记录警告
             if not global_config.max_reach_deletion:
                 logger.warning(f"[警告] 表情包数量({self.emoji_num})超出限制({self.emoji_num_max})，但未开启自动删除")
                 return
-                
+
             # 计算需要删除的数量
             delete_count = self.emoji_num - self.emoji_num_max
             logger.info(f"[清理] 需要删除 {delete_count} 个表情包")
-            
+
             # 获取所有表情包，按时间戳升序（旧的在前）排序
             all_emojis = list(db.emoji.find().sort([("timestamp", 1)]))
-            
+
             # 计算权重：使用次数越多，被删除的概率越小
             weights = []
             max_usage = max((emoji.get("usage_count", 0) for emoji in all_emojis), default=1)
@@ -485,11 +484,11 @@ class EmojiManager:
                 # 使用指数衰减函数计算权重，使用次数越多权重越小
                 weight = 1.0 / (1.0 + usage_count / max(1, max_usage))
                 weights.append(weight)
-            
+
             # 根据权重随机选择要删除的表情包
             to_delete = []
             remaining_indices = list(range(len(all_emojis)))
-            
+
             while len(to_delete) < delete_count and remaining_indices:
                 # 计算当前剩余表情包的权重
                 current_weights = [weights[i] for i in remaining_indices]
@@ -497,13 +496,13 @@ class EmojiManager:
                 total_weight = sum(current_weights)
                 if total_weight == 0:
                     break
-                normalized_weights = [w/total_weight for w in current_weights]
-                
+                normalized_weights = [w / total_weight for w in current_weights]
+
                 # 随机选择一个表情包
                 selected_idx = random.choices(remaining_indices, weights=normalized_weights, k=1)[0]
                 to_delete.append(all_emojis[selected_idx])
                 remaining_indices.remove(selected_idx)
-            
+
             # 删除选中的表情包
             deleted_count = 0
             for emoji in to_delete:
@@ -512,26 +511,26 @@ class EmojiManager:
                     if "path" in emoji and os.path.exists(emoji["path"]):
                         os.remove(emoji["path"])
                         logger.info(f"[删除] 文件: {emoji['path']} (使用次数: {emoji.get('usage_count', 0)})")
-                    
+
                     # 删除数据库记录
                     db.emoji.delete_one({"_id": emoji["_id"]})
                     deleted_count += 1
-                    
+
                     # 同时从images集合中删除
                     if "hash" in emoji:
                         db.images.delete_one({"hash": emoji["hash"]})
-                        
+
                 except Exception as e:
                     logger.error(f"[错误] 删除表情包失败: {str(e)}")
                     continue
-            
+
             # 更新表情包数量
             self._update_emoji_count()
             logger.success(f"[清理] 已删除 {deleted_count} 个表情包，当前数量: {self.emoji_num}")
-            
+
         except Exception as e:
             logger.error(f"[错误] 检查表情包数量失败: {str(e)}")
-            
+
     async def start_periodic_check_register(self):
         """定期检查表情包完整性和数量"""
         while True:
@@ -542,7 +541,7 @@ class EmojiManager:
             logger.info("[扫描] 开始扫描新表情包...")
             if self.emoji_num < self.emoji_num_max:
                 await self.scan_new_emojis()
-            if (self.emoji_num > self.emoji_num_max):
+            if self.emoji_num > self.emoji_num_max:
                 logger.warning(f"[警告] 表情包数量超过最大限制: {self.emoji_num} > {self.emoji_num_max},跳过注册")
                 if not global_config.max_reach_deletion:
                     logger.warning("表情包数量超过最大限制，终止注册")
@@ -551,7 +550,7 @@ class EmojiManager:
                     logger.warning("表情包数量超过最大限制，开始删除表情包")
                     self.check_emoji_file_full()
             await asyncio.sleep(global_config.EMOJI_CHECK_INTERVAL * 60)
-    
+
     async def delete_all_images(self):
         """删除 data/image 目录下的所有文件"""
         try:
@@ -559,10 +558,10 @@ class EmojiManager:
             if not os.path.exists(image_dir):
                 logger.warning(f"[警告] 目录不存在: {image_dir}")
                 return
-                
+
             deleted_count = 0
             failed_count = 0
-            
+
             # 遍历目录下的所有文件
             for filename in os.listdir(image_dir):
                 file_path = os.path.join(image_dir, filename)
@@ -574,11 +573,12 @@ class EmojiManager:
                 except Exception as e:
                     failed_count += 1
                     logger.error(f"[错误] 删除文件失败 {file_path}: {str(e)}")
-                    
+
             logger.success(f"[清理] 已删除 {deleted_count} 个文件，失败 {failed_count} 个")
-            
+
         except Exception as e:
             logger.error(f"[错误] 删除图片目录失败: {str(e)}")
+
 
 # 创建全局单例
 emoji_manager = EmojiManager()

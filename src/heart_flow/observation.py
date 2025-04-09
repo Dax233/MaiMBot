@@ -7,6 +7,7 @@ from src.common.database import db
 from src.individuality.individuality import Individuality
 import random
 
+
 # 所有观察的基类
 class Observation:
     def __init__(self, observe_type, observe_id):
@@ -24,7 +25,7 @@ class ChattingObservation(Observation):
 
         self.talking_message = []
         self.talking_message_str = ""
-        
+
         self.name = global_config.BOT_NICKNAME
         self.nick_name = global_config.BOT_ALIAS_NAMES
 
@@ -57,7 +58,7 @@ class ChattingObservation(Observation):
         for msg in new_messages:
             if "detailed_plain_text" in msg:
                 new_messages_str += f"{msg['detailed_plain_text']}"
-                
+
         # print(f"new_messages_str：{new_messages_str}")
 
         # 将新消息添加到talking_message，同时保持列表长度不超过20条
@@ -117,26 +118,22 @@ class ChattingObservation(Observation):
         # print(f"更新聊天总结：{self.talking_summary}")
         # 开始构建prompt
         prompt_personality = "你"
-        #person
+        # person
         individuality = Individuality.get_instance()
-        
+
         personality_core = individuality.personality.personality_core
         prompt_personality += personality_core
-        
+
         personality_sides = individuality.personality.personality_sides
         random.shuffle(personality_sides)
         prompt_personality += f",{personality_sides[0]}"
-        
+
         identity_detail = individuality.identity.identity_detail
         random.shuffle(identity_detail)
         prompt_personality += f",{identity_detail[0]}"
-        
-        
-        
+
         personality_info = prompt_personality
-        
-        
-        
+
         prompt = ""
         prompt += f"{personality_info}，请注意识别你自己的聊天发言"
         prompt += f"你的名字叫：{self.name}，你的昵称是：{self.nick_name}\n"
@@ -148,7 +145,6 @@ class ChattingObservation(Observation):
         self.observe_info, reasoning_content = await self.llm_summary.generate_response_async(prompt)
         print(f"prompt：{prompt}")
         print(f"self.observe_info：{self.observe_info}")
-        
 
     def translate_message_list_to_str(self):
         self.talking_message_str = ""

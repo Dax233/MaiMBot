@@ -35,7 +35,6 @@ class ResponseGenerator:
     async def generate_response(self, message: MessageThinking) -> Optional[Union[str, List[str]]]:
         """根据当前模型类型选择对应的生成函数"""
 
-        
         logger.info(
             f"思考:{message.processed_plain_text[:30] + '...' if len(message.processed_plain_text) > 30 else message.processed_plain_text}"
         )
@@ -178,4 +177,3 @@ class ResponseGenerator:
         # print(f"得到了处理后的llm返回{processed_response}")
 
         return processed_response
-

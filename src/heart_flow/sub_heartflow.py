@@ -53,11 +53,10 @@ class SubHeartflow:
         if not self.current_mind:
             self.current_mind = "你什么也没想"
 
-
         self.is_active = False
 
         self.observations: list[Observation] = []
-        
+
         self.running_knowledges = []
 
     def add_observation(self, observation: Observation):
@@ -86,7 +85,9 @@ class SubHeartflow:
     async def subheartflow_start_working(self):
         while True:
             current_time = time.time()
-            if current_time - self.last_reply_time > global_config.sub_heart_flow_freeze_time:  # 120秒无回复/不在场，冻结
+            if (
+                current_time - self.last_reply_time > global_config.sub_heart_flow_freeze_time
+            ):  # 120秒无回复/不在场，冻结
                 self.is_active = False
                 await asyncio.sleep(global_config.sub_heart_flow_update_interval)  # 每60秒检查一次
             else:
@@ -100,7 +101,9 @@ class SubHeartflow:
                 await asyncio.sleep(global_config.sub_heart_flow_update_interval)
 
             # 检查是否超过10分钟没有激活
-            if current_time - self.last_active_time > global_config.sub_heart_flow_stop_time:  # 5分钟无回复/不在场，销毁
+            if (
+                current_time - self.last_active_time > global_config.sub_heart_flow_stop_time
+            ):  # 5分钟无回复/不在场，销毁
                 logger.info(f"子心流 {self.subheartflow_id} 已经5分钟没有激活，正在销毁...")
                 break  # 退出循环，销毁自己
 
@@ -153,14 +156,14 @@ class SubHeartflow:
 
     #     self.update_current_mind(reponse)
 
-        # self.current_mind = reponse
-        # logger.debug(f"prompt:\n{prompt}\n")
-        # logger.info(f"枫の脑内状态：{self.current_mind}")
-        
+    #     self.current_mind = reponse
+    #     logger.debug(f"prompt:\n{prompt}\n")
+    #     logger.info(f"枫の脑内状态：{self.current_mind}")
+
     async def do_observe(self):
         observation = self.observations[0]
         await observation.observe()
-        
+
     async def do_thinking_before_reply(self, message_txt):
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
@@ -171,22 +174,19 @@ class SubHeartflow:
 
         # 开始构建prompt
         prompt_personality = "你"
-        #person
+        # person
         individuality = Individuality.get_instance()
-        
+
         personality_core = individuality.personality.personality_core
         prompt_personality += personality_core
-        
+
         personality_sides = individuality.personality.personality_sides
         random.shuffle(personality_sides)
         prompt_personality += f",{personality_sides[0]}"
-        
+
         identity_detail = individuality.identity.identity_detail
         random.shuffle(identity_detail)
         prompt_personality += f",{identity_detail[0]}"
-
-
-
 
         # 调取记忆
         related_memory = await HippocampusManager.get_instance().get_memory_from_text(
@@ -200,7 +200,7 @@ class SubHeartflow:
         else:
             related_memory_info = ""
 
-        related_info,grouped_results = await self.get_prompt_info(chat_observe_info + message_txt, 0.4)
+        related_info, grouped_results = await self.get_prompt_info(chat_observe_info + message_txt, 0.4)
         # print(related_info)
         for _topic, results in grouped_results.items():
             for result in results:
@@ -248,22 +248,20 @@ class SubHeartflow:
         
         # 开始构建prompt
         prompt_personality = "你"
-        #person
+        # person
         individuality = Individuality.get_instance()
-        
+
         personality_core = individuality.personality.personality_core
         prompt_personality += personality_core
-        
+
         personality_sides = individuality.personality.personality_sides
         random.shuffle(personality_sides)
         prompt_personality += f",{personality_sides[0]}"
-        
+
         identity_detail = individuality.identity.identity_detail
         random.shuffle(identity_detail)
         prompt_personality += f",{identity_detail[0]}"
-        
-        
-        
+
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
 
@@ -297,22 +295,20 @@ class SubHeartflow:
     async def judge_willing(self):
         # 开始构建prompt
         prompt_personality = "你"
-        #person
+        # person
         individuality = Individuality.get_instance()
-        
+
         personality_core = individuality.personality.personality_core
         prompt_personality += personality_core
-        
+
         personality_sides = individuality.personality.personality_sides
         random.shuffle(personality_sides)
         prompt_personality += f",{personality_sides[0]}"
-        
+
         identity_detail = individuality.identity.identity_detail
         random.shuffle(identity_detail)
         prompt_personality += f",{identity_detail[0]}"
-        
-        
-        
+
         # print("麦麦闹情绪了1")
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
@@ -338,13 +334,12 @@ class SubHeartflow:
     def update_current_mind(self, reponse):
         self.past_mind.append(self.current_mind)
         self.current_mind = reponse
-        
-        
+
     async def get_prompt_info(self, message: str, threshold: float):
         start_time = time.time()
         related_info = ""
         logger.debug(f"获取知识库内容，元消息：{message[:30]}...，消息长度: {len(message)}")
-        
+
         # 1. 先从LLM获取主题，类似于记忆系统的做法
         topics = []
         # try:
@@ -352,7 +347,7 @@ class SubHeartflow:
         #     hippocampus = HippocampusManager.get_instance()._hippocampus
         #     topic_num = min(5, max(1, int(len(message) * 0.1)))
         #     topics_response = await hippocampus.llm_topic_judge.generate_response(hippocampus.find_topic_llm(message, topic_num))
-            
+
         #     # 提取关键词
         #     topics = re.findall(r"<([^>]+)>", topics_response[0])
         #     if not topics:
@@ -363,7 +358,7 @@ class SubHeartflow:
         #             for topic in ",".join(topics).replace("，", ",").replace("、", ",").replace(" ", ",").split(",")
         #             if topic.strip()
         #         ]
-            
+
         #     logger.info(f"从LLM提取的主题: {', '.join(topics)}")
         # except Exception as e:
         #     logger.error(f"从LLM提取主题失败: {str(e)}")
@@ -371,7 +366,7 @@ class SubHeartflow:
         #     words = jieba.cut(message)
         #     topics = [word for word in words if len(word) > 1][:5]
         #     logger.info(f"使用jieba提取的主题: {', '.join(topics)}")
-        
+
         # 如果无法提取到主题，直接使用整个消息
         if not topics:
             logger.debug("未能提取到任何主题，使用整个消息进行查询")
@@ -379,26 +374,26 @@ class SubHeartflow:
             if not embedding:
                 logger.error("获取消息嵌入向量失败")
                 return ""
-                
+
             related_info = self.get_info_from_db(embedding, limit=3, threshold=threshold)
             logger.info(f"知识库检索完成，总耗时: {time.time() - start_time:.3f}秒")
             return related_info, {}
-        
+
         # 2. 对每个主题进行知识库查询
         logger.info(f"开始处理{len(topics)}个主题的知识库查询")
-        
+
         # 优化：批量获取嵌入向量，减少API调用
         embeddings = {}
         topics_batch = [topic for topic in topics if len(topic) > 0]
         if message:  # 确保消息非空
             topics_batch.append(message)
-        
+
         # 批量获取嵌入向量
         embed_start_time = time.time()
         for text in topics_batch:
             if not text or len(text.strip()) == 0:
                 continue
-                
+
             try:
                 embedding = await get_embedding(text, request_type="info_retrieval")
                 if embedding:
@@ -407,17 +402,17 @@ class SubHeartflow:
                     logger.warning(f"获取'{text}'的嵌入向量失败")
             except Exception as e:
                 logger.error(f"获取'{text}'的嵌入向量时发生错误: {str(e)}")
-        
+
         logger.info(f"批量获取嵌入向量完成，耗时: {time.time() - embed_start_time:.3f}秒")
-        
+
         if not embeddings:
             logger.error("所有嵌入向量获取失败")
             return ""
-        
+
         # 3. 对每个主题进行知识库查询
         all_results = []
         query_start_time = time.time()
-        
+
         # 首先添加原始消息的查询结果
         if message in embeddings:
             original_results = self.get_info_from_db(embeddings[message], limit=3, threshold=threshold, return_raw=True)
@@ -426,12 +421,12 @@ class SubHeartflow:
                     result["topic"] = "原始消息"
                 all_results.extend(original_results)
                 logger.info(f"原始消息查询到{len(original_results)}条结果")
-        
+
         # 然后添加每个主题的查询结果
         for topic in topics:
             if not topic or topic not in embeddings:
                 continue
-                
+
             try:
                 topic_results = self.get_info_from_db(embeddings[topic], limit=3, threshold=threshold, return_raw=True)
                 if topic_results:
@@ -442,9 +437,9 @@ class SubHeartflow:
                     logger.info(f"主题'{topic}'查询到{len(topic_results)}条结果")
             except Exception as e:
                 logger.error(f"查询主题'{topic}'时发生错误: {str(e)}")
-        
+
         logger.info(f"知识库查询完成，耗时: {time.time() - query_start_time:.3f}秒，共获取{len(all_results)}条结果")
-        
+
         # 4. 去重和过滤
         process_start_time = time.time()
         unique_contents = set()
@@ -454,14 +449,16 @@ class SubHeartflow:
             if content not in unique_contents:
                 unique_contents.add(content)
                 filtered_results.append(result)
-        
+
         # 5. 按相似度排序
         filtered_results.sort(key=lambda x: x["similarity"], reverse=True)
-        
+
         # 6. 限制总数量（最多10条）
         filtered_results = filtered_results[:10]
-        logger.info(f"结果处理完成，耗时: {time.time() - process_start_time:.3f}秒，过滤后剩余{len(filtered_results)}条结果")
-        
+        logger.info(
+            f"结果处理完成，耗时: {time.time() - process_start_time:.3f}秒，过滤后剩余{len(filtered_results)}条结果"
+        )
+
         # 7. 格式化输出
         if filtered_results:
             format_start_time = time.time()
@@ -471,7 +468,7 @@ class SubHeartflow:
                 if topic not in grouped_results:
                     grouped_results[topic] = []
                 grouped_results[topic].append(result)
-            
+
             # 按主题组织输出
             for topic, results in grouped_results.items():
                 related_info += f"【主题: {topic}】\n"
@@ -482,13 +479,15 @@ class SubHeartflow:
                     # related_info += f"{i}. [{similarity:.2f}] {content}\n"
                     related_info += f"{content}\n"
                 related_info += "\n"
-            
-            logger.info(f"格式化输出完成，耗时: {time.time() - format_start_time:.3f}秒")
-        
-        logger.info(f"知识库检索总耗时: {time.time() - start_time:.3f}秒")
-        return related_info,grouped_results
 
-    def get_info_from_db(self, query_embedding: list, limit: int = 1, threshold: float = 0.5, return_raw: bool = False) -> Union[str, list]:
+            logger.info(f"格式化输出完成，耗时: {time.time() - format_start_time:.3f}秒")
+
+        logger.info(f"知识库检索总耗时: {time.time() - start_time:.3f}秒")
+        return related_info, grouped_results
+
+    def get_info_from_db(
+        self, query_embedding: list, limit: int = 1, threshold: float = 0.5, return_raw: bool = False
+    ) -> Union[str, list]:
         if not query_embedding:
             return "" if not return_raw else []
         # 使用余弦相似度计算

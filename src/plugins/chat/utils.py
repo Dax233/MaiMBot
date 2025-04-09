@@ -56,14 +56,13 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> bool:
         logger.info("被@，回复概率设置为100%")
     else:
         if not is_mentioned:
-
             # 判断是否被回复
             if re.match(f"回复[\s\S]*?\({global_config.BOT_QQ}\)的消息，说：", message.processed_plain_text):
                 is_mentioned = True
-            
+
             # 判断内容中是否被提及
-            message_content = re.sub(r'\@[\s\S]*?（(\d+)）','', message.processed_plain_text)
-            message_content = re.sub(r'回复[\s\S]*?\((\d+)\)的消息，说： ','', message_content)
+            message_content = re.sub(r"\@[\s\S]*?（(\d+)）", "", message.processed_plain_text)
+            message_content = re.sub(r"回复[\s\S]*?\((\d+)\)的消息，说： ", "", message_content)
             for keyword in keywords:
                 if keyword in message_content:
                     is_mentioned = True
@@ -372,7 +371,13 @@ def process_llm_response(text: str) -> List[str]:
     return sentences
 
 
-def calculate_typing_time(input_string: str, thinking_start_time: float, chinese_time: float = 0.2, english_time: float = 0.1, is_emoji: bool = False) -> float:
+def calculate_typing_time(
+    input_string: str,
+    thinking_start_time: float,
+    chinese_time: float = 0.2,
+    english_time: float = 0.1,
+    is_emoji: bool = False,
+) -> float:
     """
     计算输入字符串所需的时间，中文和英文字符有不同的输入时间
         input_string (str): 输入的字符串
@@ -411,19 +416,18 @@ def calculate_typing_time(input_string: str, thinking_start_time: float, chinese
             total_time += chinese_time
         else:  # 其他字符（如英文）
             total_time += english_time
-    
-    
+
     if is_emoji:
         total_time = 1
-    
+
     if time.time() - thinking_start_time > 10:
         total_time = 1
-    
+
     # print(f"thinking_start_time:{thinking_start_time}")
     # print(f"nowtime:{time.time()}")
     # print(f"nowtime - thinking_start_time:{time.time() - thinking_start_time}")
     # print(f"{total_time}")
-    
+
     return total_time  # 加上回车时间
 
 
@@ -553,39 +557,32 @@ def count_messages_between(start_time: float, end_time: float, stream_id: str) -
     try:
         # 获取开始时间之前最新的一条消息
         start_message = db.messages.find_one(
-            {
-                "chat_id": stream_id,
-                "time": {"$lte": start_time}
-            },
-            sort=[("time", -1), ("_id", -1)]  # 按时间倒序，_id倒序（最后插入的在前）
+            {"chat_id": stream_id, "time": {"$lte": start_time}},
+            sort=[("time", -1), ("_id", -1)],  # 按时间倒序，_id倒序（最后插入的在前）
         )
-        
+
         # 获取结束时间最近的一条消息
         # 先找到结束时间点的所有消息
-        end_time_messages = list(db.messages.find(
-            {
-                "chat_id": stream_id,
-                "time": {"$lte": end_time}
-            },
-            sort=[("time", -1)]  # 先按时间倒序
-        ).limit(10))  # 限制查询数量，避免性能问题
-        
+        end_time_messages = list(
+            db.messages.find(
+                {"chat_id": stream_id, "time": {"$lte": end_time}},
+                sort=[("time", -1)],  # 先按时间倒序
+            ).limit(10)
+        )  # 限制查询数量，避免性能问题
+
         if not end_time_messages:
             logger.warning(f"未找到结束时间 {end_time} 之前的消息")
             return 0, 0
-            
+
         # 找到最大时间
         max_time = end_time_messages[0]["time"]
         # 在最大时间的消息中找最后插入的（_id最大的）
-        end_message = max(
-            [msg for msg in end_time_messages if msg["time"] == max_time],
-            key=lambda x: x["_id"]
-        )
-            
+        end_message = max([msg for msg in end_time_messages if msg["time"] == max_time], key=lambda x: x["_id"])
+
         if not start_message:
             logger.warning(f"未找到开始时间 {start_time} 之前的消息")
             return 0, 0
-        
+
         # 调试输出
         # print("\n=== 消息范围信息 ===")
         # print("Start message:", {
@@ -605,20 +602,16 @@ def count_messages_between(start_time: float, end_time: float, stream_id: str) -
         # 如果结束消息的时间等于开始时间，返回0
         if end_message["time"] == start_message["time"]:
             return 0, 0
-            
+
         # 获取并打印这个时间范围内的所有消息
         # print("\n=== 时间范围内的所有消息 ===")
-        all_messages = list(db.messages.find(
-            {
-                "chat_id": stream_id,
-                "time": {
-                    "$gte": start_message["time"],
-                    "$lte": end_message["time"]
-                }
-            },
-            sort=[("time", 1), ("_id", 1)]  # 按时间正序，_id正序
-        ))
-        
+        all_messages = list(
+            db.messages.find(
+                {"chat_id": stream_id, "time": {"$gte": start_message["time"], "$lte": end_message["time"]}},
+                sort=[("time", 1), ("_id", 1)],  # 按时间正序，_id正序
+            )
+        )
+
         count = 0
         total_length = 0
         for msg in all_messages:
@@ -633,10 +626,10 @@ def count_messages_between(start_time: float, end_time: float, stream_id: str) -
             #     "text_length": text_length,
             #     "_id": str(msg.get("_id"))
             # })
-        
+
         # 如果时间不同，需要把end_message本身也计入
         return count - 1, total_length
-        
+
     except Exception as e:
         logger.error(f"计算消息数量时出错: {str(e)}")
         return 0, 0

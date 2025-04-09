@@ -3,6 +3,7 @@ import tomlkit
 from pathlib import Path
 from datetime import datetime
 
+
 def update_config():
     print("开始更新配置文件...")
     # 获取根目录路径
@@ -25,11 +26,11 @@ def update_config():
         print(f"发现旧配置文件: {old_config_path}")
         with open(old_config_path, "r", encoding="utf-8") as f:
             old_config = tomlkit.load(f)
-        
+
         # 生成带时间戳的新文件名
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         old_backup_path = old_config_dir / f"bot_config_{timestamp}.toml"
-        
+
         # 移动旧配置文件到old目录
         shutil.move(old_config_path, old_backup_path)
         print(f"已备份旧配置文件到: {old_backup_path}")

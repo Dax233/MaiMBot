@@ -7,12 +7,13 @@ from datetime import datetime
 
 logger = get_module_logger("pfc_message_processor")
 
+
 class MessageProcessor:
     """消息处理器，负责处理接收到的消息并存储"""
-    
+
     def __init__(self):
         self.storage = MessageStorage()
-        
+
     def _check_ban_words(self, text: str, chat, userinfo) -> bool:
         """检查消息中是否包含过滤词"""
         for word in global_config.ban_words:
@@ -34,10 +35,10 @@ class MessageProcessor:
                 logger.info(f"[正则表达式过滤]消息匹配到{pattern}，filtered")
                 return True
         return False
-        
+
     async def process_message(self, message: MessageRecv) -> None:
         """处理消息并存储
-        
+
         Args:
             message: 消息对象
         """
@@ -55,12 +56,9 @@ class MessageProcessor:
 
         # 存储消息
         await self.storage.store_message(message, chat)
-        
+
         # 打印消息信息
         mes_name = chat.group_info.group_name if chat.group_info else "私聊"
         # 将时间戳转换为datetime对象
         current_time = datetime.fromtimestamp(message.message_info.time).strftime("%H:%M:%S")
-        logger.info(
-            f"[{current_time}][{mes_name}]"
-            f"{chat.user_info.user_nickname}: {message.processed_plain_text}"
-        )
+        logger.info(f"[{current_time}][{mes_name}]{chat.user_info.user_nickname}: {message.processed_plain_text}")

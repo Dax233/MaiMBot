@@ -42,7 +42,6 @@ class Heartflow:
         self._subheartflows = {}
         self.active_subheartflows_nums = 0
 
-
     async def _cleanup_inactive_subheartflows(self):
         """定期清理不活跃的子心流"""
         while True:
@@ -84,25 +83,22 @@ class Heartflow:
 
         # 开始构建prompt
         prompt_personality = "你"
-        #person
+        # person
         individuality = Individuality.get_instance()
-        
+
         personality_core = individuality.personality.personality_core
         prompt_personality += personality_core
-        
+
         personality_sides = individuality.personality.personality_sides
         random.shuffle(personality_sides)
         prompt_personality += f",{personality_sides[0]}"
-        
+
         identity_detail = individuality.identity.identity_detail
         random.shuffle(identity_detail)
         prompt_personality += f",{identity_detail[0]}"
-        
-        
-        
+
         personality_info = prompt_personality
-        
-        
+
         current_thinking_info = self.current_mind
         mood_info = self.current_state.mood
         related_memory_info = "memory"
@@ -155,22 +151,20 @@ class Heartflow:
     async def minds_summary(self, minds_str):
         # 开始构建prompt
         prompt_personality = "你"
-        #person
+        # person
         individuality = Individuality.get_instance()
-        
+
         personality_core = individuality.personality.personality_core
         prompt_personality += personality_core
-        
+
         personality_sides = individuality.personality.personality_sides
         random.shuffle(personality_sides)
         prompt_personality += f",{personality_sides[0]}"
-        
+
         identity_detail = individuality.identity.identity_detail
         random.shuffle(identity_detail)
         prompt_personality += f",{identity_detail[0]}"
-        
-        
-        
+
         personality_info = prompt_personality
         mood_info = self.current_state.mood
 
@@ -192,7 +186,7 @@ class Heartflow:
         添加一个SubHeartflow实例到self._subheartflows字典中
         并根据subheartflow_id为子心流创建一个观察对象
         """
-        
+
         try:
             if subheartflow_id not in self._subheartflows:
                 logger.debug(f"创建 subheartflow: {subheartflow_id}")

@@ -1,24 +1,66 @@
 # 麦麦！MaiCore-MaiMBot (编辑中)
+<br />
+<div align="center">
+
+  ![Python Version](https://img.shields.io/badge/Python-3.9+-blue)
+  ![License](https://img.shields.io/github/license/SengokuCola/MaiMBot?label=协议)
+  ![Status](https://img.shields.io/badge/状态-开发中-yellow)
+  ![Contributors](https://img.shields.io/github/contributors/MaiM-with-u/MaiBot.svg?style=flat&label=贡献者)
+  ![forks](https://img.shields.io/github/forks/MaiM-with-u/MaiBot.svg?style=flat&label=分支数)
+  ![stars](https://img.shields.io/github/stars/MaiM-with-u/MaiBot?style=flat&label=星标数)
+  ![issues](https://img.shields.io/github/issues/MaiM-with-u/MaiBot)
+
+  </div>
+
+<p align="center">
+  <a href="https://github.com/MaiM-with-u/MaiBot/">
+    <img src="depends-data/maimai.png" alt="Logo" width="200">
+  </a>
+  <br />
+  <a href="https://space.bilibili.com/1344099355">
+    画师：略nd
+  </a>
+
+  <h3 align="center">MaiBot(麦麦)</h3>
+  <p align="center">
+    一款专注于<strong> 群组聊天 </strong>的赛博网友
+    <br />
+    <a href="https://docs.mai-mai.org"><strong>探索本项目的文档 »</strong></a>
+    <br />
+    <br />
+    <!-- <a href="https://github.com/shaojintian/Best_README_template">查看Demo</a>
+    · -->
+    <a href="https://github.com/MaiM-with-u/MaiBot/issues">报告Bug</a>
+    ·
+    <a href="https://github.com/MaiM-with-u/MaiBot/issues">提出新特性</a>
+  </p>
+  
+</p>
 
 ## 新版0.6.0部署前先阅读：https://docs.mai-mai.org/manual/usage/mmc_q_a
 
-<div align="center">
-
-![Python Version](https://img.shields.io/badge/Python-3.9+-blue)
-![License](https://img.shields.io/github/license/SengokuCola/MaiMBot)
-![Status](https://img.shields.io/badge/状态-开发中-yellow)
-
-</div>
 
 ## 📝 项目简介
 
 **🍔MaiCore是一个基于大语言模型的可交互智能体**
 
-- LLM 提供对话能力
-- 动态Prompt构建器
-- 实时的思维系统
-- MongoDB 提供数据持久化支持
-- 可扩展，可支持多种平台和多种功能
+
+- 💭 **智能对话系统**：基于LLM的自然语言交互
+- 🤔 **实时思维系统**：模拟人类思考过程
+- 💝 **情感表达系统**：丰富的表情包和情绪表达
+- 🧠 **持久记忆系统**：基于MongoDB的长期记忆存储
+- 🔄 **动态人格系统**：自适应的性格特征
+
+<div align="center">
+<a href="https://www.bilibili.com/video/BV1amAneGE3P" target="_blank">
+    <img src="depends-data/video.png" width="200" alt="麦麦演示视频">
+    <br>
+    👆 点击观看麦麦演示视频 👆
+</a>
+</div>
+
+
+### 📢 版本信息
 
 **最新版本: v0.6.0** ([查看更新日志](changelogs/changelog.md))
 > [!WARNING]
@@ -28,19 +70,12 @@
 > 次版本MaiBot将基于MaiCore运行，不再依赖于nonebot相关组件运行。
 > MaiBot将通过nonebot的插件与nonebot建立联系，然后nonebot与QQ建立联系，实现MaiBot与QQ的交互
 
-**分支介绍:**
-- main 稳定版本
-- dev 开发版（不知道什么意思就别下）
-- classical 0.6.0以前的版本
+**分支说明：**
+- `main`: 稳定发布版本
+- `dev`: 开发测试版本（不知道什么意思就别下）
+- `classical`: 0.6.0之前的版本
 
-<div align="center">
-<a href="https://www.bilibili.com/video/BV1amAneGE3P" target="_blank">
-    <img src="docs/pic/video.png" width="300" alt="麦麦演示视频">
-    <br>
-    👆 点击观看麦麦演示视频 👆
 
-</a>
-</div>
 
 > [!WARNING]
 > - 项目处于活跃开发阶段，代码可能随时更改
@@ -48,6 +83,12 @@
 > - QQ机器人存在被限制风险，请自行了解，谨慎使用
 > - 由于持续迭代，可能存在一些已知或未知的bug
 > - 由于开发中，可能消耗较多token
+
+### ⚠️ 重要提示
+
+- 升级到v0.6.0版本前请务必阅读：[升级指南](https://docs.mai-mai.org/manual/usage/mmc_q_a)
+- 本版本基于MaiCore重构，通过nonebot插件与QQ平台交互
+- 项目处于活跃开发阶段，功能和API可能随时调整
 
 ### 💬交流群（开发和建议相关讨论）不一定有空回复，会优先写文档和代码
 - [五群](https://qm.qq.com/q/JxvHZnxyec) 1022489779
@@ -72,55 +113,35 @@
 
 ## 🎯 功能介绍
 
-### 💬 聊天功能
-- 提供思维流（心流）聊天和推理聊天两种对话逻辑
-- 支持关键词检索主动发言：对消息的话题topic进行识别，如果检测到麦麦存储过的话题就会主动进行发言
-- 支持bot名字呼唤发言：检测到"麦麦"会主动发言，可配置
-- 支持多模型，多厂商自定义配置
-- 动态的prompt构建器，更拟人
-- 支持图片，转发消息，回复消息的识别
-- 支持私聊功能，可使用PFC模式的有目的多轮对话（实验性）
+| 模块 | 主要功能 | 特点 |
+|------|---------|------|
+| 💬 聊天系统 | • 思维流/推理聊天<br>• 关键词主动发言<br>• 多模型支持<br>• 动态prompt构建<br>• 私聊功能(PFC) | 拟人化交互 |
+| 🧠 思维流系统 | • 实时思考生成<br>• 自动启停机制<br>• 日程系统联动 | 智能化决策 |
+| 🧠 记忆系统 2.0 | • 优化记忆抽取<br>• 海马体记忆机制<br>• 聊天记录概括 | 持久化记忆 |
+| 😊 表情包系统 | • 情绪匹配发送<br>• GIF支持<br>• 自动收集与审查 | 丰富表达 |
+| 📅 日程系统 | • 动态日程生成<br>• 自定义想象力<br>• 思维流联动 | 智能规划 |
+| 👥 关系系统 2.0 | • 关系管理优化<br>• 丰富接口支持<br>• 个性化交互 | 深度社交 |
+| 📊 统计系统 | • 使用数据统计<br>• LLM调用记录<br>• 实时控制台显示 | 数据可视 |
+| 🔧 系统功能 | • 优雅关闭机制<br>• 自动数据保存<br>• 异常处理完善 | 稳定可靠 |
 
-### 🧠 思维流系统
-- 思维流能够在回复前后进行思考，生成实时想法
-- 思维流自动启停机制，提升资源利用效率
-- 思维流与日程系统联动，实现动态日程生成
+## 📐 项目架构
 
-### 🧠 记忆系统 2.0
-- 优化记忆抽取策略和prompt结构
-- 改进海马体记忆提取机制，提升自然度
-- 对聊天记录进行概括存储，在需要时调用
+```mermaid
+graph TD
+    A[MaiCore] --> B[对话系统]
+    A --> C[思维流系统]
+    A --> D[记忆系统]
+    A --> E[情感系统]
+    B --> F[多模型支持]
+    B --> G[动态Prompt]
+    C --> H[实时思考]
+    C --> I[日程联动]
+    D --> J[记忆存储]
+    D --> K[记忆检索]
+    E --> L[表情管理]
+    E --> M[情绪识别]
+```
 
-### 😊 表情包系统
-- 支持根据发言内容发送对应情绪的表情包
-- 支持识别和处理gif表情包
-- 会自动偷群友的表情包
-- 表情包审查功能
-- 表情包文件完整性自动检查
-- 自动清理缓存图片
-
-### 📅 日程系统
-- 动态更新的日程生成
-- 可自定义想象力程度
-- 与聊天情况交互（思维流模式下）
-
-### 👥 关系系统 2.0
-- 优化关系管理系统，适用于新版本
-- 提供更丰富的关系接口
-- 针对每个用户创建"关系"，实现个性化回复
-
-### 📊 统计系统
-- 详细的使用数据统计
-- LLM调用统计
-- 在控制台显示统计信息
-
-### 🔧 系统功能
-- 支持优雅的shutdown机制
-- 自动保存功能，定期保存聊天记录和关系数据
-- 完善的异常处理机制
-- 可自定义时区设置
-- 优化的日志输出格式
-- 配置自动更新功能
 
 ## 开发计划TODO：LIST
 
@@ -157,7 +178,6 @@ MaiCore是一个开源项目，我们非常欢迎你的参与。你的贡献，�
 
 ## 致谢
 
-- [nonebot2](https://github.com/nonebot/nonebot2): 跨平台 Python 异步聊天机器人框架  
 - [NapCat](https://github.com/NapNeko/NapCatQQ): 现代化的基于 NTQQ 的 Bot 协议端实现  
 
 ### 贡献者

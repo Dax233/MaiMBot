@@ -2,6 +2,7 @@ import json
 from typing import Dict
 import os
 
+
 def load_scenes() -> Dict:
     """
     从JSON文件加载场景数据
@@ -10,12 +11,14 @@ def load_scenes() -> Dict:
         Dict: 包含所有场景的字典
     """
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    json_path = os.path.join(current_dir, 'template_scene.json')
-    
-    with open(json_path, 'r', encoding='utf-8') as f:
+    json_path = os.path.join(current_dir, "template_scene.json")
+
+    with open(json_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
 PERSONALITY_SCENES = load_scenes()
+
 
 def get_scene_by_factor(factor: str) -> Dict:
     """

@@ -24,10 +24,10 @@
 
 #         # 标记GUI是否运行中
 #         self.is_running = True
-        
+
 #         # 程序关闭时的清理操作
 #         self.protocol("WM_DELETE_WINDOW", self._on_closing)
-        
+
 #         # 初始化进程、日志队列、日志数据等变量
 #         self.process = None
 #         self.log_queue = queue.Queue()
@@ -236,7 +236,7 @@
 #         while not self.log_queue.empty():
 #             line = self.log_queue.get()
 #             self.process_log_line(line)
-        
+
 #         # 仅在GUI仍在运行时继续处理队列
 #         if self.is_running:
 #             self.after(100, self.process_log_queue)
@@ -245,11 +245,11 @@
 #         """解析单行日志并更新日志数据和筛选器"""
 #         match = re.match(
 #             r"""^
-#             (?:(?P<time>\d{2}:\d{2}(?::\d{2})?)\s*\|\s*)?  
-#             (?P<level>\w+)\s*\|\s*                         
-#             (?P<module>.*?)                               
-#             \s*[-|]\s*                                    
-#             (?P<message>.*)                                
+#             (?:(?P<time>\d{2}:\d{2}(?::\d{2})?)\s*\|\s*)?
+#             (?P<level>\w+)\s*\|\s*
+#             (?P<module>.*?)
+#             \s*[-|]\s*
+#             (?P<message>.*)
 #             $""",
 #             line.strip(),
 #             re.VERBOSE,
@@ -354,10 +354,10 @@
 #         """处理窗口关闭事件，安全清理资源"""
 #         # 标记GUI已关闭
 #         self.is_running = False
-        
+
 #         # 停止日志进程
 #         self.stop_process()
-        
+
 #         # 安全清理tkinter变量
 #         for attr_name in list(self.__dict__.keys()):
 #             if isinstance(getattr(self, attr_name), (ctk.Variable, ctk.StringVar, ctk.IntVar, ctk.DoubleVar, ctk.BooleanVar)):
@@ -367,7 +367,7 @@
 #                 except Exception:
 #                     pass
 #                 setattr(self, attr_name, None)
-        
+
 #         self.quit()
 #         sys.exit(0)
 

@@ -17,9 +17,9 @@ with open(config_path, "r", encoding="utf-8") as f:
     config = toml.load(f)
 
 # 现在可以导入src模块
-from src.individuality.scene import get_scene_by_factor, PERSONALITY_SCENES #noqa E402
-from src.individuality.questionnaire import FACTOR_DESCRIPTIONS #noqa E402
-from src.individuality.offline_llm import LLM_request_off #noqa E402
+from src.individuality.scene import get_scene_by_factor, PERSONALITY_SCENES  # noqa E402
+from src.individuality.questionnaire import FACTOR_DESCRIPTIONS  # noqa E402
+from src.individuality.offline_llm import LLM_request_off  # noqa E402
 
 # 加载环境变量
 env_path = os.path.join(root_path, ".env")
@@ -32,13 +32,12 @@ else:
 
 
 def adapt_scene(scene: str) -> str:
-    
-    personality_core = config['personality']['personality_core']
-    personality_sides = config['personality']['personality_sides']
+    personality_core = config["personality"]["personality_core"]
+    personality_sides = config["personality"]["personality_sides"]
     personality_side = random.choice(personality_sides)
-    identity_details = config['identity']['identity_detail']
+    identity_details = config["identity"]["identity_detail"]
     identity_detail = random.choice(identity_details)
-    
+
     """
     根据config中的属性，改编场景使其更适合当前角色
     
@@ -51,10 +50,10 @@ def adapt_scene(scene: str) -> str:
     try:
         prompt = f"""
 这是一个参与人格测评的角色形象:
-- 昵称: {config['bot']['nickname']}
-- 性别: {config['identity']['gender']}
-- 年龄: {config['identity']['age']}岁
-- 外貌: {config['identity']['appearance']}
+- 昵称: {config["bot"]["nickname"]}
+- 性别: {config["identity"]["gender"]}
+- 年龄: {config["identity"]["age"]}岁
+- 外貌: {config["identity"]["appearance"]}
 - 性格核心: {personality_core}
 - 性格侧面: {personality_side}
 - 身份细节: {identity_detail}
@@ -62,18 +61,18 @@ def adapt_scene(scene: str) -> str:
 请根据上述形象，改编以下场景，在测评中，用户将根据该场景给出上述角色形象的反应:
 {scene}
 保持场景的本质不变，但最好贴近生活且具体，并且让它更适合这个角色。
-改编后的场景应该自然、连贯，并考虑角色的年龄、身份和性格特点。只返回改编后的场景描述，不要包含其他说明。注意{config['bot']['nickname']}是面对这个场景的人，而不是场景的其他人。场景中不会有其描述，
+改编后的场景应该自然、连贯，并考虑角色的年龄、身份和性格特点。只返回改编后的场景描述，不要包含其他说明。注意{config["bot"]["nickname"]}是面对这个场景的人，而不是场景的其他人。场景中不会有其描述，
 现在，请你给出改编后的场景描述
 """
 
-        llm = LLM_request_off(model_name=config['model']['llm_normal']['name'])
+        llm = LLM_request_off(model_name=config["model"]["llm_normal"]["name"])
         adapted_scene, _ = llm.generate_response(prompt)
-        
+
         # 检查返回的场景是否为空或错误信息
         if not adapted_scene or "错误" in adapted_scene or "失败" in adapted_scene:
             print("场景改编失败，将使用原始场景")
             return scene
-            
+
         return adapted_scene
     except Exception as e:
         print(f"场景改编过程出错：{str(e)}，将使用原始场景")
@@ -169,7 +168,7 @@ class PersonalityEvaluator_direct:
         except Exception as e:
             print(f"评估过程出错：{str(e)}")
             return {dim: 3.5 for dim in dimensions}
-    
+
     def run_evaluation(self):
         """
         运行整个评估过程
@@ -185,18 +184,23 @@ class PersonalityEvaluator_direct:
         print(f"- 身份细节：{config['identity']['identity_detail']}")
         print("\n准备好了吗？按回车键开始...")
         input()
-        
+
         total_scenarios = len(self.scenarios)
-        progress_bar = tqdm(total=total_scenarios, desc="场景进度", ncols=100, bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]')
+        progress_bar = tqdm(
+            total=total_scenarios,
+            desc="场景进度",
+            ncols=100,
+            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]",
+        )
 
         for _i, scenario_data in enumerate(self.scenarios, 1):
             # print(f"\n{'-' * 20} 场景 {i}/{total_scenarios} - {scenario_data['场景编号']} {'-' * 20}")
-            
+
             # 改编场景，使其更适合当前角色
             print(f"{config['bot']['nickname']}祈祷中...")
             adapted_scene = adapt_scene(scenario_data["场景"])
             scenario_data["改编场景"] = adapted_scene
-            
+
             print(adapted_scene)
             print(f"\n请描述{config['bot']['nickname']}在这种情况下会如何反应：")
             response = input().strip()
@@ -220,13 +224,13 @@ class PersonalityEvaluator_direct:
 
             # 更新进度条
             progress_bar.update(1)
-            
+
             # if i < total_scenarios:
-                # print("\n按回车键继续下一个场景...")
-                # input()
-        
+            # print("\n按回车键继续下一个场景...")
+            # input()
+
         progress_bar.close()
-        
+
         # 计算平均分
         for dimension in self.final_scores:
             if self.dimension_counts[dimension] > 0:
@@ -241,26 +245,26 @@ class PersonalityEvaluator_direct:
 
         # 返回评估结果
         return self.get_result()
-    
+
     def get_result(self):
         """
         获取评估结果
         """
         return {
-            "final_scores": self.final_scores, 
-            "dimension_counts": self.dimension_counts, 
+            "final_scores": self.final_scores,
+            "dimension_counts": self.dimension_counts,
             "scenarios": self.scenarios,
             "bot_info": {
-                "nickname": config['bot']['nickname'],
-                "gender": config['identity']['gender'],
-                "age": config['identity']['age'],
-                "height": config['identity']['height'],
-                "weight": config['identity']['weight'],
-                "appearance": config['identity']['appearance'],
-                "personality_core": config['personality']['personality_core'],
-                "personality_sides": config['personality']['personality_sides'],
-                "identity_detail": config['identity']['identity_detail']
-            }
+                "nickname": config["bot"]["nickname"],
+                "gender": config["identity"]["gender"],
+                "age": config["identity"]["age"],
+                "height": config["identity"]["height"],
+                "weight": config["identity"]["weight"],
+                "appearance": config["identity"]["appearance"],
+                "personality_core": config["personality"]["personality_core"],
+                "personality_sides": config["personality"]["personality_sides"],
+                "identity_detail": config["identity"]["identity_detail"],
+            },
         }
 
 
@@ -275,28 +279,28 @@ def main():
         "extraversion": round(result["final_scores"]["外向性"] / 6, 1),
         "agreeableness": round(result["final_scores"]["宜人性"] / 6, 1),
         "neuroticism": round(result["final_scores"]["神经质"] / 6, 1),
-        "bot_nickname": config['bot']['nickname']
+        "bot_nickname": config["bot"]["nickname"],
     }
 
     # 确保目录存在
     save_dir = os.path.join(root_path, "data", "personality")
     os.makedirs(save_dir, exist_ok=True)
-    
+
     # 创建文件名，替换可能的非法字符
-    bot_name = config['bot']['nickname']
+    bot_name = config["bot"]["nickname"]
     # 替换Windows文件名中不允许的字符
-    for char in ['\\', '/', ':', '*', '?', '"', '<', '>', '|']:
-        bot_name = bot_name.replace(char, '_')
-    
+    for char in ["\\", "/", ":", "*", "?", '"', "<", ">", "|"]:
+        bot_name = bot_name.replace(char, "_")
+
     file_name = f"{bot_name}_personality.per"
     save_path = os.path.join(save_dir, file_name)
-    
+
     # 保存简化的结果
     with open(save_path, "w", encoding="utf-8") as f:
         json.dump(simplified_result, f, ensure_ascii=False, indent=4)
 
     print(f"\n结果已保存到 {save_path}")
-    
+
     # 同时保存完整结果到results目录
     os.makedirs("results", exist_ok=True)
     with open("results/personality_result.json", "w", encoding="utf-8") as f:

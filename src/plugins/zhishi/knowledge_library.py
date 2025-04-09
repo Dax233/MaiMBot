@@ -53,18 +53,18 @@ class KnowledgeLibrary:
         # 按空行分割内容
         paragraphs = [p.strip() for p in content.split("\n\n") if p.strip()]
         chunks = []
-        
+
         for para in paragraphs:
             para_length = len(para)
-            
+
             # 如果段落长度小于等于最大长度，直接添加
             if para_length <= max_length:
                 chunks.append(para)
             else:
                 # 如果段落超过最大长度，则按最大长度切分
                 for i in range(0, para_length, max_length):
-                    chunks.append(para[i:i + max_length])
-        
+                    chunks.append(para[i : i + max_length])
+
         return chunks
 
     def get_embedding(self, text: str) -> list:

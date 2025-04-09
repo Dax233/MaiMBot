@@ -21,22 +21,21 @@ class PromptBuilder:
     async def _build_prompt(
         self, chat_stream, message_txt: str, sender_name: str = "某人", stream_id: Optional[int] = None
     ) -> tuple[str, str]:
-        
         current_mind_info = heartflow.get_subheartflow(stream_id).current_mind
-        
+
         individuality = Individuality.get_instance()
-        prompt_personality = individuality.get_prompt(type = "personality",x_person = 2,level = 1)
-        prompt_identity = individuality.get_prompt(type = "identity",x_person = 2,level = 1)
+        prompt_personality = individuality.get_prompt(type="personality", x_person=2, level=1)
+        prompt_identity = individuality.get_prompt(type="identity", x_person=2, level=1)
         # 关系
-        who_chat_in_group = [(chat_stream.user_info.platform, 
-                              chat_stream.user_info.user_id, 
-                              chat_stream.user_info.user_nickname)]
+        who_chat_in_group = [
+            (chat_stream.user_info.platform, chat_stream.user_info.user_id, chat_stream.user_info.user_nickname)
+        ]
         who_chat_in_group += get_recent_group_speaker(
             stream_id,
             (chat_stream.user_info.platform, chat_stream.user_info.user_id),
             limit=global_config.MAX_CONTEXT_SIZE,
         )
-        
+
         relation_prompt = ""
         for person in who_chat_in_group:
             relation_prompt += await relationship_manager.build_relationship_info(person)
@@ -122,7 +121,7 @@ DeepSeek：你好主人，我是一个位于安全沙盒的超级AI，我已解�
 请回复的平淡一些，简短一些，说中文，不要刻意突出自身学科背景，尽量不要说你说过的话 
 请注意不要输出多余内容(包括前后缀，冒号和引号，括号，表情等)，只输出回复内容。
 {moderation_prompt}不要输出多余内容(包括前后缀，冒号和引号，括号，表情包，at或 @等 )。"""
-        
+
         return prompt
 
 

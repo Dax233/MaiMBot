@@ -8,6 +8,7 @@ import time
 import platform
 from dotenv import load_dotenv
 from src.common.logger import get_module_logger
+from src.common.crash_logger import install_crash_handler
 from src.main import MainSystem
 
 logger = get_module_logger("main_bot")
@@ -193,6 +194,9 @@ def raw_main():
     if platform.system().lower() != "windows":
         time.tzset()
 
+    # 安装崩溃日志处理器
+    install_crash_handler()
+    
     check_eula()
     print("检查EULA和隐私条款完成")
     # easter_egg()
