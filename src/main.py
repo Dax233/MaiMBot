@@ -16,7 +16,7 @@ from .plugins.chat.bot import chat_bot
 from .common.logger import get_module_logger
 from .plugins.remote import heartbeat_thread  # noqa: F401
 from .individuality.individuality import Individuality
-
+from .common.server import global_server
 
 logger = get_module_logger("main")
 
@@ -33,6 +33,7 @@ class MainSystem:
         from .plugins.message import global_api
 
         self.app = global_api
+        self.server = global_server
 
     async def initialize(self):
         """初始化系统组件"""
@@ -126,6 +127,7 @@ class MainSystem:
                 emoji_manager.start_periodic_check_register(),
                 # emoji_manager.start_periodic_register(),
                 self.app.run(),
+                self.server.run(),
             ]
             await asyncio.gather(*tasks)
 

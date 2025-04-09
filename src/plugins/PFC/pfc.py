@@ -49,43 +49,40 @@ class GoalAnalyzer:
         Args:
             conversation_info: 对话信息
             observation_info: 观察信息
-            
+
         Returns:
             Tuple[str, str, str]: (目标, 方法, 原因)
         """
-         #构建对话目标
+        # 构建对话目标
         goal_list = conversation_info.goal_list
         goal_text = ""
         for goal, reason in goal_list:
             goal_text += f"目标：{goal};"
             goal_text += f"原因：{reason}\n"
-            
-            
+
         # 获取聊天历史记录
         chat_history_list = observation_info.chat_history
         chat_history_text = ""
         for msg in chat_history_list:
             chat_history_text += f"{msg}\n"
-        
+
         if observation_info.new_messages_count > 0:
             new_messages_list = observation_info.unprocessed_messages
-            
+
             chat_history_text += f"有{observation_info.new_messages_count}条新消息：\n"
             for msg in new_messages_list:
                 chat_history_text += f"{msg}\n"
-            
+
             observation_info.clear_unprocessed_messages()
-                
-            
+
         personality_text = f"你的名字是{self.name}，{self.personality_info}"
-        
+
         # 构建action历史文本
         action_history_list = conversation_info.done_action
         action_history_text = "你之前做的事情是："
         for action in action_history_list:
             action_history_text += f"{action}\n"
-            
-            
+
         prompt = f"""{personality_text}。现在你在参与一场QQ聊天，请分析以下聊天记录，并根据你的性格特征确定多个明确的对话目标。
 这些目标应该反映出对话的不同方面和意图。
 
@@ -119,20 +116,15 @@ class GoalAnalyzer:
         logger.debug(f"发送到LLM的提示词: {prompt}")
         content, _ = await self.llm.generate_response_async(prompt)
         logger.debug(f"LLM原始返回内容: {content}")
-        
+
         # 使用简化函数提取JSON内容
         success, result = get_items_from_json(
-            content,
-            "goal", "reasoning",
-            required_types={"goal": str, "reasoning": str}
+            content, "goal", "reasoning", required_types={"goal": str, "reasoning": str}
         )
-        #TODO
-        
-        
+        # TODO
+
         conversation_info.goal_list.append(result)
 
-        
-    
     async def _update_goals(self, new_goal: str, method: str, reasoning: str):
         """更新目标列表
 
@@ -229,24 +221,26 @@ class GoalAnalyzer:
         try:
             content, _ = await self.llm.generate_response_async(prompt)
             logger.debug(f"LLM原始返回内容: {content}")
-            
+
             # 尝试解析JSON
             success, result = get_items_from_json(
                 content,
-                "goal_achieved", "stop_conversation", "reason",
-                required_types={"goal_achieved": bool, "stop_conversation": bool, "reason": str}
+                "goal_achieved",
+                "stop_conversation",
+                "reason",
+                required_types={"goal_achieved": bool, "stop_conversation": bool, "reason": str},
             )
 
             if not success:
                 logger.error("无法解析对话分析结果JSON")
                 return False, False, "解析结果失败"
-                
+
             goal_achieved = result["goal_achieved"]
             stop_conversation = result["stop_conversation"]
             reason = result["reason"]
-            
+
             return goal_achieved, stop_conversation, reason
-            
+
         except Exception as e:
             logger.error(f"分析对话状态时出错: {str(e)}")
             return False, False, f"分析出错: {str(e)}"
@@ -269,21 +263,20 @@ class Waiter:
         # 使用当前时间作为等待开始时间
         wait_start_time = time.time()
         self.chat_observer.waiting_start_time = wait_start_time  # 设置等待开始时间
-        
+
         while True:
             # 检查是否有新消息
             if self.chat_observer.new_message_after(wait_start_time):
                 logger.info("等待结束，收到新消息")
                 return False
-                
+
             # 检查是否超时
             if time.time() - wait_start_time > 300:
                 logger.info("等待超过300秒，结束对话")
                 return True
-                
+
             await asyncio.sleep(1)
             logger.info("等待中...")
-
 
 
 class DirectMessageSender:

@@ -196,7 +196,7 @@ def raw_main():
 
     # 安装崩溃日志处理器
     install_crash_handler()
-    
+
     check_eula()
     print("检查EULA和隐私条款完成")
     # easter_egg()

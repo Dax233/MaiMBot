@@ -17,20 +17,20 @@ class ChatObserver:
     _instances: Dict[str, "ChatObserver"] = {}
 
     @classmethod
-    def get_instance(cls, stream_id: str, message_storage: Optional[MessageStorage] = None) -> 'ChatObserver':
+    def get_instance(cls, stream_id: str, message_storage: Optional[MessageStorage] = None) -> "ChatObserver":
         """获取或创建观察器实例
 
         Args:
             stream_id: 聊天流ID
             message_storage: 消息存储实现，如果为None则使用MongoDB实现
-            
+
         Returns:
             ChatObserver: 观察器实例
         """
         if stream_id not in cls._instances:
             cls._instances[stream_id] = cls(stream_id, message_storage)
         return cls._instances[stream_id]
-    
+
     def __init__(self, stream_id: str, message_storage: Optional[MessageStorage] = None):
         """初始化观察器
 
@@ -43,15 +43,15 @@ class ChatObserver:
 
         self.stream_id = stream_id
         self.message_storage = message_storage or MongoDBMessageStorage()
-        
+
         self.last_user_speak_time: Optional[float] = None  # 对方上次发言时间
-        self.last_bot_speak_time: Optional[float] = None   # 机器人上次发言时间
-        self.last_check_time: float = time.time()         # 上次查看聊天记录时间
-        self.last_message_read: Optional[str] = None      # 最后读取的消息ID
-        self.last_message_time: Optional[float] = None    # 最后一条消息的时间戳
-        
-        self.waiting_start_time: float = time.time()      # 等待开始时间，初始化为当前时间
-        
+        self.last_bot_speak_time: Optional[float] = None  # 机器人上次发言时间
+        self.last_check_time: float = time.time()  # 上次查看聊天记录时间
+        self.last_message_read: Optional[str] = None  # 最后读取的消息ID
+        self.last_message_time: Optional[float] = None  # 最后一条消息的时间戳
+
+        self.waiting_start_time: float = time.time()  # 等待开始时间，初始化为当前时间
+
         # 消息历史记录
         self.message_history: List[Dict[str, Any]] = []  # 所有消息历史
         self.last_message_id: Optional[str] = None  # 最后一条消息的ID
@@ -62,20 +62,20 @@ class ChatObserver:
         self._task: Optional[asyncio.Task] = None
         self._update_event = asyncio.Event()  # 触发更新的事件
         self._update_complete = asyncio.Event()  # 更新完成的事件
-        
+
         # 通知管理器
         self.notification_manager = NotificationManager()
-        
+
         # 冷场检查配置
         self.cold_chat_threshold: float = 60.0  # 60秒无消息判定为冷场
         self.last_cold_chat_check: float = time.time()
         self.is_cold_chat_state: bool = False
-        
+
         self.update_event = asyncio.Event()
         self.update_interval = 5  # 更新间隔（秒）
         self.message_cache = []
         self.update_running = False
-    
+
     async def check(self) -> bool:
         """检查距离上一次观察之后是否有了新消息
 
@@ -83,21 +83,18 @@ class ChatObserver:
             bool: 是否有新消息
         """
         logger.debug(f"检查距离上一次观察之后是否有了新消息: {self.last_check_time}")
-        
-        new_message_exists = await self.message_storage.has_new_messages(
-            self.stream_id, 
-            self.last_check_time
-        )
-        
+
+        new_message_exists = await self.message_storage.has_new_messages(self.stream_id, self.last_check_time)
+
         if new_message_exists:
             logger.debug("发现新消息")
             self.last_check_time = time.time()
 
         return new_message_exists
-    
+
     async def _add_message_to_history(self, message: Dict[str, Any]):
         """添加消息到历史记录并发送通知
-        
+
         Args:
             message: 消息数据
         """
@@ -112,76 +109,65 @@ class ChatObserver:
             self.last_bot_speak_time = message["time"]
         else:
             self.last_user_speak_time = message["time"]
-            
+
         # 发送新消息通知
-        notification = create_new_message_notification(
-            sender="chat_observer",
-            target="pfc",
-            message=message
-        )
+        notification = create_new_message_notification(sender="chat_observer", target="pfc", message=message)
         await self.notification_manager.send_notification(notification)
-        
+
         # 检查并更新冷场状态
         await self._check_cold_chat()
-            
+
     async def _check_cold_chat(self):
         """检查是否处于冷场状态并发送通知"""
         current_time = time.time()
-        
+
         # 每10秒检查一次冷场状态
         if current_time - self.last_cold_chat_check < 10:
             return
-            
+
         self.last_cold_chat_check = current_time
-        
+
         # 判断是否冷场
         is_cold = False
         if self.last_message_time is None:
             is_cold = True
         else:
             is_cold = (current_time - self.last_message_time) > self.cold_chat_threshold
-            
+
         # 如果冷场状态发生变化，发送通知
         if is_cold != self.is_cold_chat_state:
             self.is_cold_chat_state = is_cold
-            notification = create_cold_chat_notification(
-                sender="chat_observer",
-                target="pfc",
-                is_cold=is_cold
-            )
+            notification = create_cold_chat_notification(sender="chat_observer", target="pfc", is_cold=is_cold)
             await self.notification_manager.send_notification(notification)
-            
+
     async def get_new_message(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """获取上一次观察的时间点后的新消息，插入到历史记录中，并返回新消息和历史记录两个对象"""
-        messages = await self.message_storage.get_messages_after(
-            self.stream_id,
-            self.last_message_read
-        )
+        messages = await self.message_storage.get_messages_after(self.stream_id, self.last_message_read)
         for message in messages:
             await self._add_message_to_history(message)
         return messages, self.message_history
-    
+
     def new_message_after(self, time_point: float) -> bool:
         """判断是否在指定时间点后有新消息
-        
+
         Args:
             time_point: 时间戳
-            
+
         Returns:
             bool: 是否有新消息
         """
         if time_point is None:
             logger.warning("time_point 为 None，返回 False")
             return False
-            
+
         if self.last_message_time is None:
             logger.debug("没有最后消息时间，返回 False")
             return False
-            
+
         has_new = self.last_message_time > time_point
         logger.debug(f"判断是否在指定时间点后有新消息: {self.last_message_time} > {time_point} = {has_new}")
         return has_new
-     
+
     def get_message_history(
         self,
         start_time: Optional[float] = None,
@@ -224,11 +210,8 @@ class ChatObserver:
         Returns:
             List[Dict[str, Any]]: 新消息列表
         """
-        new_messages = await self.message_storage.get_messages_after(
-            self.stream_id,
-            self.last_message_read
-        )
-        
+        new_messages = await self.message_storage.get_messages_after(self.stream_id, self.last_message_read)
+
         if new_messages:
             self.last_message_read = new_messages[-1]["message_id"]
 
@@ -243,17 +226,15 @@ class ChatObserver:
         Returns:
             List[Dict[str, Any]]: 最多5条消息
         """
-        new_messages = await self.message_storage.get_messages_before(
-            self.stream_id,
-            time_point
-        )
-        
+        new_messages = await self.message_storage.get_messages_before(self.stream_id, time_point)
+
         if new_messages:
             self.last_message_read = new_messages[-1]["message_id"]
 
         return new_messages
-    
-    '''主要观察循环'''
+
+    """主要观察循环"""
+
     async def _update_loop(self):
         """更新循环"""
         try:
@@ -282,7 +263,7 @@ class ChatObserver:
                     # 处理新消息
                     for message in new_messages:
                         await self._add_message_to_history(message)
-                
+
                 # 设置完成事件
                 self._update_complete.set()
 
@@ -379,7 +360,7 @@ class ChatObserver:
         if not self.update_running:
             self.update_running = True
             asyncio.create_task(self._periodic_update())
-        
+
     async def _periodic_update(self):
         """定期更新消息历史"""
         try:
@@ -388,53 +369,52 @@ class ChatObserver:
                 await asyncio.sleep(self.update_interval)
         except Exception as e:
             logger.error(f"定期更新消息历史时出错: {str(e)}")
-            
+
     async def _update_message_history(self) -> bool:
         """更新消息历史
-        
+
         Returns:
             bool: 是否有新消息
         """
         try:
-            messages = await self.message_storage.get_messages_for_stream(
-                self.stream_id,
-                limit=50
-            )
-            
+            messages = await self.message_storage.get_messages_for_stream(self.stream_id, limit=50)
+
             if not messages:
                 return False
-                
+
             # 检查是否有新消息
             has_new_messages = False
-            if messages and (not self.message_cache or messages[0]["message_id"] != self.message_cache[0]["message_id"]):
+            if messages and (
+                not self.message_cache or messages[0]["message_id"] != self.message_cache[0]["message_id"]
+            ):
                 has_new_messages = True
-                
+
             self.message_cache = messages
-            
+
             if has_new_messages:
                 self.update_event.set()
                 self.update_event.clear()
                 return True
             return False
-            
+
         except Exception as e:
             logger.error(f"更新消息历史时出错: {str(e)}")
             return False
-            
+
     def get_cached_messages(self, limit: int = 50) -> List[Dict[str, Any]]:
         """获取缓存的消息历史
-        
+
         Args:
             limit: 获取的最大消息数量，默认50
-            
+
         Returns:
             List[Dict[str, Any]]: 缓存的消息历史列表
-        """        
+        """
         return self.message_cache[:limit]
-        
+
     def get_last_message(self) -> Optional[Dict[str, Any]]:
         """获取最后一条消息
-        
+
         Returns:
             Optional[Dict[str, Any]]: 最后一条消息，如果没有则返回None
         """

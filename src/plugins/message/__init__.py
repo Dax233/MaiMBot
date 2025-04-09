@@ -2,7 +2,7 @@
 
 __version__ = "0.1.0"
 
-from .api import BaseMessageAPI, global_api
+from .api import global_api
 from .message_base import (
     Seg,
     GroupInfo,
@@ -14,7 +14,6 @@ from .message_base import (
 )
 
 __all__ = [
-    "BaseMessageAPI",
     "Seg",
     "global_api",
     "GroupInfo",

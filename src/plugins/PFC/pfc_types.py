@@ -4,6 +4,7 @@ from typing import Literal
 
 class ConversationState(Enum):
     """对话状态"""
+
     INIT = "初始化"
     RETHINKING = "重新思考"
     ANALYZING = "分析历史"
@@ -18,4 +19,4 @@ class ConversationState(Enum):
     JUDGING = "判断"
 
 
-ActionType = Literal["direct_reply", "fetch_knowledge", "wait"] 
+ActionType = Literal["direct_reply", "fetch_knowledge", "wait"]

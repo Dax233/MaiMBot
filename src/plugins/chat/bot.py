@@ -30,7 +30,7 @@ class ChatBot:
         self.think_flow_chat = ThinkFlowChat()
         self.reasoning_chat = ReasoningChat()
         self.only_process_chat = MessageProcessor()
-        
+
         # 创建初始化PFC管理器的任务，会在_ensure_started时执行
         self.pfc_manager = PFCManager.get_instance()
 
@@ -38,7 +38,7 @@ class ChatBot:
         """确保所有任务已启动"""
         if not self._started:
             logger.info("确保ChatBot所有任务已启动")
-                    
+
             self._started = True
 
     async def _create_PFC_chat(self, message: MessageRecv):
@@ -46,7 +46,6 @@ class ChatBot:
             chat_id = str(message.chat_stream.stream_id)
 
             if global_config.enable_pfc_chatting:
-                
                 await self.pfc_manager.get_or_create_conversation(chat_id)
 
         except Exception as e:
@@ -80,7 +79,7 @@ class ChatBot:
         try:
             # 确保所有任务已启动
             await self._ensure_started()
-            
+
             message = MessageRecv(message_data)
             groupinfo = message.message_info.group_info
             userinfo = message.message_info.user_info

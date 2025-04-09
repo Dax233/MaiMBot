@@ -10,6 +10,7 @@ from .conversation_info import ConversationInfo
 
 logger = get_module_logger("action_planner")
 
+
 class ActionPlannerInfo:
     def __init__(self):
         self.done_action = []
@@ -20,68 +21,57 @@ class ActionPlannerInfo:
 
 class ActionPlanner:
     """行动规划器"""
-    
+
     def __init__(self, stream_id: str):
         self.llm = LLM_request(
-            model=global_config.llm_normal,
-            temperature=0.7,
-            max_tokens=1000,
-            request_type="action_planning"
+            model=global_config.llm_normal, temperature=0.7, max_tokens=1000, request_type="action_planning"
         )
-        self.personality_info = Individuality.get_instance().get_prompt(type = "personality", x_person = 2, level = 2)
+        self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=2)
         self.name = global_config.BOT_NICKNAME
         self.chat_observer = ChatObserver.get_instance(stream_id)
-        
-    async def plan(
-        self, 
-        observation_info: ObservationInfo,
-        conversation_info: ConversationInfo
-    ) -> Tuple[str, str]:
+
+    async def plan(self, observation_info: ObservationInfo, conversation_info: ConversationInfo) -> Tuple[str, str]:
         """规划下一步行动
-        
+
         Args:
             observation_info: 决策信息
             conversation_info: 对话信息
-            
+
         Returns:
             Tuple[str, str]: (行动类型, 行动原因)
         """
         # 构建提示词
         logger.debug(f"开始规划行动：当前目标: {conversation_info.goal_list}")
-        
-        #构建对话目标
+
+        # 构建对话目标
         if conversation_info.goal_list:
             goal, reasoning = conversation_info.goal_list[-1]
         else:
             goal = "目前没有明确对话目标"
             reasoning = "目前没有明确对话目标，最好思考一个对话目标"
-            
-            
+
         # 获取聊天历史记录
         chat_history_list = observation_info.chat_history
         chat_history_text = ""
         for msg in chat_history_list:
             chat_history_text += f"{msg}\n"
-        
+
         if observation_info.new_messages_count > 0:
             new_messages_list = observation_info.unprocessed_messages
-            
+
             chat_history_text += f"有{observation_info.new_messages_count}条新消息：\n"
             for msg in new_messages_list:
                 chat_history_text += f"{msg}\n"
-            
+
             observation_info.clear_unprocessed_messages()
-                
-            
+
         personality_text = f"你的名字是{self.name}，{self.personality_info}"
-        
+
         # 构建action历史文本
         action_history_list = conversation_info.done_action
         action_history_text = "你之前做的事情是："
         for action in action_history_list:
             action_history_text += f"{action}\n"
-            
-
 
         prompt = f"""{personality_text}。现在你在参与一场QQ聊天，请分析以下内容，根据信息决定下一步行动：
 
@@ -111,29 +101,27 @@ rethink_goal: 重新思考对话目标，当发现对话目标不合适时选择
         try:
             content, _ = await self.llm.generate_response_async(prompt)
             logger.debug(f"LLM原始返回内容: {content}")
-            
+
             # 使用简化函数提取JSON内容
             success, result = get_items_from_json(
-                content,
-                "action", "reason",
-                default_values={"action": "direct_reply", "reason": "没有明确原因"}
+                content, "action", "reason", default_values={"action": "direct_reply", "reason": "没有明确原因"}
             )
-            
+
             if not success:
                 return "direct_reply", "JSON解析失败，选择直接回复"
-            
+
             action = result["action"]
             reason = result["reason"]
-            
+
             # 验证action类型
             if action not in ["direct_reply", "fetch_knowledge", "wait", "listening", "rethink_goal"]:
                 logger.warning(f"未知的行动类型: {action}，默认使用listening")
                 action = "listening"
-                
+
             logger.info(f"规划的行动: {action}")
             logger.info(f"行动原因: {reason}")
             return action, reason
-            
+
         except Exception as e:
             logger.error(f"规划行动时出错: {str(e)}")
             return "direct_reply", "发生错误，选择直接回复"

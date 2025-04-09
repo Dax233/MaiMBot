@@ -13,33 +13,26 @@ logger = get_module_logger("reply_generator")
 
 class ReplyGenerator:
     """回复生成器"""
-    
+
     def __init__(self, stream_id: str):
         self.llm = LLM_request(
-            model=global_config.llm_normal,
-            temperature=0.7,
-            max_tokens=300,
-            request_type="reply_generation"
+            model=global_config.llm_normal, temperature=0.7, max_tokens=300, request_type="reply_generation"
         )
-        self.personality_info = Individuality.get_instance().get_prompt(type = "personality", x_person = 2, level = 2)
+        self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=2)
         self.name = global_config.BOT_NICKNAME
         self.chat_observer = ChatObserver.get_instance(stream_id)
         self.reply_checker = ReplyChecker(stream_id)
-        
-    async def generate(
-        self,
-        observation_info: ObservationInfo,
-        conversation_info: ConversationInfo
-    ) -> str:
+
+    async def generate(self, observation_info: ObservationInfo, conversation_info: ConversationInfo) -> str:
         """生成回复
-        
+
         Args:
             goal: 对话目标
             chat_history: 聊天历史
             knowledge_cache: 知识缓存
             previous_reply: 上一次生成的回复（如果有）
             retry_count: 当前重试次数
-            
+
         Returns:
             str: 生成的回复
         """
@@ -51,22 +44,21 @@ class ReplyGenerator:
         for goal, reason in goal_list:
             goal_text += f"目标：{goal};"
             goal_text += f"原因：{reason}\n"
-        
+
         # 获取聊天历史记录
         chat_history_list = observation_info.chat_history
         chat_history_text = ""
         for msg in chat_history_list:
             chat_history_text += f"{msg}\n"
-            
-        
+
         # 整理知识缓存
         knowledge_text = ""
         knowledge_list = conversation_info.knowledge_list
         for knowledge in knowledge_list:
             knowledge_text += f"知识：{knowledge}\n"
-                
+
         personality_text = f"你的名字是{self.name}，{self.personality_info}"
-        
+
         prompt = f"""{personality_text}。现在你在参与一场QQ聊天，请根据以下信息生成回复：
 
 当前对话目标：{goal_text}
@@ -92,7 +84,7 @@ class ReplyGenerator:
             logger.info(f"生成的回复: {content}")
             # is_new = self.chat_observer.check()
             # logger.debug(f"再看一眼聊天记录，{'有' if is_new else '没有'}新消息")
-            
+
             # 如果有新消息,重新生成回复
             # if is_new:
             #     logger.info("检测到新消息,重新生成回复")
@@ -100,26 +92,21 @@ class ReplyGenerator:
             #         goal, chat_history, knowledge_cache,
             #         None, retry_count
             #     )
-                
+
             return content
-            
+
         except Exception as e:
             logger.error(f"生成回复时出错: {e}")
             return "抱歉，我现在有点混乱，让我重新思考一下..."
 
-    async def check_reply(
-        self,
-        reply: str,
-        goal: str,
-        retry_count: int = 0
-    ) -> Tuple[bool, str, bool]:
+    async def check_reply(self, reply: str, goal: str, retry_count: int = 0) -> Tuple[bool, str, bool]:
         """检查回复是否合适
-        
+
         Args:
             reply: 生成的回复
             goal: 对话目标
             retry_count: 当前重试次数
-            
+
         Returns:
             Tuple[bool, str, bool]: (是否合适, 原因, 是否需要重新规划)
         """

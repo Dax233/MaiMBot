@@ -1,5 +1,3 @@
-
-
 class ConversationInfo:
     def __init__(self):
         self.done_action = []
