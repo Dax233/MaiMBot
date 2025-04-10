@@ -114,9 +114,12 @@ class GoalAnalyzer:
 }}"""
 
         logger.debug(f"发送到LLM的提示词: {prompt}")
-        content, _ = await self.llm.generate_response_async(prompt)
-        logger.debug(f"LLM原始返回内容: {content}")
-
+        try:
+            content, _ = await self.llm.generate_response_async(prompt)
+            logger.debug(f"LLM原始返回内容: {content}")
+        except Exception as e:
+            logger.error(f"分析对话目标时出错: {str(e)}")
+            content = ""
         # 使用简化函数提取JSON内容
         success, result = get_items_from_json(
             content, "goal", "reasoning", required_types={"goal": str, "reasoning": str}

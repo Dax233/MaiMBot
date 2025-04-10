@@ -365,7 +365,7 @@ class MessageSet:
         self.chat_stream = chat_stream
         self.message_id = message_id
         self.messages: List[MessageSending] = []
-        self.time = round(time.time(), 2)
+        self.time = round(time.time(), 3)  # 保留3位小数
 
     def add_message(self, message: MessageSending) -> None:
         """添加消息到集合"""

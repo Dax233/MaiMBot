@@ -1,7 +1,7 @@
 import time
 from random import random
 import re
-
+from typing import List
 from ...memory_system.Hippocampus import HippocampusManager
 from ...moods.moods import MoodManager
 from ...config.config import global_config
@@ -18,6 +18,7 @@ from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
 from ...chat.chat_stream import chat_manager
 from ...person_info.relationship_manager import relationship_manager
 from ...chat.message_buffer import message_buffer
+from src.plugins.respon_info_catcher.info_catcher import info_catcher_manager
 
 # 定义日志配置
 chat_config = LogConfig(
@@ -58,7 +59,11 @@ class ReasoningChat:
 
         return thinking_id
 
-    async def _send_response_messages(self, message, chat, response_set, thinking_id):
+    async def _send_response_messages(self, 
+                                      message, 
+                                      chat, 
+                                      response_set:List[str], 
+                                      thinking_id) -> MessageSending:
         """发送回复消息"""
         container = message_manager.get_container(chat.stream_id)
         thinking_message = None
@@ -77,6 +82,7 @@ class ReasoningChat:
         message_set = MessageSet(chat, thinking_id)
 
         mark_head = False
+        first_bot_msg = None
         for msg in response_set:
             message_segment = Seg(type="text", data=msg)
             bot_message = MessageSending(
@@ -96,8 +102,11 @@ class ReasoningChat:
             )
             if not mark_head:
                 mark_head = True
+                first_bot_msg = bot_message
             message_set.add_message(bot_message)
         message_manager.add_message(message_set)
+
+        return first_bot_msg
 
     async def _handle_emoji(self, message, chat, response):
         """处理表情包"""
@@ -231,12 +240,19 @@ class ReasoningChat:
             thinking_id = await self._create_thinking_message(message, chat, userinfo, messageinfo)
             timer2 = time.time()
             timing_results["创建思考消息"] = timer2 - timer1
+            
+            logger.debug(f"创建捕捉器，thinking_id:{thinking_id}")
+                
+            info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
+            info_catcher.catch_decide_to_response(message)
 
             # 生成回复
             timer1 = time.time()
-            response_set = await self.gpt.generate_response(message)
+            response_set = await self.gpt.generate_response(message,thinking_id)
             timer2 = time.time()
             timing_results["生成回复"] = timer2 - timer1
+            
+            info_catcher.catch_after_generate_response(timing_results["生成回复"])
 
             if not response_set:
                 logger.info("为什么生成回复失败？")
@@ -244,9 +260,14 @@ class ReasoningChat:
 
             # 发送消息
             timer1 = time.time()
-            await self._send_response_messages(message, chat, response_set, thinking_id)
+            first_bot_msg = await self._send_response_messages(message, chat, response_set, thinking_id)
             timer2 = time.time()
             timing_results["发送消息"] = timer2 - timer1
+            
+            info_catcher.catch_after_response(timing_results["发送消息"],response_set,first_bot_msg)
+                
+                
+            info_catcher.done_catch()
 
             # 处理表情包
             timer1 = time.time()

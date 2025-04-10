@@ -1316,15 +1316,24 @@ class HippocampusManager:
         """从文本中获取相关记忆的公共接口"""
         if not self._initialized:
             raise RuntimeError("HippocampusManager 尚未初始化，请先调用 initialize 方法")
-        return await self._hippocampus.get_memory_from_text(
-            text, max_memory_num, max_memory_length, max_depth, fast_retrieval
-        )
+        try:
+            response = await self._hippocampus.get_memory_from_text(text, max_memory_num, max_memory_length, max_depth, fast_retrieval)
+        except Exception as e:
+            logger.error(f"文本激活记忆失败: {e}")
+            response = []
+        return response
+        
 
     async def get_activate_from_text(self, text: str, max_depth: int = 3, fast_retrieval: bool = False) -> float:
         """从文本中获取激活值的公共接口"""
         if not self._initialized:
             raise RuntimeError("HippocampusManager 尚未初始化，请先调用 initialize 方法")
-        return await self._hippocampus.get_activate_from_text(text, max_depth, fast_retrieval)
+        try:
+            response = await self._hippocampus.get_activate_from_text(text, max_depth, fast_retrieval)
+        except Exception as e:
+            logger.error(f"文本产生激活值失败: {e}")
+            response = 0.0
+        return response
 
     def get_memory_from_keyword(self, keyword: str, max_depth: int = 2) -> list:
         """从关键词获取相关记忆的公共接口"""

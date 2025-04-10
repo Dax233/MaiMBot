@@ -79,7 +79,13 @@ async def get_embedding(text, request_type="embedding"):
     """获取文本的embedding向量"""
     llm = LLM_request(model=global_config.embedding, request_type=request_type)
     # return llm.get_embedding_sync(text)
-    return await llm.get_embedding(text)
+    try:
+        embedding = await llm.get_embedding(text)
+    except Exception as e:
+        logger.error(f"获取embedding失败: {str(e)}")
+        embedding = None
+    return embedding
+
 
 
 async def get_recent_group_messages(chat_id: str, limit: int = 12) -> list:

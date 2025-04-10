@@ -2,13 +2,13 @@ import time
 from typing import List, Optional, Tuple, Union
 import random
 
-from ....common.database import db
 from ...models.utils_model import LLM_request
 from ...config.config import global_config
-from ...chat.message import MessageRecv, MessageThinking
+from ...chat.message import MessageThinking
 from .reasoning_prompt_builder import prompt_builder
 from ...chat.utils import process_llm_response
 from src.common.logger import get_module_logger, LogConfig, LLM_STYLE_CONFIG
+from src.plugins.respon_info_catcher.info_catcher import info_catcher_manager
 
 # 定义日志配置
 llm_config = LogConfig(
@@ -38,7 +38,7 @@ class ResponseGenerator:
         self.current_model_type = "r1"  # 默认使用 R1
         self.current_model_name = "unknown model"
 
-    async def generate_response(self, message: MessageThinking) -> Optional[Union[str, List[str]]]:
+    async def generate_response(self, message: MessageThinking,thinking_id:str) -> Optional[Union[str, List[str]]]:
         """根据当前模型类型选择对应的生成函数"""
         # 从global_config中获取模型概率值并选择模型
         if random.random() < global_config.MODEL_R1_PROBABILITY:
@@ -52,7 +52,7 @@ class ResponseGenerator:
             f"{self.current_model_type}思考:{message.processed_plain_text[:30] + '...' if len(message.processed_plain_text) > 30 else message.processed_plain_text}"
         )  # noqa: E501
 
-        model_response = await self._generate_response_with_model(message, current_model)
+        model_response = await self._generate_response_with_model(message, current_model,thinking_id)
 
         # print(f"raw_content: {model_response}")
 
@@ -65,8 +65,11 @@ class ResponseGenerator:
             logger.info(f"{self.current_model_type}思考，失败")
             return None
 
-    async def _generate_response_with_model(self, message: MessageThinking, model: LLM_request):
+    async def _generate_response_with_model(self, message: MessageThinking, model: LLM_request,thinking_id:str):
         sender_name = ""
+        
+        info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
+        
         if message.chat_stream.user_info.user_cardname and message.chat_stream.user_info.user_nickname:
             sender_name = (
                 f"[({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}]"
@@ -91,45 +94,52 @@ class ResponseGenerator:
 
         try:
             content, reasoning_content, self.current_model_name = await model.generate_response(prompt)
+            
+            info_catcher.catch_after_llm_generated(
+                prompt=prompt,
+                response=content,
+                reasoning_content=reasoning_content,
+                model_name=self.current_model_name)
+        
+        
         except Exception:
             logger.exception("生成回复时出错")
             return None
 
         # 保存到数据库
-        self._save_to_db(
-            message=message,
-            sender_name=sender_name,
-            prompt=prompt,
-            content=content,
-            reasoning_content=reasoning_content,
-            # reasoning_content_check=reasoning_content_check if global_config.enable_kuuki_read else ""
-        )
+        # self._save_to_db(
+        #     message=message,
+        #     sender_name=sender_name,
+        #     prompt=prompt,
+        #     content=content,
+        #     reasoning_content=reasoning_content,
+        #     # reasoning_content_check=reasoning_content_check if global_config.enable_kuuki_read else ""
+        # )
 
         return content
 
-    # def _save_to_db(self, message: Message, sender_name: str, prompt: str, prompt_check: str,
-    #                 content: str, content_check: str, reasoning_content: str, reasoning_content_check: str):
-    def _save_to_db(
-        self,
-        message: MessageRecv,
-        sender_name: str,
-        prompt: str,
-        content: str,
-        reasoning_content: str,
-    ):
-        """保存对话记录到数据库"""
-        db.reasoning_logs.insert_one(
-            {
-                "time": time.time(),
-                "chat_id": message.chat_stream.stream_id,
-                "user": sender_name,
-                "message": message.processed_plain_text,
-                "model": self.current_model_name,
-                "reasoning": reasoning_content,
-                "response": content,
-                "prompt": prompt,
-            }
-        )
+
+    # def _save_to_db(
+    #     self,
+    #     message: MessageRecv,
+    #     sender_name: str,
+    #     prompt: str,
+    #     content: str,
+    #     reasoning_content: str,
+    # ):
+    #     """保存对话记录到数据库"""
+    #     db.reasoning_logs.insert_one(
+    #         {
+    #             "time": time.time(),
+    #             "chat_id": message.chat_stream.stream_id,
+    #             "user": sender_name,
+    #             "message": message.processed_plain_text,
+    #             "model": self.current_model_name,
+    #             "reasoning": reasoning_content,
+    #             "response": content,
+    #             "prompt": prompt,
+    #         }
+    #     )
 
     async def _get_emotion_tags(self, content: str, processed_plain_text: str):
         """提取情感标签，结合立场和情绪"""

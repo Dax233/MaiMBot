@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter
-from typing import Optional, Union
+from typing import Optional
 from uvicorn import Config, Server as UvicornServer
 import os
 

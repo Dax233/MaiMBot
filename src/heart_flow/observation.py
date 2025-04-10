@@ -142,7 +142,11 @@ class ChattingObservation(Observation):
         prompt += """以上是群里在进行的聊天，请你对这个聊天内容进行总结，总结内容要包含聊天的大致内容，
         以及聊天中的一些重要信息，注意识别你自己的发言，记得不要分点，不要太长，精简的概括成一段文本\n"""
         prompt += "总结概括："
-        self.observe_info, reasoning_content = await self.llm_summary.generate_response_async(prompt)
+        try:
+            self.observe_info, reasoning_content = await self.llm_summary.generate_response_async(prompt)
+        except Exception as e:
+            print(f"获取总结失败: {e}")
+            self.observe_info = ""
         print(f"prompt：{prompt}")
         print(f"self.observe_info：{self.observe_info}")
 

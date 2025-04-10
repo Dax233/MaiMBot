@@ -340,6 +340,9 @@ class EmojiManager:
 
                 if description is not None:
                     embedding = await get_embedding(description, request_type="emoji")
+                    if not embedding:
+                        logger.error("获取消息嵌入向量失败")
+                        raise ValueError("获取消息嵌入向量失败")
                     # 准备数据库记录
                     emoji_record = {
                         "filename": filename,

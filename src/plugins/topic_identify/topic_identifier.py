@@ -29,10 +29,13 @@ class TopicIdentifier:
 消息内容：{text}"""
 
         # 使用 LLM_request 类进行请求
-        topic, _, _ = await self.llm_topic_judge.generate_response(prompt)
-
+        try:
+            topic, _, _ = await self.llm_topic_judge.generate_response(prompt)
+        except Exception as e:
+            logger.error(f"LLM 请求topic失败: {e}")
+            return None
         if not topic:
-            logger.error("LLM API 返回为空")
+            logger.error("LLM 得到的topic为空")
             return None
 
         # 直接在这里处理主题解析
