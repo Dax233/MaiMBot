@@ -75,8 +75,8 @@ model_v3_probability = 0.3 # 麦麦回答时选择次要回复模型2 模型的�
 
 [heartflow] # 注意：可能会消耗大量token，请谨慎开启，仅会使用v3模型
 sub_heart_flow_update_interval = 60 # 子心流更新频率，间隔 单位秒
-sub_heart_flow_freeze_time = 120 # 子心流冻结时间，超过这个时间没有回复，子心流会冻结，间隔 单位秒
-sub_heart_flow_stop_time = 600 # 子心流停止时间，超过这个时间没有回复，子心流会停止，间隔 单位秒
+sub_heart_flow_freeze_time = 100 # 子心流冻结时间，超过这个时间没有回复，子心流会冻结，间隔 单位秒
+sub_heart_flow_stop_time = 500 # 子心流停止时间，超过这个时间没有回复，子心流会停止，间隔 单位秒
 heart_flow_update_interval = 300 # 心流更新频率，间隔 单位秒
 
 

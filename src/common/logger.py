@@ -290,6 +290,12 @@ WILLING_STYLE_CONFIG = {
     },
 }
 
+CONFIRM_STYLE_CONFIG = {
+    "console_format": (
+        "<RED>{message}</RED>"
+    ),  # noqa: E501
+    "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | EULA与PRIVACY确认 | {message}"),
+}
 
 # 根据SIMPLE_OUTPUT选择配置
 MEMORY_STYLE_CONFIG = MEMORY_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else MEMORY_STYLE_CONFIG["advanced"]

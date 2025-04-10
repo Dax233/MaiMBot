@@ -342,6 +342,7 @@ class LLM_request:
                                                     "message": {
                                                         "content": accumulated_content,
                                                         "reasoning_content": reasoning_content,
+                                                        # 流式输出可能没有工具调用，此处不需要添加tool_calls字段
                                                     }
                                                 }
                                             ],
@@ -366,6 +367,7 @@ class LLM_request:
                                                     "message": {
                                                         "content": accumulated_content,
                                                         "reasoning_content": reasoning_content,
+                                                        # 流式输出可能没有工具调用，此处不需要添加tool_calls字段
                                                     }
                                                 }
                                             ],
@@ -384,7 +386,13 @@ class LLM_request:
                                 # 构造一个伪result以便调用自定义响应处理器或默认处理器
                                 result = {
                                     "choices": [
-                                        {"message": {"content": content, "reasoning_content": reasoning_content}}
+                                        {
+                                            "message": {
+                                                "content": content,
+                                                "reasoning_content": reasoning_content,
+                                                # 流式输出可能没有工具调用，此处不需要添加tool_calls字段
+                                            }
+                                        }
                                     ],
                                     "usage": usage,
                                 }
@@ -566,6 +574,9 @@ class LLM_request:
                 reasoning_content = message.get("reasoning_content", "")
                 if not reasoning_content:
                     reasoning_content = reasoning
+            
+            # 提取工具调用信息
+            tool_calls = message.get("tool_calls", None)
 
             # 记录token使用情况
             usage = result.get("usage", {})
@@ -581,8 +592,12 @@ class LLM_request:
                     request_type=request_type if request_type is not None else self.request_type,
                     endpoint=endpoint,
                 )
-
-            return content, reasoning_content
+            
+            # 只有当tool_calls存在且不为空时才返回
+            if tool_calls:
+                return content, reasoning_content, tool_calls
+            else:
+                return content, reasoning_content
 
         return "没有返回结果", ""
 
@@ -605,21 +620,33 @@ class LLM_request:
             return {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
             # 防止小朋友们截图自己的key
 
-    async def generate_response(self, prompt: str) -> Tuple[str, str, str]:
+    async def generate_response(self, prompt: str) -> Tuple:
         """根据输入的提示生成模型的异步响应"""
 
-        content, reasoning_content = await self._execute_request(endpoint="/chat/completions", prompt=prompt)
-        return content, reasoning_content, self.model_name
+        response = await self._execute_request(endpoint="/chat/completions", prompt=prompt)
+        # 根据返回值的长度决定怎么处理
+        if len(response) == 3:
+            content, reasoning_content, tool_calls = response
+            return content, reasoning_content, self.model_name, tool_calls
+        else:
+            content, reasoning_content = response
+            return content, reasoning_content, self.model_name
 
-    async def generate_response_for_image(self, prompt: str, image_base64: str, image_format: str) -> Tuple[str, str]:
+    async def generate_response_for_image(self, prompt: str, image_base64: str, image_format: str) -> Tuple:
         """根据输入的提示和图片生成模型的异步响应"""
 
-        content, reasoning_content = await self._execute_request(
+        response = await self._execute_request(
             endpoint="/chat/completions", prompt=prompt, image_base64=image_base64, image_format=image_format
         )
-        return content, reasoning_content
+        # 根据返回值的长度决定怎么处理
+        if len(response) == 3:
+            content, reasoning_content, tool_calls = response
+            return content, reasoning_content, tool_calls
+        else:
+            content, reasoning_content = response
+            return content, reasoning_content
 
-    async def generate_response_async(self, prompt: str, **kwargs) -> Union[str, Tuple[str, str]]:
+    async def generate_response_async(self, prompt: str, **kwargs) -> Union[str, Tuple]:
         """异步方式根据输入的提示生成模型的响应"""
         # 构建请求体
         data = {
@@ -630,10 +657,11 @@ class LLM_request:
             **kwargs,
         }
 
-        content, reasoning_content = await self._execute_request(
+        response = await self._execute_request(
             endpoint="/chat/completions", payload=data, prompt=prompt
         )
-        return content, reasoning_content
+        # 原样返回响应，不做处理
+        return response
 
     async def get_embedding(self, text: str) -> Union[list, None]:
         """异步方法：获取文本的embedding向量

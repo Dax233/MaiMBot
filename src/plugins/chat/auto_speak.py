@@ -142,7 +142,11 @@ class AutoSpeakManager:
         message_manager.add_message(thinking_message)
 
         # 生成自主发言内容
-        response, raw_content = await self.gpt.generate_response(message)
+        try:
+            response, raw_content = await self.gpt.generate_response(message)
+        except Exception as e:
+            logger.error(f"生成自主发言内容时发生错误: {e}")
+            return False
 
         if response:
             message_set = MessageSet(None, think_id)  # 不需要chat_stream

@@ -137,14 +137,14 @@ class MoodManager:
         personality = Individuality.get_instance().personality
         if personality:
             # 神经质：影响情绪变化速度
-            neuroticism_factor = 1 + (personality.neuroticism - 0.5) * 0.5
-            agreeableness_factor = 1 + (personality.agreeableness - 0.5) * 0.5
+            neuroticism_factor = 1 + (personality.neuroticism - 0.5) * 0.4
+            agreeableness_factor = 1 + (personality.agreeableness - 0.5) * 0.4
 
             # 宜人性：影响情绪基准线
             if personality.agreeableness < 0.2:
-                agreeableness_bias = (personality.agreeableness - 0.2) * 2
+                agreeableness_bias = (personality.agreeableness - 0.2) * 0.5
             elif personality.agreeableness > 0.8:
-                agreeableness_bias = (personality.agreeableness - 0.8) * 2
+                agreeableness_bias = (personality.agreeableness - 0.8) * 0.5
             else:
                 agreeableness_bias = 0
 

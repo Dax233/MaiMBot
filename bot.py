@@ -7,12 +7,16 @@ from pathlib import Path
 import time
 import platform
 from dotenv import load_dotenv
-from src.common.logger import get_module_logger
+from src.common.logger import get_module_logger, LogConfig, CONFIRM_STYLE_CONFIG
 from src.common.crash_logger import install_crash_handler
 from src.main import MainSystem
 
 logger = get_module_logger("main_bot")
-
+confirm_logger_config = LogConfig(
+    console_format=CONFIRM_STYLE_CONFIG["console_format"],
+    file_format=CONFIRM_STYLE_CONFIG["file_format"],
+)
+confirm_logger = get_module_logger("main_bot", config=confirm_logger_config)
 # 获取没有加载env时的环境变量
 env_mask = {key: os.getenv(key) for key in os.environ}
 
@@ -166,8 +170,8 @@ def check_eula():
 
     # 如果EULA或隐私条款有更新，提示用户重新确认
     if eula_updated or privacy_updated:
-        print("EULA或隐私条款内容已更新，请在阅读后重新确认，继续运行视为同意更新后的以上两款协议")
-        print(
+        confirm_logger.critical("EULA或隐私条款内容已更新，请在阅读后重新确认，继续运行视为同意更新后的以上两款协议")
+        confirm_logger.critical(
             f'输入"同意"或"confirmed"或设置环境变量"EULA_AGREE={eula_new_hash}"和"PRIVACY_AGREE={privacy_new_hash}"继续运行'
         )
         while True:
@@ -176,14 +180,14 @@ def check_eula():
                 # print("确认成功，继续运行")
                 # print(f"确认成功，继续运行{eula_updated} {privacy_updated}")
                 if eula_updated:
-                    print(f"更新EULA确认文件{eula_new_hash}")
+                    logger.info(f"更新EULA确认文件{eula_new_hash}")
                     eula_confirm_file.write_text(eula_new_hash, encoding="utf-8")
                 if privacy_updated:
-                    print(f"更新隐私条款确认文件{privacy_new_hash}")
+                    logger.info(f"更新隐私条款确认文件{privacy_new_hash}")
                     privacy_confirm_file.write_text(privacy_new_hash, encoding="utf-8")
                 break
             else:
-                print('请输入"同意"或"confirmed"以继续运行')
+                confirm_logger.critical('请输入"同意"或"confirmed"以继续运行')
         return
     elif eula_confirmed and privacy_confirmed:
         return

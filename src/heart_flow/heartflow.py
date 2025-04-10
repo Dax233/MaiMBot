@@ -9,6 +9,7 @@ from src.common.logger import get_module_logger, LogConfig, HEARTFLOW_STYLE_CONF
 from src.individuality.individuality import Individuality
 import time
 import random
+from typing import Dict, Any
 
 heartflow_config = LogConfig(
     # 使用海马体专用样式
@@ -39,7 +40,7 @@ class Heartflow:
             model=global_config.llm_heartflow, temperature=0.6, max_tokens=1000, request_type="heart_flow"
         )
 
-        self._subheartflows = {}
+        self._subheartflows: Dict[Any, SubHeartflow] = {}
         self.active_subheartflows_nums = 0
 
     async def _cleanup_inactive_subheartflows(self):

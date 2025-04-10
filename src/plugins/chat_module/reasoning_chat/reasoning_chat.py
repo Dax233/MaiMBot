@@ -59,11 +59,7 @@ class ReasoningChat:
 
         return thinking_id
 
-    async def _send_response_messages(self, 
-                                      message, 
-                                      chat, 
-                                      response_set:List[str], 
-                                      thinking_id) -> MessageSending:
+    async def _send_response_messages(self, message, chat, response_set: List[str], thinking_id) -> MessageSending:
         """发送回复消息"""
         container = message_manager.get_container(chat.stream_id)
         thinking_message = None
@@ -240,19 +236,23 @@ class ReasoningChat:
             thinking_id = await self._create_thinking_message(message, chat, userinfo, messageinfo)
             timer2 = time.time()
             timing_results["创建思考消息"] = timer2 - timer1
-            
+
             logger.debug(f"创建捕捉器，thinking_id:{thinking_id}")
-                
+
             info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
             info_catcher.catch_decide_to_response(message)
 
             # 生成回复
             timer1 = time.time()
-            response_set = await self.gpt.generate_response(message,thinking_id)
-            timer2 = time.time()
-            timing_results["生成回复"] = timer2 - timer1
-            
-            info_catcher.catch_after_generate_response(timing_results["生成回复"])
+            try:
+                response_set = await self.gpt.generate_response(message, thinking_id)
+                timer2 = time.time()
+                timing_results["生成回复"] = timer2 - timer1
+
+                info_catcher.catch_after_generate_response(timing_results["生成回复"])
+            except Exception as e:
+                logger.error(f"回复生成出现错误：str{e}")
+                response_set = None
 
             if not response_set:
                 logger.info("为什么生成回复失败？")
@@ -263,10 +263,9 @@ class ReasoningChat:
             first_bot_msg = await self._send_response_messages(message, chat, response_set, thinking_id)
             timer2 = time.time()
             timing_results["发送消息"] = timer2 - timer1
-            
-            info_catcher.catch_after_response(timing_results["发送消息"],response_set,first_bot_msg)
-                
-                
+
+            info_catcher.catch_after_response(timing_results["发送消息"], response_set, first_bot_msg)
+
             info_catcher.done_catch()
 
             # 处理表情包
