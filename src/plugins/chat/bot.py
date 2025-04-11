@@ -91,18 +91,19 @@ class ChatBot:
 
             if global_config.enable_pfc_chatting:
                 try:
-                    if groupinfo is None and global_config.enable_friend_chat:
-                        userinfo = message.message_info.user_info
-                        messageinfo = message.message_info
-                        # 创建聊天流
-                        chat = await chat_manager.get_or_create_stream(
-                            platform=messageinfo.platform,
-                            user_info=userinfo,
-                            group_info=groupinfo,
-                        )
-                        message.update_chat_stream(chat)
-                        await self.only_process_chat.process_message(message)
-                        await self._create_PFC_chat(message)
+                    if groupinfo is None:
+                        if global_config.enable_friend_chat:
+                            userinfo = message.message_info.user_info
+                            messageinfo = message.message_info
+                            # 创建聊天流
+                            chat = await chat_manager.get_or_create_stream(
+                                platform=messageinfo.platform,
+                                user_info=userinfo,
+                                group_info=groupinfo,
+                            )
+                            message.update_chat_stream(chat)
+                            await self.only_process_chat.process_message(message)
+                            await self._create_PFC_chat(message)
                     else:
                         if groupinfo.group_id in global_config.talk_allowed_groups:
                             # logger.debug(f"开始群聊模式{str(message_data)[:50]}...")
