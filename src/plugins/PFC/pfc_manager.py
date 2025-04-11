@@ -41,7 +41,7 @@ class PFCManager:
             logger.debug(f"会话实例正在初始化中: {stream_id}")
             return None
 
-        if stream_id in self._instances:
+        if stream_id in self._instances and self._instances[stream_id].should_continue:
             logger.debug(f"使用现有会话实例: {stream_id}")
             return self._instances[stream_id]
 

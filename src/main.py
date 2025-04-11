@@ -64,7 +64,7 @@ class MainSystem:
         asyncio.create_task(person_info_manager.personal_habit_deduction())
 
         # 启动愿望管理器
-        await willing_manager.ensure_started()
+        await willing_manager.async_task_starter()
 
         # 启动消息处理器
         if not self._message_manager_started:

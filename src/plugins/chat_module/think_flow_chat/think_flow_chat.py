@@ -1,6 +1,5 @@
 import time
 from random import random
-import re
 import traceback
 from typing import List
 from ...memory_system.Hippocampus import HippocampusManager
@@ -57,7 +56,6 @@ class ThinkFlowChat:
         )
 
         message_manager.add_message(thinking_message)
-        willing_manager.change_reply_willing_sent(chat)
 
         return thinking_id
 
@@ -155,7 +153,7 @@ class ThinkFlowChat:
 
         await heartflow.get_subheartflow(stream_id).do_thinking_after_reply(response_set, chat_talking_prompt)
 
-    async def _update_relationship(self, message, response_set):
+    async def _update_relationship(self, message: MessageRecv, response_set):
         """更新关系情绪"""
         ori_response = ",".join(response_set)
         stance, emotion = await self.gpt._get_emotion_tags(ori_response, message.processed_plain_text)
@@ -212,7 +210,17 @@ class ThinkFlowChat:
 
         # 查询缓冲器结果，会整合前面跳过的消息，改变processed_plain_text
         buffer_result = await message_buffer.query_buffer_result(message)
+
+        # 处理提及
+        is_mentioned, reply_probability = is_mentioned_bot_in_message(message)
+
+        # 意愿管理器：设置当前message信息
+        willing_manager.setup(message, chat, is_mentioned, interested_rate)
+
+        # 处理缓冲器结果
         if not buffer_result:
+            await willing_manager.bombing_buffer_message_handle(message.message_info.message_id)
+            willing_manager.delete(message.message_info.message_id)
             if message.message_segment.type == "text":
                 logger.info(f"触发缓冲，已炸飞消息：{message.processed_plain_text}")
             elif message.message_segment.type == "image":
@@ -221,46 +229,32 @@ class ThinkFlowChat:
                 logger.info("触发缓冲，已炸飞消息列")
             return
 
-        # 处理提及
-        is_mentioned, reply_probability = is_mentioned_bot_in_message(message)
-
         # 计算回复意愿
-        current_willing_old = willing_manager.get_willing(chat_stream=chat)
-        # current_willing_new = (heartflow.get_subheartflow(chat.stream_id).current_state.willing - 5) / 4
-        # current_willing = (current_willing_old + current_willing_new) / 2
-        # 有点bug
-        current_willing = current_willing_old
+        # current_willing_old = willing_manager.get_willing(chat_stream=chat)
+        # # current_willing_new = (heartflow.get_subheartflow(chat.stream_id).current_state.willing - 5) / 4
+        # # current_willing = (current_willing_old + current_willing_new) / 2
+        # # 有点bug
+        # current_willing = current_willing_old
 
-        willing_manager.set_willing(chat.stream_id, current_willing)
+        # 获取回复概率
+        is_willing = False
+        if reply_probability != 1:
+            is_willing = True
+            reply_probability = await willing_manager.get_reply_probability(message.message_info.message_id)
 
-        # 意愿激活
-        timer1 = time.time()
-        real_reply_probability = await willing_manager.change_reply_willing_received(
-            chat_stream=chat,
-            is_mentioned_bot=is_mentioned,
-            config=global_config,
-            is_emoji=message.is_emoji,
-            interested_rate=interested_rate,
-            sender_id=str(message.message_info.user_info.user_id),
-        )
-        if reply_probability != 1 or (groupinfo and (groupinfo.group_id not in global_config.talk_allowed_groups)):
-            reply_probability = real_reply_probability
-        timer2 = time.time()
-        timing_results["意愿激活"] = timer2 - timer1
-        logger.debug(f"意愿激活: {reply_probability}")
+            if message.message_info.additional_config:
+                if "maimcore_reply_probability_gain" in message.message_info.additional_config.keys():
+                    reply_probability += message.message_info.additional_config["maimcore_reply_probability_gain"]
 
         # 打印消息信息
         mes_name = chat.group_info.group_name if chat.group_info else "私聊"
-        current_time = time.strftime("%H:%M:%S", time.localtime(messageinfo.time))
+        current_time = time.strftime("%H:%M:%S", time.localtime(message.message_info.time))
+        willing_log = f"[回复意愿:{await willing_manager.get_willing(chat.stream_id):.2f}]" if is_willing else ""
         logger.info(
             f"[{current_time}][{mes_name}]"
             f"{chat.user_info.user_nickname}:"
-            f"{message.processed_plain_text}[回复意愿:{current_willing:.2f}][概率:{reply_probability * 100:.1f}%]"
+            f"{message.processed_plain_text}{willing_log}[概率:{reply_probability * 100:.1f}%]"
         )
-
-        if message.message_info.additional_config:
-            if "maimcore_reply_probability_gain" in message.message_info.additional_config.keys():
-                reply_probability += message.message_info.additional_config["maimcore_reply_probability_gain"]
 
         do_reply = False
         if random() < reply_probability:
@@ -268,6 +262,9 @@ class ThinkFlowChat:
                 do_reply = True
                 
                 
+
+                # 回复前处理
+                await willing_manager.before_generate_reply_handle(message.message_info.message_id)
 
                 # 创建思考消息
                 try:
@@ -363,6 +360,9 @@ class ThinkFlowChat:
                 except Exception as e:
                     logger.error(f"心流更新关系情绪失败: {e}")
 
+                # 回复后处理
+                await willing_manager.after_generate_reply_handle(message.message_info.message_id)
+
             except Exception as e:
                 logger.error(f"心流处理消息失败: {e}")
                 logger.error(traceback.format_exc())
@@ -373,6 +373,12 @@ class ThinkFlowChat:
             trigger_msg = message.processed_plain_text
             response_msg = " ".join(response_set) if response_set else "无回复"
             logger.info(f"触发消息: {trigger_msg[:20]}... | 思维消息: {response_msg[:20]}... | 性能计时: {timing_str}")
+        else:
+            # 不回复处理
+            await willing_manager.not_reply_handle(message.message_info.message_id)
+
+        # 意愿管理器：注销当前message信息
+        willing_manager.delete(message.message_info.message_id)
 
     def _check_ban_words(self, text: str, chat, userinfo) -> bool:
         """检查消息中是否包含过滤词"""
@@ -388,7 +394,7 @@ class ThinkFlowChat:
     def _check_ban_regex(self, text: str, chat, userinfo) -> bool:
         """检查消息是否匹配过滤正则表达式"""
         for pattern in global_config.ban_msgs_regex:
-            if re.search(pattern, text):
+            if pattern.search(text):
                 logger.info(
                     f"[{chat.group_info.group_name if chat.group_info else '私聊'}]{userinfo.user_nickname}:{text}"
                 )

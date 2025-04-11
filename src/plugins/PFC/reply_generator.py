@@ -16,7 +16,7 @@ class ReplyGenerator:
 
     def __init__(self, stream_id: str):
         self.llm = LLM_request(
-            model=global_config.llm_normal, temperature=0.7, max_tokens=300, request_type="reply_generation"
+            model=global_config.llm_normal, temperature=0.3, max_tokens=300, request_type="reply_generation"
         )
         self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=2)
         self.name = global_config.BOT_NICKNAME
@@ -39,32 +39,75 @@ class ReplyGenerator:
         # 构建提示词
         logger.debug(f"开始生成回复：当前目标: {conversation_info.goal_list}")
 
-        goal_list = conversation_info.goal_list
-        goal_text = ""
-        for goal, reason in goal_list:
-            goal_text += f"目标：{goal};"
-            goal_text += f"原因：{reason}\n"
-
+        # 构建对话目标
+        goals_str = ""
+        if conversation_info.goal_list:
+            for goal_reason in conversation_info.goal_list:
+                # 处理字典或元组格式
+                if isinstance(goal_reason, tuple):
+                    # 假设元组的第一个元素是目标，第二个元素是原因
+                    goal = goal_reason[0]
+                    reasoning = goal_reason[1] if len(goal_reason) > 1 else "没有明确原因"
+                elif isinstance(goal_reason, dict):
+                    goal = goal_reason.get('goal')
+                    reasoning = goal_reason.get('reasoning', "没有明确原因")
+                else:
+                    # 如果是其他类型，尝试转为字符串
+                    goal = str(goal_reason)
+                    reasoning = "没有明确原因"
+                
+                goal_str = f"目标：{goal}，产生该对话目标的原因：{reasoning}\n"
+                goals_str += goal_str
+        else:
+            goal = "目前没有明确对话目标"
+            reasoning = "目前没有明确对话目标，最好思考一个对话目标"
+            goals_str = f"目标：{goal}，产生该对话目标的原因：{reasoning}\n"
+            
         # 获取聊天历史记录
-        chat_history_list = observation_info.chat_history
+        chat_history_list = observation_info.chat_history[-20:] if len(observation_info.chat_history) >= 20 else observation_info.chat_history
         chat_history_text = ""
         for msg in chat_history_list:
-            chat_history_text += f"{msg}\n"
+            chat_history_text += f"{msg.get('detailed_plain_text', '')}\n"
 
-        # 整理知识缓存
-        knowledge_text = ""
-        knowledge_list = conversation_info.knowledge_list
-        for knowledge in knowledge_list:
-            knowledge_text += f"知识：{knowledge}\n"
+        if observation_info.new_messages_count > 0:
+            new_messages_list = observation_info.unprocessed_messages
+
+            chat_history_text += f"有{observation_info.new_messages_count}条新消息：\n"
+            for msg in new_messages_list:
+                chat_history_text += f"{msg.get('detailed_plain_text', '')}\n"
+
+            observation_info.clear_unprocessed_messages()
 
         personality_text = f"你的名字是{self.name}，{self.personality_info}"
 
+        # 构建action历史文本
+        action_history_list = conversation_info.done_action[-10:] if len(conversation_info.done_action) >= 10 else conversation_info.done_action
+        action_history_text = "你之前做的事情是："
+        for action in action_history_list:
+            if isinstance(action, dict):
+                action_type = action.get('action')
+                action_reason = action.get('reason')
+                action_status = action.get('status')
+                if action_status == "recall":
+                    action_history_text += f"原本打算：{action_type}，但是因为有新消息，你发现这个行动不合适，所以你没做\n"
+                elif action_status == "done":
+                    action_history_text += f"你之前做了：{action_type}，原因：{action_reason}\n"
+            elif isinstance(action, tuple):
+                # 假设元组的格式是(action_type, action_reason, action_status)
+                action_type = action[0] if len(action) > 0 else "未知行动"
+                action_reason = action[1] if len(action) > 1 else "未知原因"
+                action_status = action[2] if len(action) > 2 else "done"
+                if action_status == "recall":
+                    action_history_text += f"原本打算：{action_type}，但是因为有新消息，你发现这个行动不合适，所以你没做\n"
+                elif action_status == "done":
+                    action_history_text += f"你之前做了：{action_type}，原因：{action_reason}\n"
+
         prompt = f"""{personality_text}。现在你在参与一场QQ聊天，请根据以下信息生成回复：
 
-当前对话目标：{goal_text}
-{knowledge_text}
+当前对话目标：{goals_str}
 最近的聊天记录：
 {chat_history_text}
+
 
 请根据上述信息，以你的性格特征生成一个自然、得体的回复。回复应该：
 1. 符合对话目标，以"你"的角度发言

@@ -43,12 +43,12 @@ class RelationshipManager:
             "厌恶",
         ]
 
-        if label in positive_list and stance != "反对":
+        if label in positive_list:
             if 7 > self.positive_feedback_value >= 0:
                 self.positive_feedback_value += 1
             elif self.positive_feedback_value < 0:
                 self.positive_feedback_value = 0
-        elif label in negative_list and stance != "支持":
+        elif label in negative_list:
             if -7 < self.positive_feedback_value <= 0:
                 self.positive_feedback_value -= 1
             elif self.positive_feedback_value > 0:

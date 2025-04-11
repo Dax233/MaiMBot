@@ -1,18 +1,17 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from src.common.database import db
-
 
 class MessageStorage(ABC):
     """消息存储接口"""
 
     @abstractmethod
-    async def get_messages_after(self, chat_id: str, message_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def get_messages_after(self, chat_id: str, message: Dict[str, Any]) -> List[Dict[str, Any]]:
         """获取指定消息ID之后的所有消息
 
         Args:
             chat_id: 聊天ID
-            message_id: 消息ID，如果为None则获取所有消息
+            message: 消息
 
         Returns:
             List[Dict[str, Any]]: 消息列表
@@ -53,14 +52,11 @@ class MongoDBMessageStorage(MessageStorage):
     def __init__(self):
         self.db = db
 
-    async def get_messages_after(self, chat_id: str, message_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def get_messages_after(self, chat_id: str, message_time: float) -> List[Dict[str, Any]]:
         query = {"chat_id": chat_id}
+        # print(f"storage_check_message: {message_time}")
 
-        if message_id:
-            # 获取ID大于message_id的消息
-            last_message = self.db.messages.find_one({"message_id": message_id})
-            if last_message:
-                query["time"] = {"$gt": last_message["time"]}
+        query["time"] = {"$gt": message_time}
 
         return list(self.db.messages.find(query).sort("time", 1))
 

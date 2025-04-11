@@ -2,7 +2,7 @@ from src.do_tool.tool_can_use.base_tool import BaseTool, register_tool
 from src.plugins.chat.utils import get_embedding
 from src.common.database import db
 from src.common.logger import get_module_logger
-from typing import Dict, Any, Union, List
+from typing import Dict, Any, Union
 
 logger = get_module_logger("get_knowledge_tool")
 

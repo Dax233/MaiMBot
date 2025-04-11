@@ -5,7 +5,6 @@ from src.common.database import db
 import time
 import json
 from src.common.logger import get_module_logger
-from typing import Union
 from src.do_tool.tool_can_use import get_all_tool_definitions, get_tool_instance
 
 logger = get_module_logger("tool_use")

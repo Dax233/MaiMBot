@@ -16,7 +16,7 @@ confirm_logger_config = LogConfig(
     console_format=CONFIRM_STYLE_CONFIG["console_format"],
     file_format=CONFIRM_STYLE_CONFIG["file_format"],
 )
-confirm_logger = get_module_logger("main_bot", config=confirm_logger_config)
+confirm_logger = get_module_logger("confirm", config=confirm_logger_config)
 # 获取没有加载env时的环境变量
 env_mask = {key: os.getenv(key) for key in os.environ}
 

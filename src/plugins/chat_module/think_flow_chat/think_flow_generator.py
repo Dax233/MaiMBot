@@ -26,11 +26,11 @@ logger = get_module_logger("llm_generator", config=llm_config)
 class ResponseGenerator:
     def __init__(self):
         self.model_normal = LLM_request(
-            model=global_config.llm_normal, temperature=0.3, max_tokens=256, request_type="response_heartflow"
+            model=global_config.llm_normal, temperature=0.15, max_tokens=256, request_type="response_heartflow"
         )
 
         self.model_sum = LLM_request(
-            model=global_config.llm_summary_by_topic, temperature=0.7, max_tokens=2000, request_type="relation"
+            model=global_config.llm_summary_by_topic, temperature=0.6, max_tokens=2000, request_type="relation"
         )
         self.current_model_type = "r1"  # 默认使用 R1
         self.current_model_name = "unknown model"
@@ -189,6 +189,7 @@ class ResponseGenerator:
             - "中立"：不表达明确立场或无关回应
             2. 从"开心,愤怒,悲伤,惊讶,平静,害羞,恐惧,厌恶,困惑"中选出最匹配的1个情感标签
             3. 按照"立场-情绪"的格式直接输出结果，例如："反对-愤怒"
+            4. 考虑回复者的人格设定为{global_config.personality_core}
 
             对话示例：
             被回复：「A就是笨」

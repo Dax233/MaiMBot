@@ -1,46 +1,86 @@
 from src.common.logger import get_module_logger
 from .chat_observer import ChatObserver
+from .conversation_info import ConversationInfo
+from src.individuality.individuality import Individuality
+from ..config.config import global_config
+import time
+import asyncio
 
 logger = get_module_logger("waiter")
 
 
 class Waiter:
-    """等待器，用于等待对话流中的事件"""
+    """快 速 等 待"""
 
     def __init__(self, stream_id: str):
-        self.stream_id = stream_id
         self.chat_observer = ChatObserver.get_instance(stream_id)
+        self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=2)
+        self.name = global_config.BOT_NICKNAME
+        
+        self.wait_accumulated_time = 0
 
-    async def wait(self, timeout: float = 20.0) -> bool:
-        """等待用户回复或超时
-
-        Args:
-            timeout: 超时时间（秒）
+    async def wait(self, conversation_info: ConversationInfo) -> bool:
+        """等待
 
         Returns:
-            bool: 如果因为超时返回则为True，否则为False
+            bool: 是否超时（True表示超时）
         """
-        try:
-            message_before = self.chat_observer.get_last_message()
+        # 使用当前时间作为等待开始时间
+        wait_start_time = time.time()
+        self.chat_observer.waiting_start_time = wait_start_time  # 设置等待开始时间
 
-            # 等待新消息
-            logger.debug(f"等待新消息，超时时间: {timeout}秒")
+        while True:
+            # 检查是否有新消息
+            if self.chat_observer.new_message_after(wait_start_time):
+                logger.info("等待结束，收到新消息")
+                return False
 
-            is_timeout = await self.chat_observer.wait_for_update(timeout=timeout)
-            if is_timeout:
-                logger.debug("等待超时，没有收到新消息")
+            # 检查是否超时
+            if time.time() - wait_start_time > 300:
+                self.wait_accumulated_time += 300
+                
+                logger.info("等待超过300秒，结束对话")
+                wait_goal = {
+                    "goal": f"你等待了{self.wait_accumulated_time/60}分钟，思考接下来要做什么",
+                    "reason": "对方很久没有回复你的消息了"
+                }
+                conversation_info.goal_list.append(wait_goal)
+                print(f"添加目标: {wait_goal}")
+                
                 return True
 
-            # 检查是否是新消息
-            message_after = self.chat_observer.get_last_message()
-            if message_before and message_after and message_before.get("message_id") == message_after.get("message_id"):
-                # 如果消息ID相同，说明没有新消息
-                logger.debug("没有收到新消息")
+            await asyncio.sleep(1)
+            logger.info("等待中...")
+            
+    async def wait_listening(self, conversation_info: ConversationInfo) -> bool:
+        """等待倾听
+
+        Returns:
+            bool: 是否超时（True表示超时）
+        """
+        # 使用当前时间作为等待开始时间
+        wait_start_time = time.time()
+        self.chat_observer.waiting_start_time = wait_start_time  # 设置等待开始时间
+
+        while True:
+            # 检查是否有新消息
+            if self.chat_observer.new_message_after(wait_start_time):
+                logger.info("等待结束，收到新消息")
+                return False
+
+            # 检查是否超时
+            if time.time() - wait_start_time > 300:
+                self.wait_accumulated_time += 300
+                logger.info("等待超过300秒，结束对话")
+                wait_goal = {
+                    "goal": f"你等待了{self.wait_accumulated_time/60}分钟，思考接下来要做什么",
+                    "reason": "对方话说一半消失了，很久没有回复"
+                }
+                conversation_info.goal_list.append(wait_goal)
+                print(f"添加目标: {wait_goal}")
+                
                 return True
 
-            logger.debug("收到新消息")
-            return False
+            await asyncio.sleep(1)
+            logger.info("等待中...")
 
-        except Exception as e:
-            logger.error(f"等待时出错: {str(e)}")
-            return True

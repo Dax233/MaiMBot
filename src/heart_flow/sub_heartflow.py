@@ -5,18 +5,17 @@ from src.plugins.models.utils_model import LLM_request
 from src.plugins.config.config import global_config
 import re
 import time
-from src.plugins.schedule.schedule_generator import bot_schedule
-from src.plugins.memory_system.Hippocampus import HippocampusManager
+# from src.plugins.schedule.schedule_generator import bot_schedule
+# from src.plugins.memory_system.Hippocampus import HippocampusManager
 from src.common.logger import get_module_logger, LogConfig, SUB_HEARTFLOW_STYLE_CONFIG  # noqa: E402
-from src.plugins.chat.utils import get_embedding
-from src.common.database import db
-from typing import Union
+# from src.plugins.chat.utils import get_embedding
+# from src.common.database import db
+# from typing import Union
 from src.individuality.individuality import Individuality
 import random
 from src.plugins.chat.chat_stream import ChatStream
 from src.plugins.person_info.relationship_manager import relationship_manager
 from src.plugins.chat.utils import get_recent_group_speaker
-import json
 from src.do_tool.tool_use import ToolUser   
 
 subheartflow_config = LogConfig(

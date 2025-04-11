@@ -54,11 +54,28 @@ class GoalAnalyzer:
             Tuple[str, str, str]: (目标, 方法, 原因)
         """
         # 构建对话目标
-        goal_list = conversation_info.goal_list
-        goal_text = ""
-        for goal, reason in goal_list:
-            goal_text += f"目标：{goal};"
-            goal_text += f"原因：{reason}\n"
+        goals_str = ""
+        if conversation_info.goal_list:
+            for goal_reason in conversation_info.goal_list:
+                # 处理字典或元组格式
+                if isinstance(goal_reason, tuple):
+                    # 假设元组的第一个元素是目标，第二个元素是原因
+                    goal = goal_reason[0]
+                    reasoning = goal_reason[1] if len(goal_reason) > 1 else "没有明确原因"
+                elif isinstance(goal_reason, dict):
+                    goal = goal_reason.get('goal')
+                    reasoning = goal_reason.get('reasoning', "没有明确原因")
+                else:
+                    # 如果是其他类型，尝试转为字符串
+                    goal = str(goal_reason)
+                    reasoning = "没有明确原因"
+                
+                goal_str = f"目标：{goal}，产生该对话目标的原因：{reasoning}\n"
+                goals_str += goal_str
+        else:
+            goal = "目前没有明确对话目标"
+            reasoning = "目前没有明确对话目标，最好思考一个对话目标"
+            goals_str = f"目标：{goal}，产生该对话目标的原因：{reasoning}\n"
 
         # 获取聊天历史记录
         chat_history_list = observation_info.chat_history
@@ -88,7 +105,7 @@ class GoalAnalyzer:
 
 {action_history_text}
 当前对话目标：
-{goal_text}
+{goals_str}
 
 聊天记录：
 {chat_history_text}
@@ -98,20 +115,23 @@ class GoalAnalyzer:
 2. 修改现有目标
 3. 添加新目标
 4. 删除不再相关的目标
+5. 如果你想结束对话，请设置一个目标，目标goal为"结束对话"，原因reasoning为你希望结束对话
 
-请以JSON格式输出当前的所有对话目标，包含以下字段：
+请以JSON数组格式输出当前的所有对话目标，每个目标包含以下字段：
 1. goal: 对话目标（简短的一句话）
 2. reasoning: 对话原因，为什么设定这个目标（简要解释）
 
 输出格式示例：
-{{
-"goal": "回答用户关于Python编程的具体问题",
-"reasoning": "用户提出了关于Python的技术问题，需要专业且准确的解答"
-}},
-{{
-"goal": "回答用户关于python安装的具体问题",
-"reasoning": "用户提出了关于Python的技术问题，需要专业且准确的解答"
-}}"""
+[
+  {{
+    "goal": "回答用户关于Python编程的具体问题",
+    "reasoning": "用户提出了关于Python的技术问题，需要专业且准确的解答"
+  }},
+  {{
+    "goal": "回答用户关于python安装的具体问题",
+    "reasoning": "用户提出了关于Python的技术问题，需要专业且准确的解答"
+  }}
+]"""
 
         logger.debug(f"发送到LLM的提示词: {prompt}")
         try:
@@ -120,13 +140,37 @@ class GoalAnalyzer:
         except Exception as e:
             logger.error(f"分析对话目标时出错: {str(e)}")
             content = ""
-        # 使用简化函数提取JSON内容
+            
+        # 使用改进后的get_items_from_json函数处理JSON数组
         success, result = get_items_from_json(
-            content, "goal", "reasoning", required_types={"goal": str, "reasoning": str}
+            content, "goal", "reasoning", 
+            required_types={"goal": str, "reasoning": str},
+            allow_array=True
         )
-        # TODO
-
-        conversation_info.goal_list.append(result)
+        
+        if success:
+            # 判断结果是单个字典还是字典列表
+            if isinstance(result, list):
+                # 清空现有目标列表并添加新目标
+                conversation_info.goal_list = []
+                for item in result:
+                    goal = item.get("goal", "")
+                    reasoning = item.get("reasoning", "")
+                    conversation_info.goal_list.append((goal, reasoning))
+                
+                # 返回第一个目标作为当前主要目标（如果有）
+                if result:
+                    first_goal = result[0]
+                    return (first_goal.get("goal", ""), "", first_goal.get("reasoning", ""))
+            else:
+                # 单个目标的情况
+                goal = result.get("goal", "")
+                reasoning = result.get("reasoning", "")
+                conversation_info.goal_list.append((goal, reasoning))
+                return (goal, "", reasoning)
+        
+        # 如果解析失败，返回默认值
+        return ("", "", "")
 
     async def _update_goals(self, new_goal: str, method: str, reasoning: str):
         """更新目标列表
@@ -248,38 +292,6 @@ class GoalAnalyzer:
             logger.error(f"分析对话状态时出错: {str(e)}")
             return False, False, f"分析出错: {str(e)}"
 
-
-class Waiter:
-    """快 速 等 待"""
-
-    def __init__(self, stream_id: str):
-        self.chat_observer = ChatObserver.get_instance(stream_id)
-        self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=2)
-        self.name = global_config.BOT_NICKNAME
-
-    async def wait(self) -> bool:
-        """等待
-
-        Returns:
-            bool: 是否超时（True表示超时）
-        """
-        # 使用当前时间作为等待开始时间
-        wait_start_time = time.time()
-        self.chat_observer.waiting_start_time = wait_start_time  # 设置等待开始时间
-
-        while True:
-            # 检查是否有新消息
-            if self.chat_observer.new_message_after(wait_start_time):
-                logger.info("等待结束，收到新消息")
-                return False
-
-            # 检查是否超时
-            if time.time() - wait_start_time > 300:
-                logger.info("等待超过300秒，结束对话")
-                return True
-
-            await asyncio.sleep(1)
-            logger.info("等待中...")
 
 
 class DirectMessageSender:

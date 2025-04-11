@@ -4,8 +4,6 @@ from datetime import datetime
 from src.plugins.models.utils_model import LLM_request
 from src.plugins.config.config import global_config
 from src.common.database import db
-from src.individuality.individuality import Individuality
-import random
 
 
 # 所有观察的基类

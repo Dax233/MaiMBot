@@ -1,4 +1,5 @@
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from dateutil import tz
@@ -27,7 +28,7 @@ logger = get_module_logger("config", config=config_config)
 # 考虑到，实际上配置文件中的mai_version是不会自动更新的,所以采用硬编码
 is_test = True
 mai_version_main = "0.6.2"
-mai_version_fix = "snapshot-1"
+mai_version_fix = "snapshot-2"
 
 if mai_version_fix:
     if is_test:
@@ -545,8 +546,8 @@ class BotConfig:
                 "response_interested_rate_amplifier", config.response_interested_rate_amplifier
             )
             config.down_frequency_rate = msg_config.get("down_frequency_rate", config.down_frequency_rate)
-            config.ban_msgs_regex = msg_config.get("ban_msgs_regex", config.ban_msgs_regex)
-
+            for r in msg_config.get("ban_msgs_regex", config.ban_msgs_regex):
+                config.ban_msgs_regex.add(re.compile(r))
             if config.INNER_VERSION in SpecifierSet(">=0.0.11"):
                 config.max_response_length = msg_config.get("max_response_length", config.max_response_length)
             if config.INNER_VERSION in SpecifierSet(">=1.1.4"):
@@ -587,6 +588,9 @@ class BotConfig:
             keywords_reaction_config = parent["keywords_reaction"]
             if keywords_reaction_config.get("enable", False):
                 config.keywords_reaction_rules = keywords_reaction_config.get("rules", config.keywords_reaction_rules)
+                for rule in config.keywords_reaction_rules:
+                    if rule.get("enable", False) and "regex" in rule:
+                        rule["regex"] = [re.compile(r) for r in rule.get("regex", [])]
 
         def chinese_typo(parent: dict):
             chinese_typo_config = parent["chinese_typo"]

@@ -1,4 +1,4 @@
-from typing import Dict, List, Any, Optional, Union, Type
+from typing import Dict, List, Any, Optional, Type
 import inspect
 import importlib
 import pkgutil
@@ -73,13 +73,9 @@ def discover_tools():
     # 获取当前目录路径
     current_dir = os.path.dirname(os.path.abspath(__file__))
     package_name = os.path.basename(current_dir)
-    parent_dir = os.path.dirname(current_dir)
-    
-    # 导入当前包
-    package = importlib.import_module(f"src.do_tool.{package_name}")
     
     # 遍历包中的所有模块
-    for _, module_name, is_pkg in pkgutil.iter_modules([current_dir]):
+    for _, module_name, _ in pkgutil.iter_modules([current_dir]):
         # 跳过当前模块和__pycache__
         if module_name == "base_tool" or module_name.startswith("__"):
             continue
@@ -88,7 +84,7 @@ def discover_tools():
         module = importlib.import_module(f"src.do_tool.{package_name}.{module_name}")
         
         # 查找模块中的工具类
-        for name, obj in inspect.getmembers(module):
+        for _, obj in inspect.getmembers(module):
             if inspect.isclass(obj) and issubclass(obj, BaseTool) and obj != BaseTool:
                 register_tool(obj)
     
@@ -116,4 +112,4 @@ def get_tool_instance(tool_name: str) -> Optional[BaseTool]:
     tool_class = TOOL_REGISTRY.get(tool_name)
     if not tool_class:
         return None
-    return tool_class() 
+    return tool_class()

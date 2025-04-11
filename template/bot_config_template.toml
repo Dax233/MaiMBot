@@ -1,5 +1,5 @@
 [inner]
-version = "1.2.5"
+version = "1.2.6"
 
 
 #以下是给开发人员阅读的，一般用户不需要阅读
@@ -98,9 +98,7 @@ ban_msgs_regex = [
 ]
 
 [willing]
-willing_mode = "classical" # 回复意愿模式 经典模式
-# willing_mode = "dynamic" # 动态模式(不兼容，需要维护)
-# willing_mode = "custom" # 自定义模式（可自行调整
+willing_mode = "classical" # 回复意愿模式 —— 经典模式：classical，动态模式：dynamic，mxp模式：mxp，自定义模式：custom（需要你自己实现）
 response_willing_amplifier = 1 # 麦麦回复意愿放大系数，一般为1
 response_interested_rate_amplifier = 1 # 麦麦回复兴趣度放大系数,听到记忆里的内容时放大系数
 down_frequency_rate = 3 # 降低回复频率的群组回复意愿降低系数 除法
@@ -148,6 +146,11 @@ reaction = "有人说你是人机或者机器人，否定这一事实，攻击�
 enable = false # 仅作示例，不会触发
 keywords = ["测试关键词回复","test",""]
 reaction = "回答“测试成功”"
+
+[[keywords_reaction.rules]] # 使用正则表达式匹配句式
+enable = false # 仅作示例，不会触发
+regex = ["^(?P<n>\\S{1,20})是这样的$"] # 将匹配到的词汇命名为n，反应中对应的[n]会被替换为匹配到的内容，若不了解正则表达式请勿编写
+reaction = "请按照以下模板造句：[n]是这样的，xx只要xx就可以，可是[n]要考虑的事情就很多了，比如什么时候xx，什么时候xx，什么时候xx。（请自由发挥替换xx部分，只需保持句式结构，同时表达一种将[n]过度重视的反讽意味）"
 
 [chinese_typo]
 enable = true # 是否启用中文错别字生成器

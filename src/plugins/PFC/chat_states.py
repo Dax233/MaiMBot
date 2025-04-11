@@ -98,11 +98,17 @@ class NotificationManager:
             notification_type: 要处理的通知类型
             handler: 处理器实例
         """
+        print(1145145511114445551111444)
         if target not in self._handlers:
+            print("没11有target")
             self._handlers[target] = {}
         if notification_type not in self._handlers[target]:
+            print("没11有notification_type")
             self._handlers[target][notification_type] = []
+            print(self._handlers[target][notification_type])
+        print(f"注册1111111111111111111111处理器: {target} {notification_type} {handler}")
         self._handlers[target][notification_type].append(handler)
+        print(self._handlers[target][notification_type])
 
     def unregister_handler(self, target: str, notification_type: NotificationType, handler: NotificationHandler):
         """注销通知处理器
@@ -126,6 +132,7 @@ class NotificationManager:
     async def send_notification(self, notification: Notification):
         """发送通知"""
         self._notification_history.append(notification)
+        # print("kaishichul-----------------------------------i")
 
         # 如果是状态通知，更新活跃状态
         if isinstance(notification, StateNotification):
@@ -133,12 +140,16 @@ class NotificationManager:
                 self._active_states.add(notification.type)
             else:
                 self._active_states.discard(notification.type)
+                
 
         # 调用目标接收者的处理器
         target = notification.target
         if target in self._handlers:
             handlers = self._handlers[target].get(notification.type, [])
+            # print(1111111)
+            print(handlers)
             for handler in handlers:
+                print(f"调用处理器: {handler}")
                 await handler.handle_notification(notification)
 
     def get_active_states(self) -> Set[NotificationType]:
@@ -170,6 +181,13 @@ class NotificationManager:
             history = history[-limit:]
 
         return history
+    
+    def __str__(self):
+        str = ""
+        for target, handlers in self._handlers.items():
+            for notification_type, handler_list in handlers.items():
+                str += f"NotificationManager for {target} {notification_type} {handler_list}"
+        return str
 
 
 # 一些常用的通知创建函数
@@ -182,8 +200,9 @@ def create_new_message_notification(sender: str, target: str, message: Dict[str,
         target=target,
         data={
             "message_id": message.get("message_id"),
-            "content": message.get("content"),
-            "sender": message.get("sender"),
+            "processed_plain_text": message.get("processed_plain_text"),
+            "detailed_plain_text": message.get("detailed_plain_text"),
+            "user_info": message.get("user_info"),
             "time": message.get("time"),
         },
     )
@@ -276,3 +295,5 @@ class ChatStateManager:
 
         current_time = datetime.now().timestamp()
         return (current_time - self.state_info.last_message_time) <= threshold
+    
+    
