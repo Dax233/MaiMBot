@@ -216,9 +216,9 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
             return list(text)  # 如果文本很短且触发随机条件,直接按字符分割
         else:
             return [text]
-    if len_text < 48:
+    if len_text < 12:
         split_strength = 0.2
-    elif len_text < 96:
+    elif len_text < 32:
         split_strength = 0.5
     else:
         split_strength = 0.9
@@ -236,8 +236,9 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
     if not is_western_paragraph(text):
         # 当语言为中文时，统一将英文逗号转换为中文逗号
         text = text.replace(",", "，")
-        text = text.replace("\n", "|seg|")
+    else:
         # 用"|seg|"作为分割符分开
+        text = re.sub(r"([.!?]) +", r"\1\|seg\|", text)
     text = text.replace("\n", "|seg|")
     text, mapping = protect_kaomoji(text)
     # print(f"处理前的文本: {text}")
@@ -245,14 +246,14 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
     text_no_1 = ""
     for letter in text:
         # print(f"当前字符: {letter}")
-        if letter in ["!", "！", "?", "？"]:
+        if letter in ["！","？"]:
             # print(f"当前字符: {letter}, 随机数: {random.random()}")
-            if random.random() < split_strength:
-                letter = ""
+            if random.random() > split_strength:
+                letter += "|seg|"
         if letter in ["。", "…"]:
             # print(f"当前字符: {letter}, 随机数: {random.random()}")
-            if random.random() < 1 - split_strength:
-                letter = ""
+            if random.random() > 1 - split_strength:
+                letter += "|seg|"
         text_no_1 += letter
 
     # 对每个逗号单独判断是否分割
@@ -268,7 +269,7 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
                     current_sentence = part
                 else:
                     current_sentence += "，" + part
-            # 处理空格分割
+            # 处理|seg|分割
             space_parts = current_sentence.split("|seg|")
             current_sentence = space_parts[0]
             for part in space_parts[1:]:
