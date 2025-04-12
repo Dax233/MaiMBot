@@ -57,7 +57,7 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> bool:
     else:
         if not is_mentioned:
             # 判断是否被回复
-            if re.match(f"回复[\s\S]*?\({global_config.BOT_QQ}\)的消息，说：", message.processed_plain_text):
+            if re.match(f"\[回复 [\s\S]*?\({global_config.BOT_QQ}\)：[\s\S]*?\]，说：", message.processed_plain_text):
                 is_mentioned = True
 
             # 判断内容中是否被提及
