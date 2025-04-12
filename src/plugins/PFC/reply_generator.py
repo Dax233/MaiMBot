@@ -16,7 +16,7 @@ class ReplyGenerator:
 
     def __init__(self, stream_id: str):
         self.llm = LLM_request(
-            model=global_config.llm_normal, temperature=0.3, max_tokens=300, request_type="reply_generation"
+            model=global_config.llm_normal, temperature=0.2, max_tokens=300, request_type="reply_generation"
         )
         self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=2)
         self.name = global_config.BOT_NICKNAME

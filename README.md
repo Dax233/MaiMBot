@@ -2,7 +2,7 @@
 <br />
 <div align="center">
 
-  ![Python Version](https://img.shields.io/badge/Python-3.9+-blue)
+  ![Python Version](https://img.shields.io/badge/Python-3.10+-blue)
   ![License](https://img.shields.io/github/license/SengokuCola/MaiMBot?label=协议)
   ![Status](https://img.shields.io/badge/状态-开发中-yellow)
   ![Contributors](https://img.shields.io/github/contributors/MaiM-with-u/MaiBot.svg?style=flat&label=贡献者)

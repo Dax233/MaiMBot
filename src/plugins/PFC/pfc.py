@@ -1,7 +1,7 @@
 # Programmable Friendly Conversationalist
 # Prefrontal cortex
 import datetime
-import asyncio
+# import asyncio
 from typing import List, Optional, Tuple, TYPE_CHECKING
 from src.common.logger import get_module_logger
 from ..chat.chat_stream import ChatStream
