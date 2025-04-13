@@ -65,7 +65,6 @@ class Conversation:
             self.observation_info.bind_to_chat_observer(self.chat_observer)
             # print(self.chat_observer.get_cached_messages(limit=)
 
-            
             self.conversation_info = ConversationInfo()
         except Exception as e:
             logger.error(f"初始化对话实例：注册信息组件失败: {e}")
@@ -96,7 +95,7 @@ class Conversation:
 
             # 执行行动
             await self._handle_action(action, reason, self.observation_info, self.conversation_info)
-            
+
             for goal in self.conversation_info.goal_list:
                 # 检查goal是否为元组类型，如果是元组则使用索引访问，如果是字典则使用get方法
                 if isinstance(goal, tuple):
@@ -151,7 +150,7 @@ class Conversation:
 
         if action == "direct_reply":
             self.waiter.wait_accumulated_time = 0
-            
+
             self.state = ConversationState.GENERATING
             self.generated_reply = await self.reply_generator.generate(observation_info, conversation_info)
             print(f"生成回复: {self.generated_reply}")
@@ -174,7 +173,6 @@ class Conversation:
 
             await self._send_reply()
 
-            
             conversation_info.done_action[-1].update(
                 {
                     "status": "done",
@@ -184,7 +182,7 @@ class Conversation:
 
         elif action == "fetch_knowledge":
             self.waiter.wait_accumulated_time = 0
-            
+
             self.state = ConversationState.FETCHING
             knowledge = "TODO:知识"
             topic = "TODO:关键词"
@@ -199,7 +197,7 @@ class Conversation:
 
         elif action == "rethink_goal":
             self.waiter.wait_accumulated_time = 0
-            
+
             self.state = ConversationState.RETHINKING
             await self.goal_analyzer.analyze_goal(conversation_info, observation_info)
 
@@ -207,7 +205,6 @@ class Conversation:
             self.state = ConversationState.LISTENING
             logger.info("倾听对方发言...")
             await self.waiter.wait_listening(conversation_info)
-
 
         elif action == "end_conversation":
             self.should_continue = False
@@ -239,9 +236,7 @@ class Conversation:
             return
 
         try:
-            await self.direct_sender.send_message(
-                chat_stream=self.chat_stream, content=self.generated_reply
-            )
+            await self.direct_sender.send_message(chat_stream=self.chat_stream, content=self.generated_reply)
             self.chat_observer.trigger_update()  # 触发立即更新
             if not await self.chat_observer.wait_for_update():
                 logger.warning("等待消息更新超时")

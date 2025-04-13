@@ -283,17 +283,13 @@ WILLING_STYLE_CONFIG = {
         "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 意愿 | {message}"),
     },
     "simple": {
-        "console_format": (
-            "<green>{time:MM-DD HH:mm}</green> | <light-blue>意愿</light-blue> | {message}"
-        ),  # noqa: E501
+        "console_format": ("<green>{time:MM-DD HH:mm}</green> | <light-blue>意愿</light-blue> | {message}"),  # noqa: E501
         "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 意愿 | {message}"),
     },
 }
 
 CONFIRM_STYLE_CONFIG = {
-    "console_format": (
-        "<RED>{message}</RED>"
-    ),  # noqa: E501
+    "console_format": ("<RED>{message}</RED>"),  # noqa: E501
     "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | EULA与PRIVACY确认 | {message}"),
 }
 

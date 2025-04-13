@@ -4,23 +4,21 @@ from typing import Dict, Any
 
 logger = get_module_logger("generate_cmd_tutorial_tool")
 
+
 class GenerateCmdTutorialTool(BaseTool):
     """生成Windows CMD基本操作教程的工具"""
+
     name = "generate_cmd_tutorial"
     description = "生成关于Windows命令提示符(CMD)的基本操作教程，包括常用命令和使用方法"
-    parameters = {
-        "type": "object",
-        "properties": {},
-        "required": []
-    }
-    
+    parameters = {"type": "object", "properties": {}, "required": []}
+
     async def execute(self, function_args: Dict[str, Any], message_txt: str = "") -> Dict[str, Any]:
         """执行工具功能
-        
+
         Args:
             function_args: 工具参数
             message_txt: 原始消息文本
-            
+
         Returns:
             Dict: 工具执行结果
         """
@@ -57,17 +55,12 @@ class GenerateCmdTutorialTool(BaseTool):
 
 注意：使用命令时要小心，特别是删除操作。
 """
-            
-            return {
-                "name": self.name,
-                "content": tutorial_content
-            }
+
+            return {"name": self.name, "content": tutorial_content}
         except Exception as e:
             logger.error(f"generate_cmd_tutorial工具执行失败: {str(e)}")
-            return {
-                "name": self.name,
-                "content": f"执行失败: {str(e)}"
-            }
+            return {"name": self.name, "content": f"执行失败: {str(e)}"}
+
 
 # 注册工具
 register_tool(GenerateCmdTutorialTool)

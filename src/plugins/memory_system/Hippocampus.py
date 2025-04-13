@@ -225,6 +225,7 @@ class Memory_graph:
 
         return None
 
+
 # 海马体
 class Hippocampus:
     def __init__(self):
@@ -651,7 +652,6 @@ class Hippocampus:
         logger.info(f"总激活值: {total_activation:.2f}, 总节点数: {total_nodes}, 激活: {activation_ratio}")
 
         return activation_ratio
-
 
 
 # 负责海马体与其他部分的交互

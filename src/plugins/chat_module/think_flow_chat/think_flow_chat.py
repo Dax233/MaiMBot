@@ -59,11 +59,7 @@ class ThinkFlowChat:
 
         return thinking_id
 
-    async def _send_response_messages(self, 
-                                      message, 
-                                      chat, 
-                                      response_set:List[str], 
-                                      thinking_id) -> MessageSending:
+    async def _send_response_messages(self, message, chat, response_set: List[str], thinking_id) -> MessageSending:
         """发送回复消息"""
         container = message_manager.get_container(chat.stream_id)
         thinking_message = None
@@ -260,8 +256,6 @@ class ThinkFlowChat:
         if random() < reply_probability:
             try:
                 do_reply = True
-                
-                
 
                 # 回复前处理
                 await willing_manager.before_generate_reply_handle(message.message_info.message_id)
@@ -274,9 +268,9 @@ class ThinkFlowChat:
                     timing_results["创建思考消息"] = timer2 - timer1
                 except Exception as e:
                     logger.error(f"心流创建思考消息失败: {e}")
-                    
+
                 logger.debug(f"创建捕捉器，thinking_id:{thinking_id}")
-                
+
                 info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
                 info_catcher.catch_decide_to_response(message)
 
@@ -288,32 +282,32 @@ class ThinkFlowChat:
                     timing_results["观察"] = timer2 - timer1
                 except Exception as e:
                     logger.error(f"心流观察失败: {e}")
-                    
+
                 info_catcher.catch_after_observe(timing_results["观察"])
 
                 # 思考前脑内状态
                 try:
                     timer1 = time.time()
-                    current_mind,past_mind = await heartflow.get_subheartflow(chat.stream_id).do_thinking_before_reply(
-                        message_txt = message.processed_plain_text,
-                        sender_name = message.message_info.user_info.user_nickname,
-                        chat_stream = chat
+                    current_mind, past_mind = await heartflow.get_subheartflow(chat.stream_id).do_thinking_before_reply(
+                        message_txt=message.processed_plain_text,
+                        sender_name=message.message_info.user_info.user_nickname,
+                        chat_stream=chat,
                     )
                     timer2 = time.time()
                     timing_results["思考前脑内状态"] = timer2 - timer1
                 except Exception as e:
                     logger.error(f"心流思考前脑内状态失败: {e}")
-                    
-                info_catcher.catch_afer_shf_step(timing_results["思考前脑内状态"],past_mind,current_mind)
+
+                info_catcher.catch_afer_shf_step(timing_results["思考前脑内状态"], past_mind, current_mind)
 
                 # 生成回复
                 timer1 = time.time()
-                response_set = await self.gpt.generate_response(message,thinking_id)
+                response_set = await self.gpt.generate_response(message, thinking_id)
                 timer2 = time.time()
                 timing_results["生成回复"] = timer2 - timer1
 
                 info_catcher.catch_after_generate_response(timing_results["生成回复"])
-                
+
                 if not response_set:
                     logger.info("回复生成失败，返回为空")
                     return
@@ -326,11 +320,9 @@ class ThinkFlowChat:
                     timing_results["发送消息"] = timer2 - timer1
                 except Exception as e:
                     logger.error(f"心流发送消息失败: {e}")
-                
-                
-                info_catcher.catch_after_response(timing_results["发送消息"],response_set,first_bot_msg)
-                
-                
+
+                info_catcher.catch_after_response(timing_results["发送消息"], response_set, first_bot_msg)
+
                 info_catcher.done_catch()
 
                 # 处理表情包

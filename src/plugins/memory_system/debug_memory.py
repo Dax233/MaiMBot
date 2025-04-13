@@ -27,7 +27,6 @@ async def test_memory_system():
         # 测试记忆检索
         test_text = "千石可乐在群里聊天"
 
-
         # test_text = '''千石可乐：分不清AI的陪伴和人类的陪伴,是这样吗？'''
         print(f"开始测试记忆检索，测试文本: {test_text}\n")
         memories = await hippocampus_manager.get_memory_from_text(

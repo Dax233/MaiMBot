@@ -38,7 +38,7 @@ class ResponseGenerator:
         self.current_model_type = "r1"  # 默认使用 R1
         self.current_model_name = "unknown model"
 
-    async def generate_response(self, message: MessageThinking,thinking_id:str) -> Optional[Union[str, List[str]]]:
+    async def generate_response(self, message: MessageThinking, thinking_id: str) -> Optional[Union[str, List[str]]]:
         """根据当前模型类型选择对应的生成函数"""
         # 从global_config中获取模型概率值并选择模型
         if random.random() < global_config.MODEL_R1_PROBABILITY:
@@ -52,7 +52,7 @@ class ResponseGenerator:
             f"{self.current_model_type}思考:{message.processed_plain_text[:30] + '...' if len(message.processed_plain_text) > 30 else message.processed_plain_text}"
         )  # noqa: E501
 
-        model_response = await self._generate_response_with_model(message, current_model,thinking_id)
+        model_response = await self._generate_response_with_model(message, current_model, thinking_id)
 
         # print(f"raw_content: {model_response}")
 
@@ -65,11 +65,11 @@ class ResponseGenerator:
             logger.info(f"{self.current_model_type}思考，失败")
             return None
 
-    async def _generate_response_with_model(self, message: MessageThinking, model: LLM_request,thinking_id:str):
+    async def _generate_response_with_model(self, message: MessageThinking, model: LLM_request, thinking_id: str):
         sender_name = ""
-        
+
         info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
-        
+
         if message.chat_stream.user_info.user_cardname and message.chat_stream.user_info.user_nickname:
             sender_name = (
                 f"[({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}]"
@@ -94,14 +94,11 @@ class ResponseGenerator:
 
         try:
             content, reasoning_content, self.current_model_name = await model.generate_response(prompt)
-            
+
             info_catcher.catch_after_llm_generated(
-                prompt=prompt,
-                response=content,
-                reasoning_content=reasoning_content,
-                model_name=self.current_model_name)
-        
-        
+                prompt=prompt, response=content, reasoning_content=reasoning_content, model_name=self.current_model_name
+            )
+
         except Exception:
             logger.exception("生成回复时出错")
             return None
@@ -117,7 +114,6 @@ class ResponseGenerator:
         # )
 
         return content
-
 
     # def _save_to_db(
     #     self,

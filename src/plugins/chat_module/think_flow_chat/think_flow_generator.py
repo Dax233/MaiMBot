@@ -35,44 +35,51 @@ class ResponseGenerator:
         self.current_model_type = "r1"  # 默认使用 R1
         self.current_model_name = "unknown model"
 
-    async def generate_response(self, message: MessageRecv,thinking_id:str) -> Optional[List[str]]:
+    async def generate_response(self, message: MessageRecv, thinking_id: str) -> Optional[List[str]]:
         """根据当前模型类型选择对应的生成函数"""
-        
 
         logger.info(
             f"思考:{message.processed_plain_text[:30] + '...' if len(message.processed_plain_text) > 30 else message.processed_plain_text}"
         )
-        
+
         arousal_multiplier = MoodManager.get_instance().get_arousal_multiplier()
-        
+
         time1 = time.time()
-        
+
         checked = False
         if random.random() > 0:
             checked = False
             current_model = self.model_normal
-            current_model.temperature = 0.3 * arousal_multiplier #激活度越高，温度越高
-            model_response = await self._generate_response_with_model(message, current_model,thinking_id,mode="normal")
-            
+            current_model.temperature = 0.3 * arousal_multiplier  # 激活度越高，温度越高
+            model_response = await self._generate_response_with_model(
+                message, current_model, thinking_id, mode="normal"
+            )
+
             model_checked_response = model_response
         else:
             checked = True
             current_model = self.model_normal
-            current_model.temperature = 0.3 * arousal_multiplier #激活度越高，温度越高
+            current_model.temperature = 0.3 * arousal_multiplier  # 激活度越高，温度越高
             print(f"生成{message.processed_plain_text}回复温度是：{current_model.temperature}")
-            model_response = await self._generate_response_with_model(message, current_model,thinking_id,mode="simple")
-            
+            model_response = await self._generate_response_with_model(
+                message, current_model, thinking_id, mode="simple"
+            )
+
             current_model.temperature = 0.3
-            model_checked_response = await self._check_response_with_model(message, model_response, current_model,thinking_id)
+            model_checked_response = await self._check_response_with_model(
+                message, model_response, current_model, thinking_id
+            )
 
         time2 = time.time()
 
         if model_response:
             if checked:
-                logger.info(f"{global_config.BOT_NICKNAME}的回复是：{model_response}，思忖后，回复是：{model_checked_response},生成回复时间: {time2 - time1}秒")
+                logger.info(
+                    f"{global_config.BOT_NICKNAME}的回复是：{model_response}，思忖后，回复是：{model_checked_response},生成回复时间: {time2 - time1}秒"
+                )
             else:
                 logger.info(f"{global_config.BOT_NICKNAME}的回复是：{model_response},生成回复时间: {time2 - time1}秒")
-            
+
             model_processed_response = await self._process_response(model_checked_response)
 
             return model_processed_response
@@ -80,11 +87,13 @@ class ResponseGenerator:
             logger.info(f"{self.current_model_type}思考，失败")
             return None
 
-    async def _generate_response_with_model(self, message: MessageRecv, model: LLM_request,thinking_id:str,mode:str = "normal") -> str:
+    async def _generate_response_with_model(
+        self, message: MessageRecv, model: LLM_request, thinking_id: str, mode: str = "normal"
+    ) -> str:
         sender_name = ""
-        
+
         info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
-        
+
         if message.chat_stream.user_info.user_cardname and message.chat_stream.user_info.user_nickname:
             sender_name = (
                 f"[({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}]"
@@ -116,25 +125,22 @@ class ResponseGenerator:
 
         try:
             content, reasoning_content, self.current_model_name = await model.generate_response(prompt)
-        
-            
+
             info_catcher.catch_after_llm_generated(
-                prompt=prompt,
-                response=content,
-                reasoning_content=reasoning_content,
-                model_name=self.current_model_name)
-            
+                prompt=prompt, response=content, reasoning_content=reasoning_content, model_name=self.current_model_name
+            )
+
         except Exception:
             logger.exception("生成回复时出错")
             return None
 
-
         return content
-    
-    async def _check_response_with_model(self, message: MessageRecv, content:str, model: LLM_request,thinking_id:str) -> str:
-        
+
+    async def _check_response_with_model(
+        self, message: MessageRecv, content: str, model: LLM_request, thinking_id: str
+    ) -> str:
         _info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
-        
+
         sender_name = ""
         if message.chat_stream.user_info.user_cardname and message.chat_stream.user_info.user_nickname:
             sender_name = (
@@ -145,8 +151,7 @@ class ResponseGenerator:
             sender_name = f"({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}"
         else:
             sender_name = f"用户({message.chat_stream.user_info.user_id})"
-            
-            
+
         # 构建prompt
         timer1 = time.time()
         prompt = await prompt_builder._build_prompt_check_response(
@@ -154,7 +159,7 @@ class ResponseGenerator:
             message_txt=message.processed_plain_text,
             sender_name=sender_name,
             stream_id=message.chat_stream.stream_id,
-            content=content
+            content=content,
         )
         timer2 = time.time()
         logger.info(f"构建check_prompt: {prompt}")
@@ -162,18 +167,16 @@ class ResponseGenerator:
 
         try:
             checked_content, reasoning_content, self.current_model_name = await model.generate_response(prompt)
-        
-            
+
             # info_catcher.catch_after_llm_generated(
             #     prompt=prompt,
             #     response=content,
             #     reasoning_content=reasoning_content,
             #     model_name=self.current_model_name)
-            
+
         except Exception:
             logger.exception("检查回复时出错")
             return None
-
 
         return checked_content
 

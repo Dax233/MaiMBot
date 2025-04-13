@@ -1,6 +1,7 @@
 # Programmable Friendly Conversationalist
 # Prefrontal cortex
 import datetime
+
 # import asyncio
 from typing import List, Optional, Tuple, TYPE_CHECKING
 from src.common.logger import get_module_logger
@@ -63,13 +64,13 @@ class GoalAnalyzer:
                     goal = goal_reason[0]
                     reasoning = goal_reason[1] if len(goal_reason) > 1 else "没有明确原因"
                 elif isinstance(goal_reason, dict):
-                    goal = goal_reason.get('goal')
-                    reasoning = goal_reason.get('reasoning', "没有明确原因")
+                    goal = goal_reason.get("goal")
+                    reasoning = goal_reason.get("reasoning", "没有明确原因")
                 else:
                     # 如果是其他类型，尝试转为字符串
                     goal = str(goal_reason)
                     reasoning = "没有明确原因"
-                
+
                 goal_str = f"目标：{goal}，产生该对话目标的原因：{reasoning}\n"
                 goals_str += goal_str
         else:
@@ -140,14 +141,12 @@ class GoalAnalyzer:
         except Exception as e:
             logger.error(f"分析对话目标时出错: {str(e)}")
             content = ""
-            
+
         # 使用改进后的get_items_from_json函数处理JSON数组
         success, result = get_items_from_json(
-            content, "goal", "reasoning", 
-            required_types={"goal": str, "reasoning": str},
-            allow_array=True
+            content, "goal", "reasoning", required_types={"goal": str, "reasoning": str}, allow_array=True
         )
-        
+
         if success:
             # 判断结果是单个字典还是字典列表
             if isinstance(result, list):
@@ -157,7 +156,7 @@ class GoalAnalyzer:
                     goal = item.get("goal", "")
                     reasoning = item.get("reasoning", "")
                     conversation_info.goal_list.append((goal, reasoning))
-                
+
                 # 返回第一个目标作为当前主要目标（如果有）
                 if result:
                     first_goal = result[0]
@@ -168,7 +167,7 @@ class GoalAnalyzer:
                 reasoning = result.get("reasoning", "")
                 conversation_info.goal_list.append((goal, reasoning))
                 return (goal, "", reasoning)
-        
+
         # 如果解析失败，返回默认值
         return ("", "", "")
 
@@ -291,7 +290,6 @@ class GoalAnalyzer:
         except Exception as e:
             logger.error(f"分析对话状态时出错: {str(e)}")
             return False, False, f"分析出错: {str(e)}"
-
 
 
 class DirectMessageSender:

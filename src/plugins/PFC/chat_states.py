@@ -140,7 +140,6 @@ class NotificationManager:
                 self._active_states.add(notification.type)
             else:
                 self._active_states.discard(notification.type)
-                
 
         # 调用目标接收者的处理器
         target = notification.target
@@ -181,7 +180,7 @@ class NotificationManager:
             history = history[-limit:]
 
         return history
-    
+
     def __str__(self):
         str = ""
         for target, handlers in self._handlers.items():
@@ -295,5 +294,3 @@ class ChatStateManager:
 
         current_time = datetime.now().timestamp()
         return (current_time - self.state_info.last_message_time) <= threshold
-    
-    

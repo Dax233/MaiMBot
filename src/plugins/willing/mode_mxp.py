@@ -17,19 +17,22 @@ Mxp 模式：梦溪畔独家赞助
 中策是发issue
 下下策是询问一个菜鸟（@梦溪畔）
 """
+
 from .willing_manager import BaseWillingManager
 from typing import Dict
 import asyncio
 import time
 import math
 
+
 class MxpWillingManager(BaseWillingManager):
     """Mxp意愿管理器"""
+
     def __init__(self):
         super().__init__()
         self.chat_person_reply_willing: Dict[str, Dict[str, float]] = {}  # chat_id: {person_id: 意愿值}
         self.chat_new_message_time: Dict[str, list[float]] = {}  # 聊天流ID: 消息时间
-        self.last_response_person: Dict[str, tuple[str, int]] = {} # 上次回复的用户信息
+        self.last_response_person: Dict[str, tuple[str, int]] = {}  # 上次回复的用户信息
         self.temporary_willing: float = 0  # 临时意愿值
 
         # 可变参数
@@ -39,8 +42,8 @@ class MxpWillingManager(BaseWillingManager):
         self.basic_maximum_willing = 0.5  # 基础最大意愿值
         self.mention_willing_gain = 0.6  # 提及意愿增益
         self.interest_willing_gain = 0.3  # 兴趣意愿增益
-        self.emoji_response_penalty = self.global_config.emoji_response_penalty # 表情包回复惩罚
-        self.down_frequency_rate = self.global_config.down_frequency_rate # 降低回复频率的群组惩罚系数
+        self.emoji_response_penalty = self.global_config.emoji_response_penalty  # 表情包回复惩罚
+        self.down_frequency_rate = self.global_config.down_frequency_rate  # 降低回复频率的群组惩罚系数
         self.single_chat_gain = 0.12  # 单聊增益
 
     async def async_task_starter(self) -> None:
@@ -73,9 +76,16 @@ class MxpWillingManager(BaseWillingManager):
             w_info = self.ongoing_messages[message_id]
             if w_info.is_mentioned_bot:
                 self.chat_person_reply_willing[w_info.chat_id][w_info.person_id] += 0.2
-            if w_info.chat_id in self.last_response_person and self.last_response_person[w_info.chat_id][0] == w_info.person_id:
-                self.chat_person_reply_willing[w_info.chat_id][w_info.person_id] +=\
-                self.single_chat_gain * (2 * self.last_response_person[w_info.chat_id][1] + 1)
+            if (
+                w_info.chat_id in self.last_response_person
+                and self.last_response_person[w_info.chat_id][0] == w_info.person_id
+            ):
+                self.chat_person_reply_willing[w_info.chat_id][w_info.person_id] += self.single_chat_gain * (
+                    2 * self.last_response_person[w_info.chat_id][1] + 1
+                )
+            now_chat_new_person = self.last_response_person.get(w_info.chat_id, ["", 0])
+            if now_chat_new_person[0] != w_info.person_id:
+                self.last_response_person[w_info.chat_id] = [w_info.person_id, 0]
 
     async def get_reply_probability(self, message_id: str):
         """获取回复概率"""
@@ -95,7 +105,10 @@ class MxpWillingManager(BaseWillingManager):
             rel_level = self._get_relationship_level_num(rel_value)
             current_willing += rel_level * 0.1
 
-            if w_info.chat_id in self.last_response_person and self.last_response_person[w_info.chat_id][0] == w_info.person_id:
+            if (
+                w_info.chat_id in self.last_response_person
+                and self.last_response_person[w_info.chat_id][0] == w_info.person_id
+            ):
                 current_willing += self.single_chat_gain * (2 * self.last_response_person[w_info.chat_id][1] + 1)
 
             chat_ongoing_messages = [msg for msg in self.ongoing_messages.values() if msg.chat_id == w_info.chat_id]
@@ -138,16 +151,22 @@ class MxpWillingManager(BaseWillingManager):
                             self.logger.debug(f"聊天流{chat_id}不存在，错误")
                             continue
                         basic_willing = self.chat_reply_willing[chat_id]
-                        person_willing[person_id] = basic_willing + (willing - basic_willing) * self.intention_decay_rate
+                        person_willing[person_id] = (
+                            basic_willing + (willing - basic_willing) * self.intention_decay_rate
+                        )
 
     def setup(self, message, chat, is_mentioned_bot, interested_rate):
         super().setup(message, chat, is_mentioned_bot, interested_rate)
 
-        self.chat_reply_willing[chat.stream_id] = self.chat_reply_willing.get(chat.stream_id, self.basic_maximum_willing)
+        self.chat_reply_willing[chat.stream_id] = self.chat_reply_willing.get(
+            chat.stream_id, self.basic_maximum_willing
+        )
         self.chat_person_reply_willing[chat.stream_id] = self.chat_person_reply_willing.get(chat.stream_id, {})
-        self.chat_person_reply_willing[chat.stream_id][self.ongoing_messages[message.message_info.message_id].person_id] = \
-        self.chat_person_reply_willing[chat.stream_id].get(self.ongoing_messages[message.message_info.message_id].person_id, 
-                                                           self.chat_reply_willing[chat.stream_id])
+        self.chat_person_reply_willing[chat.stream_id][
+            self.ongoing_messages[message.message_info.message_id].person_id
+        ] = self.chat_person_reply_willing[chat.stream_id].get(
+            self.ongoing_messages[message.message_info.message_id].person_id, self.chat_reply_willing[chat.stream_id]
+        )
 
         if chat.stream_id not in self.chat_new_message_time:
             self.chat_new_message_time[chat.stream_id] = []
@@ -163,7 +182,7 @@ class MxpWillingManager(BaseWillingManager):
         else:
             probability = math.atan(willing * 4) / math.pi * 2
         return probability
-    
+
     async def _chat_new_message_to_change_basic_willing(self):
         """聊天流新消息改变基础意愿"""
         while True:
@@ -171,10 +190,11 @@ class MxpWillingManager(BaseWillingManager):
             await asyncio.sleep(update_time)
             async with self.lock:
                 for chat_id, message_times in self.chat_new_message_time.items():
-
                     # 清理过期消息
                     current_time = time.time()
-                    message_times = [msg_time for msg_time in message_times if current_time - msg_time < self.message_expiration_time]
+                    message_times = [
+                        msg_time for msg_time in message_times if current_time - msg_time < self.message_expiration_time
+                    ]
                     self.chat_new_message_time[chat_id] = message_times
 
                     if len(message_times) < self.number_of_message_storage:
@@ -182,7 +202,9 @@ class MxpWillingManager(BaseWillingManager):
                         update_time = 20
                     elif len(message_times) == self.number_of_message_storage:
                         time_interval = current_time - message_times[0]
-                        basic_willing = self.basic_maximum_willing * math.sqrt(time_interval / self.message_expiration_time)
+                        basic_willing = self.basic_maximum_willing * math.sqrt(
+                            time_interval / self.message_expiration_time
+                        )
                         self.chat_reply_willing[chat_id] = basic_willing
                         update_time = 17 * math.sqrt(time_interval / self.message_expiration_time) + 3
                     else:
@@ -200,7 +222,7 @@ class MxpWillingManager(BaseWillingManager):
             "interest_willing_gain": "兴趣意愿增益",
             "emoji_response_penalty": "表情包回复惩罚",
             "down_frequency_rate": "降低回复频率的群组惩罚系数",
-            "single_chat_gain": "单聊增益（不仅是私聊）"
+            "single_chat_gain": "单聊增益（不仅是私聊）",
         }
 
     async def set_variable_parameters(self, parameters: Dict[str, any]):
@@ -212,7 +234,7 @@ class MxpWillingManager(BaseWillingManager):
                     self.logger.debug(f"参数 {key} 已更新为 {value}")
                 else:
                     self.logger.debug(f"尝试设置未知参数 {key}")
-    
+
     def _get_relationship_level_num(self, relationship_value) -> int:
         """关系等级计算"""
         if -1000 <= relationship_value < -227:

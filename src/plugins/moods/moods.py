@@ -238,14 +238,14 @@ class MoodManager:
             base_prompt += "情绪比较平静。"
 
         return base_prompt
-    
+
     def get_arousal_multiplier(self) -> float:
         """根据当前情绪状态返回唤醒度乘数"""
         if self.current_mood.arousal > 0.4:
-            multiplier = 1 + min(0.15,(self.current_mood.arousal - 0.4)/3)
+            multiplier = 1 + min(0.15, (self.current_mood.arousal - 0.4) / 3)
             return multiplier
         elif self.current_mood.arousal < -0.4:
-            multiplier = 1 - min(0.15,((0 - self.current_mood.arousal) - 0.4)/3)
+            multiplier = 1 - min(0.15, ((0 - self.current_mood.arousal) - 0.4) / 3)
             return multiplier
         return 1.0
 

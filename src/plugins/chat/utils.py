@@ -87,7 +87,6 @@ async def get_embedding(text, request_type="embedding"):
     return embedding
 
 
-
 async def get_recent_group_messages(chat_id: str, limit: int = 12) -> list:
     """从数据库获取群组最近的消息记录
 
