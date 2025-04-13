@@ -260,7 +260,7 @@ class SubHeartflow:
 
     async def do_thinking_after_reply(self, reply_content, chat_talking_prompt):
         # print("枫回复之后脑袋转起来了")
-        
+
         # 开始构建prompt
         prompt_personality = f"你的名字是{self.bot_name},你"
         # person

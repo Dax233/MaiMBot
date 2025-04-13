@@ -15,7 +15,7 @@ class Server:
     def register_router(self, router: APIRouter, prefix: str = ""):
         """注册路由
 
-        APIRouter 用于对相关的路由端点进行分组和模块化管理员: 
+        APIRouter 用于对相关的路由端点进行分组和模块化管理员:
         1. 可以将相关的端点组织在一起，便于管理
         2. 支持添加统一的路由前缀
         3. 可以为一组路由添加共同的依赖项、标签等
