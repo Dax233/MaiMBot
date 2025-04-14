@@ -3,7 +3,8 @@ from src.common.logger import get_module_logger
 from ..chat.chat_stream import ChatStream
 from ..chat.message import Message
 from ..message.message_base import Seg
-from src.plugins.chat.message import MessageSending
+from src.plugins.chat.message import MessageSending, MessageSet
+from src.plugins.chat.message_sender import message_manager
 
 logger = get_module_logger("message_sender")
 
@@ -39,9 +40,11 @@ class DirectMessageSender:
                 message_sending = MessageSending(segments=segments)
 
             # 发送消息
-            await chat_stream.send_message(message_sending)
-            logger.info(f"消息已发送: {content}")
+            message_set = MessageSet(chat_stream, message_sending.message_id)
+            message_set.add_message(message_sending)
+            message_manager.add_message(message_set)
+            logger.info(f"PFC消息已发送: {content}")
 
         except Exception as e:
-            logger.error(f"发送消息失败: {str(e)}")
+            logger.error(f"PFC消息发送失败: {str(e)}")
             raise

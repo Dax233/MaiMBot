@@ -19,6 +19,7 @@ from ...chat.chat_stream import chat_manager
 from ...person_info.relationship_manager import relationship_manager
 from ...chat.message_buffer import message_buffer
 from src.plugins.respon_info_catcher.info_catcher import info_catcher_manager
+from ...utils.timer_calculater import Timer
 
 # 定义日志配置
 chat_config = LogConfig(
@@ -173,12 +174,10 @@ class ReasoningChat:
         await self.storage.store_message(message, chat)
 
         # 记忆激活
-        timer1 = time.time()
-        interested_rate = await HippocampusManager.get_instance().get_activate_from_text(
-            message.processed_plain_text, fast_retrieval=True
-        )
-        timer2 = time.time()
-        timing_results["记忆激活"] = timer2 - timer1
+        with Timer("记忆激活", timing_results):
+            interested_rate = await HippocampusManager.get_instance().get_activate_from_text(
+                message.processed_plain_text, fast_retrieval=True
+            )
 
         # 查询缓冲器结果，会整合前面跳过的消息，改变processed_plain_text
         buffer_result = await message_buffer.query_buffer_result(message)
@@ -228,10 +227,8 @@ class ReasoningChat:
             await willing_manager.before_generate_reply_handle(message.message_info.message_id)
 
             # 创建思考消息
-            timer1 = time.time()
-            thinking_id = await self._create_thinking_message(message, chat, userinfo, messageinfo)
-            timer2 = time.time()
-            timing_results["创建思考消息"] = timer2 - timer1
+            with Timer("创建思考消息", timing_results):
+                thinking_id = await self._create_thinking_message(message, chat, userinfo, messageinfo)
 
             logger.debug(f"创建捕捉器，thinking_id:{thinking_id}")
 
@@ -239,11 +236,9 @@ class ReasoningChat:
             info_catcher.catch_decide_to_response(message)
 
             # 生成回复
-            timer1 = time.time()
             try:
-                response_set = await self.gpt.generate_response(message, thinking_id)
-                timer2 = time.time()
-                timing_results["生成回复"] = timer2 - timer1
+                with Timer("生成回复", timing_results):
+                    response_set = await self.gpt.generate_response(message, thinking_id)
 
                 info_catcher.catch_after_generate_response(timing_results["生成回复"])
             except Exception as e:
@@ -255,26 +250,20 @@ class ReasoningChat:
                 return
 
             # 发送消息
-            timer1 = time.time()
-            first_bot_msg = await self._send_response_messages(message, chat, response_set, thinking_id)
-            timer2 = time.time()
-            timing_results["发送消息"] = timer2 - timer1
+            with Timer("发送消息", timing_results):
+                first_bot_msg = await self._send_response_messages(message, chat, response_set, thinking_id)
 
             info_catcher.catch_after_response(timing_results["发送消息"], response_set, first_bot_msg)
 
             info_catcher.done_catch()
 
             # 处理表情包
-            timer1 = time.time()
-            await self._handle_emoji(message, chat, response_set)
-            timer2 = time.time()
-            timing_results["处理表情包"] = timer2 - timer1
+            with Timer("处理表情包", timing_results):
+                await self._handle_emoji(message, chat, response_set)
 
             # 更新关系情绪
-            timer1 = time.time()
-            await self._update_relationship(message, response_set)
-            timer2 = time.time()
-            timing_results["更新关系情绪"] = timer2 - timer1
+            with Timer("更新关系情绪", timing_results):
+                await self._update_relationship(message, response_set)
 
             # 回复后处理
             await willing_manager.after_generate_reply_handle(message.message_info.message_id)

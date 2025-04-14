@@ -189,7 +189,7 @@ pri_out = 16 #模型的输出价格（非必填，可以记录消耗）
 
 #非推理模型
 
-[model.llm_normal] #V3 回复模型1 主要回复模型
+[model.llm_normal] #V3 回复模型1 主要回复模型，默认temp 0.2 如果你使用的是老V3或者其他模型，请自己修改代码中的temp参数
 name = "Pro/deepseek-ai/DeepSeek-V3"
 provider = "SILICONFLOW"
 pri_in = 2 #模型的输入价格（非必填，可以记录消耗）

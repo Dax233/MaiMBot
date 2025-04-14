@@ -138,6 +138,7 @@ class LLMStatistics:
             # user_id = str(doc.get("user_info", {}).get("user_id", "unknown"))
             chat_info = doc.get("chat_info", {})
             user_info = doc.get("user_info", {})
+            user_id = str(user_info.get("user_id", "unknown"))
             message_time = doc.get("time", 0)
             group_info = chat_info.get("group_info") if chat_info else {}
             # print(f"group_info: {group_info}")

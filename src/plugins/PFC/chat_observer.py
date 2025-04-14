@@ -1,12 +1,12 @@
 import time
 import asyncio
 import traceback
-from typing import Optional, Dict, Any, List 
+from typing import Optional, Dict, Any, List
 from src.common.logger import get_module_logger
 from ..message.message_base import UserInfo
 from ..config.config import global_config
 from .chat_states import NotificationManager, create_new_message_notification, create_cold_chat_notification
-from .message_storage import  MongoDBMessageStorage
+from .message_storage import MongoDBMessageStorage
 
 logger = get_module_logger("chat_observer")
 
@@ -51,7 +51,6 @@ class ChatObserver:
 
         self.waiting_start_time: float = time.time()  # 等待开始时间，初始化为当前时间
 
-
         # 运行状态
         self._running: bool = False
         self._task: Optional[asyncio.Task] = None
@@ -94,10 +93,11 @@ class ChatObserver:
             message: 消息数据
         """
         try:
-
             # 发送新消息通知
             # logger.info(f"发送新ccchandleer消息通知: {message}")
-            notification = create_new_message_notification(sender="chat_observer", target="observation_info", message=message)
+            notification = create_new_message_notification(
+                sender="chat_observer", target="observation_info", message=message
+            )
             # logger.info(f"发送新消ddddd息通知: {notification}")
             # print(self.notification_manager)
             await self.notification_manager.send_notification(notification)
@@ -130,7 +130,6 @@ class ChatObserver:
             self.is_cold_chat_state = is_cold
             notification = create_cold_chat_notification(sender="chat_observer", target="pfc", is_cold=is_cold)
             await self.notification_manager.send_notification(notification)
-
 
     def new_message_after(self, time_point: float) -> bool:
         """判断是否在指定时间点后有新消息
@@ -197,7 +196,7 @@ class ChatObserver:
         if new_messages:
             self.last_message_read = new_messages[-1]
             self.last_message_time = new_messages[-1]["time"]
-            
+
         # print(f"获取数据库中找到的新消息: {new_messages}")
 
         return new_messages
@@ -215,7 +214,7 @@ class ChatObserver:
 
         if new_messages:
             self.last_message_read = new_messages[-1]["message_id"]
-        
+
         logger.debug(f"获取指定时间点111之前的消息: {new_messages}")
 
         return new_messages
@@ -239,7 +238,7 @@ class ChatObserver:
                 try:
                     # print("等待事件")
                     await asyncio.wait_for(self._update_event.wait(), timeout=1)
-                   
+
                 except asyncio.TimeoutError:
                     # print("超时")
                     pass  # 超时后也执行一次检查
@@ -347,7 +346,6 @@ class ChatObserver:
 
         return time_info
 
-
     def get_cached_messages(self, limit: int = 50) -> List[Dict[str, Any]]:
         """获取缓存的消息历史
 
@@ -368,6 +366,6 @@ class ChatObserver:
         if not self.message_cache:
             return None
         return self.message_cache[0]
-    
+
     def __str__(self):
         return f"ChatObserver for {self.stream_id}"

@@ -100,15 +100,15 @@ class NotificationManager:
         """
         print(1145145511114445551111444)
         if target not in self._handlers:
-            print("没11有target")
+            # print("没11有target")
             self._handlers[target] = {}
         if notification_type not in self._handlers[target]:
-            print("没11有notification_type")
+            # print("没11有notification_type")
             self._handlers[target][notification_type] = []
-            print(self._handlers[target][notification_type])
-        print(f"注册1111111111111111111111处理器: {target} {notification_type} {handler}")
+            # print(self._handlers[target][notification_type])
+        # print(f"注册1111111111111111111111处理器: {target} {notification_type} {handler}")
         self._handlers[target][notification_type].append(handler)
-        print(self._handlers[target][notification_type])
+        # print(self._handlers[target][notification_type])
 
     def unregister_handler(self, target: str, notification_type: NotificationType, handler: NotificationHandler):
         """注销通知处理器
@@ -140,7 +140,6 @@ class NotificationManager:
                 self._active_states.add(notification.type)
             else:
                 self._active_states.discard(notification.type)
-                
 
         # 调用目标接收者的处理器
         target = notification.target
@@ -181,7 +180,7 @@ class NotificationManager:
             history = history[-limit:]
 
         return history
-    
+
     def __str__(self):
         str = ""
         for target, handlers in self._handlers.items():
@@ -295,5 +294,3 @@ class ChatStateManager:
 
         current_time = datetime.now().timestamp()
         return (current_time - self.state_info.last_message_time) <= threshold
-    
-    

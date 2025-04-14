@@ -20,6 +20,8 @@ message_queue_window.bat
 message_queue_window.txt
 queue_update.txt
 memory_graph.gml
+/src/do_tool/tool_can_use/auto_create_tool.py
+/src/do_tool/tool_can_use/execute_python_code_tool.py
 .env
 .env.*
 .cursor
@@ -28,6 +30,9 @@ config/bot_config.toml
 config/bot_config.toml.bak
 src/plugins/remote/client_uuid.json
 run_none.bat
+（测试版）麦麦生成人格.bat
+（临时版）麦麦开始学习.bat
+src/plugins/utils/statistic.py
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -237,3 +242,4 @@ logs
 /config/*
 run_none.bat
 config/old/bot_config_20250405_212257.toml
+

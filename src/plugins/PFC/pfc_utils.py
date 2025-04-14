@@ -27,7 +27,7 @@ def get_items_from_json(
     """
     content = content.strip()
     result = {}
-    
+
     # 设置默认值
     if default_values:
         result.update(default_values)
@@ -41,7 +41,7 @@ def get_items_from_json(
             if array_match:
                 array_content = array_match.group()
                 json_array = json.loads(array_content)
-                
+
                 # 确认是数组类型
                 if isinstance(json_array, list):
                     # 验证数组中的每个项目是否包含所有必需字段
@@ -49,7 +49,7 @@ def get_items_from_json(
                     for item in json_array:
                         if not isinstance(item, dict):
                             continue
-                            
+
                         # 检查是否有所有必需字段
                         if all(field in item for field in items):
                             # 验证字段类型
@@ -59,22 +59,22 @@ def get_items_from_json(
                                     if field in item and not isinstance(item[field], expected_type):
                                         type_valid = False
                                         break
-                                
+
                                 if not type_valid:
                                     continue
-                            
+
                             # 验证字符串字段不为空
                             string_valid = True
                             for field in items:
                                 if isinstance(item[field], str) and not item[field].strip():
                                     string_valid = False
                                     break
-                            
+
                             if not string_valid:
                                 continue
-                                
+
                             valid_items.append(item)
-                    
+
                     if valid_items:
                         return True, valid_items
         except json.JSONDecodeError:

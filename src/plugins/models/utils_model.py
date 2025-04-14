@@ -98,7 +98,7 @@ class LLM_request:
                 "timestamp": datetime.now(),
             }
             db.llm_usage.insert_one(usage_data)
-            logger.debug(
+            logger.trace(
                 f"Token使用情况 - 模型: {self.model_name}, "
                 f"用户: {user_id}, 类型: {request_type}, "
                 f"提示词: {prompt_tokens}, 完成: {completion_tokens}, "
@@ -574,7 +574,7 @@ class LLM_request:
                 reasoning_content = message.get("reasoning_content", "")
                 if not reasoning_content:
                     reasoning_content = reasoning
-            
+
             # 提取工具调用信息
             tool_calls = message.get("tool_calls", None)
 
@@ -592,7 +592,7 @@ class LLM_request:
                     request_type=request_type if request_type is not None else self.request_type,
                     endpoint=endpoint,
                 )
-            
+
             # 只有当tool_calls存在且不为空时才返回
             if tool_calls:
                 return content, reasoning_content, tool_calls
@@ -657,9 +657,7 @@ class LLM_request:
             **kwargs,
         }
 
-        response = await self._execute_request(
-            endpoint="/chat/completions", payload=data, prompt=prompt
-        )
+        response = await self._execute_request(endpoint="/chat/completions", payload=data, prompt=prompt)
         # 原样返回响应，不做处理
         return response
 
