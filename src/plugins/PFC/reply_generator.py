@@ -49,22 +49,26 @@ class ReplyGenerator:
                     goal = goal_reason[0]
                     reasoning = goal_reason[1] if len(goal_reason) > 1 else "没有明确原因"
                 elif isinstance(goal_reason, dict):
-                    goal = goal_reason.get('goal')
-                    reasoning = goal_reason.get('reasoning', "没有明确原因")
+                    goal = goal_reason.get("goal")
+                    reasoning = goal_reason.get("reasoning", "没有明确原因")
                 else:
                     # 如果是其他类型，尝试转为字符串
                     goal = str(goal_reason)
                     reasoning = "没有明确原因"
-                
+
                 goal_str = f"目标：{goal}，产生该对话目标的原因：{reasoning}\n"
                 goals_str += goal_str
         else:
             goal = "目前没有明确对话目标"
             reasoning = "目前没有明确对话目标，最好思考一个对话目标"
             goals_str = f"目标：{goal}，产生该对话目标的原因：{reasoning}\n"
-            
+
         # 获取聊天历史记录
-        chat_history_list = observation_info.chat_history[-20:] if len(observation_info.chat_history) >= 20 else observation_info.chat_history
+        chat_history_list = (
+            observation_info.chat_history[-20:]
+            if len(observation_info.chat_history) >= 20
+            else observation_info.chat_history
+        )
         chat_history_text = ""
         for msg in chat_history_list:
             chat_history_text += f"{msg.get('detailed_plain_text', '')}\n"
@@ -81,15 +85,21 @@ class ReplyGenerator:
         personality_text = f"你的名字是{self.name}，{self.personality_info}"
 
         # 构建action历史文本
-        action_history_list = conversation_info.done_action[-10:] if len(conversation_info.done_action) >= 10 else conversation_info.done_action
+        action_history_list = (
+            conversation_info.done_action[-10:]
+            if len(conversation_info.done_action) >= 10
+            else conversation_info.done_action
+        )
         action_history_text = "你之前做的事情是："
         for action in action_history_list:
             if isinstance(action, dict):
-                action_type = action.get('action')
-                action_reason = action.get('reason')
-                action_status = action.get('status')
+                action_type = action.get("action")
+                action_reason = action.get("reason")
+                action_status = action.get("status")
                 if action_status == "recall":
-                    action_history_text += f"原本打算：{action_type}，但是因为有新消息，你发现这个行动不合适，所以你没做\n"
+                    action_history_text += (
+                        f"原本打算：{action_type}，但是因为有新消息，你发现这个行动不合适，所以你没做\n"
+                    )
                 elif action_status == "done":
                     action_history_text += f"你之前做了：{action_type}，原因：{action_reason}\n"
             elif isinstance(action, tuple):
@@ -98,7 +108,9 @@ class ReplyGenerator:
                 action_reason = action[1] if len(action) > 1 else "未知原因"
                 action_status = action[2] if len(action) > 2 else "done"
                 if action_status == "recall":
-                    action_history_text += f"原本打算：{action_type}，但是因为有新消息，你发现这个行动不合适，所以你没做\n"
+                    action_history_text += (
+                        f"原本打算：{action_type}，但是因为有新消息，你发现这个行动不合适，所以你没做\n"
+                    )
                 elif action_status == "done":
                     action_history_text += f"你之前做了：{action_type}，原因：{action_reason}\n"
 

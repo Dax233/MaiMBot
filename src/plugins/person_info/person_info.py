@@ -117,7 +117,7 @@ class PersonInfoManager:
             return document[field_name]
         else:
             default_value = copy.deepcopy(person_info_default[field_name])
-            logger.debug(f"获取{person_id}的{field_name}失败，已返回默认值{default_value}")
+            logger.trace(f"获取{person_id}的{field_name}失败，已返回默认值{default_value}")
             return default_value
 
     async def get_values(self, person_id: str, field_names: list) -> dict:
@@ -264,17 +264,17 @@ class PersonInfoManager:
 
                             msg_interval = int(round(np.percentile(filtered, 80)))
                             await self.update_one_field(person_id, "msg_interval", msg_interval)
-                            logger.debug(f"用户{person_id}的msg_interval已经被更新为{msg_interval}")
+                            logger.trace(f"用户{person_id}的msg_interval已经被更新为{msg_interval}")
                     except Exception as e:
-                        logger.debug(f"用户{person_id}消息间隔计算失败: {type(e).__name__}: {str(e)}")
+                        logger.trace(f"用户{person_id}消息间隔计算失败: {type(e).__name__}: {str(e)}")
                         continue
 
                 # 其他...
 
                 if msg_interval_map:
-                    logger.info("已保存分布图到: logs/person_info")
+                    logger.trace("已保存分布图到: logs/person_info")
                 current_time = datetime.datetime.now()
-                logger.info(f"个人信息推断结束: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                logger.trace(f"个人信息推断结束: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
                 await asyncio.sleep(86400)
 
         except Exception as e:

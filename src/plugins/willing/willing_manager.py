@@ -1,4 +1,3 @@
-
 from src.common.logger import LogConfig, WILLING_STYLE_CONFIG, LoguruLogger, get_module_logger
 from dataclasses import dataclass
 from ..config.config import global_config, BotConfig
@@ -38,10 +37,11 @@ willing_config = LogConfig(
 )
 logger = get_module_logger("willing", config=willing_config)
 
+
 @dataclass
 class WillingInfo:
     """此类保存意愿模块常用的参数
-    
+
     Attributes:
         message (MessageRecv): 原始消息对象
         chat (ChatStream): 聊天流对象
@@ -53,6 +53,7 @@ class WillingInfo:
         is_emoji (bool): 是否为表情包
         interested_rate (float): 兴趣度
     """
+
     message: MessageRecv
     chat: ChatStream
     person_info_manager: PersonInfoManager
@@ -60,22 +61,21 @@ class WillingInfo:
     person_id: str
     group_info: Optional[GroupInfo]
     is_mentioned_bot: bool
-    is_emoji: bool 
+    is_emoji: bool
     interested_rate: float
     # current_mood: float  当前心情？
 
+
 class BaseWillingManager(ABC):
     """回复意愿管理基类"""
-    
+
     @classmethod
-    def create(cls, manager_type: str) -> 'BaseWillingManager':
+    def create(cls, manager_type: str) -> "BaseWillingManager":
         try:
             module = importlib.import_module(f".mode_{manager_type}", __package__)
             manager_class = getattr(module, f"{manager_type.capitalize()}WillingManager")
             if not issubclass(manager_class, cls):
-                raise TypeError(
-                    f"Manager class {manager_class.__name__} is not a subclass of {cls.__name__}"
-                )
+                raise TypeError(f"Manager class {manager_class.__name__} is not a subclass of {cls.__name__}")
             else:
                 logger.info(f"成功载入willing模式：{manager_type}")
             return manager_class()
@@ -85,7 +85,7 @@ class BaseWillingManager(ABC):
             logger.info(f"载入当前意愿模式{manager_type}失败，使用经典配方~~~~")
             logger.debug(f"加载willing模式{manager_type}失败，原因: {str(e)}。")
             return manager_class()
-    
+
     def __init__(self):
         self.chat_reply_willing: Dict[str, float] = {}  # 存储每个聊天流的回复意愿(chat_id)
         self.ongoing_messages: Dict[str, WillingInfo] = {}  # 当前正在进行的消息(message_id)
@@ -136,17 +136,17 @@ class BaseWillingManager(ABC):
     async def get_reply_probability(self, message_id: str):
         """抽象方法：获取回复概率"""
         raise NotImplementedError
-    
+
     @abstractmethod
     async def bombing_buffer_message_handle(self, message_id: str):
         """抽象方法：炸飞消息处理"""
         pass
-    
+
     async def get_willing(self, chat_id: str):
         """获取指定聊天流的回复意愿"""
         async with self.lock:
             return self.chat_reply_willing.get(chat_id, 0)
-    
+
     async def set_willing(self, chat_id: str, willing: float):
         """设置指定聊天流的回复意愿"""
         async with self.lock:
@@ -172,6 +172,7 @@ def init_willing_manager() -> BaseWillingManager:
     """
     mode = global_config.willing_mode.lower()
     return BaseWillingManager.create(mode)
+
 
 # 全局willing_manager对象
 willing_manager = init_willing_manager()

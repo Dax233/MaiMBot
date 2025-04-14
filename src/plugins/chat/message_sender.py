@@ -70,9 +70,9 @@ class Message_Sender:
                     thinking_start_time=message.thinking_start_time,
                     is_emoji=message.is_emoji,
                 )
-                logger.debug(f"{message.processed_plain_text},{typing_time},计算输入时间结束")
+                logger.trace(f"{message.processed_plain_text},{typing_time},计算输入时间结束")
                 await asyncio.sleep(typing_time)
-                logger.debug(f"{message.processed_plain_text},{typing_time},等待输入时间结束")
+                logger.trace(f"{message.processed_plain_text},{typing_time},等待输入时间结束")
 
                 message_json = message.to_dict()
 

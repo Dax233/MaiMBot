@@ -150,7 +150,7 @@ class ChattingObservation(Observation):
         except Exception as e:
             print(f"获取总结失败: {e}")
             updated_observe_info = ""
-            
+
         return updated_observe_info
         # print(f"prompt：{prompt}")
         # print(f"self.observe_info：{self.observe_info}")

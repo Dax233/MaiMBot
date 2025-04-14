@@ -102,10 +102,28 @@ MOOD_STYLE_CONFIG = {
         "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 心情 | {message}"),
     },
     "simple": {
-        "console_format": ("<green>{time:MM-DD HH:mm}</green> | <light-green>心情</light-green> | {message}"),
+        "console_format": ("<green>{time:MM-DD HH:mm}</green> | <magenta>心情</magenta> | {message}"),
         "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 心情 | {message}"),
     },
 }
+# tool use
+TOOL_USE_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{extra[module]: <12}</cyan> | "
+            "<magenta>工具使用</magenta> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 工具使用 | {message}"),
+    },
+    "simple": {
+        "console_format": ("<green>{time:MM-DD HH:mm}</green> | <magenta>工具使用</magenta> | {message}"),
+        "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 工具使用 | {message}"),
+    },
+}
+
 
 # relationship
 RELATION_STYLE_CONFIG = {
@@ -283,17 +301,13 @@ WILLING_STYLE_CONFIG = {
         "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 意愿 | {message}"),
     },
     "simple": {
-        "console_format": (
-            "<green>{time:MM-DD HH:mm}</green> | <light-blue>意愿</light-blue> | {message}"
-        ),  # noqa: E501
+        "console_format": ("<green>{time:MM-DD HH:mm}</green> | <light-blue>意愿</light-blue> | {message}"),  # noqa: E501
         "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 意愿 | {message}"),
     },
 }
 
 CONFIRM_STYLE_CONFIG = {
-    "console_format": (
-        "<RED>{message}</RED>"
-    ),  # noqa: E501
+    "console_format": ("<RED>{message}</RED>"),  # noqa: E501
     "file_format": ("{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | EULA与PRIVACY确认 | {message}"),
 }
 
@@ -312,6 +326,7 @@ SUB_HEARTFLOW_STYLE_CONFIG = (
 )  # noqa: E501
 WILLING_STYLE_CONFIG = WILLING_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else WILLING_STYLE_CONFIG["advanced"]
 CONFIG_STYLE_CONFIG = CONFIG_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else CONFIG_STYLE_CONFIG["advanced"]
+TOOL_USE_STYLE_CONFIG = TOOL_USE_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else TOOL_USE_STYLE_CONFIG["advanced"]
 
 
 def is_registered_module(record: dict) -> bool:

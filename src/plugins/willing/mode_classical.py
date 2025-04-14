@@ -1,6 +1,7 @@
 import asyncio
 from .willing_manager import BaseWillingManager
 
+
 class ClassicalWillingManager(BaseWillingManager):
     def __init__(self):
         super().__init__()
@@ -41,17 +42,22 @@ class ClassicalWillingManager(BaseWillingManager):
 
         self.chat_reply_willing[chat_id] = min(current_willing, 3.0)
 
-        reply_probability = min(max((current_willing - 0.5), 0.01) * self.global_config.response_willing_amplifier * 2, 1)
+        reply_probability = min(
+            max((current_willing - 0.5), 0.01) * self.global_config.response_willing_amplifier * 2, 1
+        )
 
         # 检查群组权限（如果是群聊）
-        if willing_info.group_info and willing_info.group_info.group_id in self.global_config.talk_frequency_down_groups:
+        if (
+            willing_info.group_info
+            and willing_info.group_info.group_id in self.global_config.talk_frequency_down_groups
+        ):
             reply_probability = reply_probability / self.global_config.down_frequency_rate
 
         if is_emoji_not_reply:
             reply_probability = 0
 
         return reply_probability
-    
+
     async def before_generate_reply_handle(self, message_id):
         chat_id = self.ongoing_messages[message_id].chat_id
         current_willing = self.chat_reply_willing.get(chat_id, 0)
@@ -71,8 +77,6 @@ class ClassicalWillingManager(BaseWillingManager):
 
     async def get_variable_parameters(self):
         return await super().get_variable_parameters()
-    
+
     async def set_variable_parameters(self, parameters):
         return await super().set_variable_parameters(parameters)
-            
-            

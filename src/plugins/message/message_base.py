@@ -137,7 +137,7 @@ class FormatInfo:
 class TemplateInfo:
     """模板信息类"""
 
-    template_items: Optional[List[Dict]] = None
+    template_items: Optional[Dict] = None
     template_name: Optional[str] = None
     template_default: bool = True
 

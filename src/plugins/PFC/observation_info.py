@@ -26,24 +26,24 @@ class ObservationInfoHandler(NotificationHandler):
         # 获取通知类型和数据
         notification_type = notification.type
         data = notification.data
-        
+
         if notification_type == NotificationType.NEW_MESSAGE:
             # 处理新消息通知
             logger.debug(f"收到新消息通知data: {data}")
             message_id = data.get("message_id")
             processed_plain_text = data.get("processed_plain_text")
-            detailed_plain_text = data.get("detailed_plain_text") 
+            detailed_plain_text = data.get("detailed_plain_text")
             user_info = data.get("user_info")
             time_value = data.get("time")
-            
+
             message = {
                 "message_id": message_id,
                 "processed_plain_text": processed_plain_text,
                 "detailed_plain_text": detailed_plain_text,
                 "user_info": user_info,
-                "time": time_value
+                "time": time_value,
             }
-            
+
             self.observation_info.update_from_message(message)
 
         elif notification_type == NotificationType.COLD_CHAT:
@@ -161,7 +161,7 @@ class ObservationInfo:
         # logger.debug(f"更新信息from_message: {message}")
         self.last_message_time = message["time"]
         self.last_message_id = message["message_id"]
-        
+
         self.last_message_content = message.get("processed_plain_text", "")
 
         user_info = UserInfo.from_dict(message.get("user_info", {}))
@@ -233,4 +233,3 @@ class ObservationInfo:
         self.unprocessed_messages.clear()
         self.chat_history_count = len(self.chat_history)
         self.new_messages_count = 0
-

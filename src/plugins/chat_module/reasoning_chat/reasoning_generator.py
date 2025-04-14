@@ -1,4 +1,3 @@
-import time
 from typing import List, Optional, Tuple, Union
 import random
 
@@ -7,6 +6,7 @@ from ...config.config import global_config
 from ...chat.message import MessageThinking
 from .reasoning_prompt_builder import prompt_builder
 from ...chat.utils import process_llm_response
+from ...utils.timer_calculater import Timer
 from src.common.logger import get_module_logger, LogConfig, LLM_STYLE_CONFIG
 from src.plugins.respon_info_catcher.info_catcher import info_catcher_manager
 
@@ -38,7 +38,7 @@ class ResponseGenerator:
         self.current_model_type = "r1"  # 默认使用 R1
         self.current_model_name = "unknown model"
 
-    async def generate_response(self, message: MessageThinking,thinking_id:str) -> Optional[Union[str, List[str]]]:
+    async def generate_response(self, message: MessageThinking, thinking_id: str) -> Optional[Union[str, List[str]]]:
         """根据当前模型类型选择对应的生成函数"""
         # 从global_config中获取模型概率值并选择模型
         if random.random() < global_config.MODEL_R1_PROBABILITY:
@@ -52,7 +52,7 @@ class ResponseGenerator:
             f"{self.current_model_type}思考:{message.processed_plain_text[:30] + '...' if len(message.processed_plain_text) > 30 else message.processed_plain_text}"
         )  # noqa: E501
 
-        model_response = await self._generate_response_with_model(message, current_model,thinking_id)
+        model_response = await self._generate_response_with_model(message, current_model, thinking_id)
 
         # print(f"raw_content: {model_response}")
 
@@ -65,11 +65,11 @@ class ResponseGenerator:
             logger.info(f"{self.current_model_type}思考，失败")
             return None
 
-    async def _generate_response_with_model(self, message: MessageThinking, model: LLM_request,thinking_id:str):
+    async def _generate_response_with_model(self, message: MessageThinking, model: LLM_request, thinking_id: str):
         sender_name = ""
-        
+
         info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
-        
+
         if message.chat_stream.user_info.user_cardname and message.chat_stream.user_info.user_nickname:
             sender_name = (
                 f"[({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}]"
@@ -82,26 +82,22 @@ class ResponseGenerator:
 
         logger.debug("开始使用生成回复-2")
         # 构建prompt
-        timer1 = time.time()
-        prompt = await prompt_builder._build_prompt(
-            message.chat_stream,
-            message_txt=message.processed_plain_text,
-            sender_name=sender_name,
-            stream_id=message.chat_stream.stream_id,
-        )
-        timer2 = time.time()
-        logger.info(f"构建prompt时间: {timer2 - timer1}秒")
+        with Timer() as t_build_prompt:
+            prompt = await prompt_builder._build_prompt(
+                message.chat_stream,
+                message_txt=message.processed_plain_text,
+                sender_name=sender_name,
+                stream_id=message.chat_stream.stream_id,
+            )
+        logger.info(f"构建prompt时间: {t_build_prompt.human_readable}")
 
         try:
             content, reasoning_content, self.current_model_name = await model.generate_response(prompt)
-            
+
             info_catcher.catch_after_llm_generated(
-                prompt=prompt,
-                response=content,
-                reasoning_content=reasoning_content,
-                model_name=self.current_model_name)
-        
-        
+                prompt=prompt, response=content, reasoning_content=reasoning_content, model_name=self.current_model_name
+            )
+
         except Exception:
             logger.exception("生成回复时出错")
             return None
@@ -117,7 +113,6 @@ class ResponseGenerator:
         # )
 
         return content
-
 
     # def _save_to_db(
     #     self,

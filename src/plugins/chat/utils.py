@@ -87,7 +87,6 @@ async def get_embedding(text, request_type="embedding"):
     return embedding
 
 
-
 async def get_recent_group_messages(chat_id: str, limit: int = 12) -> list:
     """从数据库获取群组最近的消息记录
 
@@ -335,7 +334,7 @@ def random_remove_punctuation(text: str) -> str:
 def process_llm_response(text: str) -> List[str]:
     # processed_response = process_text_with_typos(content)
     # 对西文字符段落的回复长度设置为汉字字符的两倍
-    max_length = global_config.response_max_length
+    max_length = global_config.response_max_length * 3
     max_sentence_num = global_config.response_max_sentence_num
     if len(text) > max_length and not is_western_paragraph(text):
         logger.warning(f"回复过长 ({len(text)} 字符)，返回默认回复")

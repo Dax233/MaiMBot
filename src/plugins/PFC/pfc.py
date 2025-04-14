@@ -1,6 +1,7 @@
 # Programmable Friendly Conversationalist
 # Prefrontal cortex
 import datetime
+
 # import asyncio
 from typing import List, Optional, Tuple, TYPE_CHECKING
 from src.common.logger import get_module_logger
@@ -63,13 +64,13 @@ class GoalAnalyzer:
                     goal = goal_reason[0]
                     reasoning = goal_reason[1] if len(goal_reason) > 1 else "没有明确原因"
                 elif isinstance(goal_reason, dict):
-                    goal = goal_reason.get('goal')
-                    reasoning = goal_reason.get('reasoning', "没有明确原因")
+                    goal = goal_reason.get("goal")
+                    reasoning = goal_reason.get("reasoning", "没有明确原因")
                 else:
                     # 如果是其他类型，尝试转为字符串
                     goal = str(goal_reason)
                     reasoning = "没有明确原因"
-                
+
                 goal_str = f"目标：{goal}，产生该对话目标的原因：{reasoning}\n"
                 goals_str += goal_str
         else:
@@ -140,14 +141,12 @@ class GoalAnalyzer:
         except Exception as e:
             logger.error(f"分析对话目标时出错: {str(e)}")
             content = ""
-            
+
         # 使用改进后的get_items_from_json函数处理JSON数组
         success, result = get_items_from_json(
-            content, "goal", "reasoning", 
-            required_types={"goal": str, "reasoning": str},
-            allow_array=True
+            content, "goal", "reasoning", required_types={"goal": str, "reasoning": str}, allow_array=True
         )
-        
+
         if success:
             # 判断结果是单个字典还是字典列表
             if isinstance(result, list):
@@ -157,7 +156,7 @@ class GoalAnalyzer:
                     goal = item.get("goal", "")
                     reasoning = item.get("reasoning", "")
                     conversation_info.goal_list.append((goal, reasoning))
-                
+
                 # 返回第一个目标作为当前主要目标（如果有）
                 if result:
                     first_goal = result[0]
@@ -168,7 +167,7 @@ class GoalAnalyzer:
                 reasoning = result.get("reasoning", "")
                 conversation_info.goal_list.append((goal, reasoning))
                 return (goal, "", reasoning)
-        
+
         # 如果解析失败，返回默认值
         return ("", "", "")
 
@@ -293,13 +292,18 @@ class GoalAnalyzer:
             return False, False, f"分析出错: {str(e)}"
 
 
-
 class DirectMessageSender:
     """直接发送消息到平台的发送器"""
 
     def __init__(self):
         self.logger = get_module_logger("direct_sender")
         self.storage = MessageStorage()
+
+    async def send_via_ws(self, message: MessageSending) -> None:
+        try:
+            await global_api.send_message(message)
+        except Exception as e:
+            raise ValueError(f"未找到平台：{message.message_info.platform} 的url配置，请检查配置文件") from e
 
     async def send_message(
         self,
@@ -337,21 +341,22 @@ class DirectMessageSender:
         # 处理消息
         await message.process()
 
+        message_json = message.to_dict()
+
         # 发送消息
         try:
-            message_json = message.to_dict()
-            end_point = global_config.api_urls.get(chat_stream.platform, None)
-
-            if not end_point:
-                raise ValueError(f"未找到平台：{chat_stream.platform} 的url配置")
-
-            await global_api.send_message_REST(end_point, message_json)
-
-            # 存储消息
-            await self.storage.store_message(message, message.chat_stream)
-
-            self.logger.info(f"直接发送消息成功: {content[:30]}...")
-
+            end_point = global_config.api_urls.get(message.message_info.platform, None)
+            if end_point:
+                # logger.info(f"发送消息到{end_point}")
+                # logger.info(message_json)
+                try:
+                    await global_api.send_message_REST(end_point, message_json)
+                except Exception as e:
+                    logger.error(f"REST方式发送失败，出现错误: {str(e)}")
+                    logger.info("尝试使用ws发送")
+                    await self.send_via_ws(message)
+            else:
+                await self.send_via_ws(message)
+            logger.success(f"PFC消息已发送: {content}")
         except Exception as e:
-            self.logger.error(f"直接发送消息失败: {str(e)}")
-            raise
+            logger.error(f"PFC消息发送失败: {str(e)}")

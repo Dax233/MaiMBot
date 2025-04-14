@@ -20,7 +20,6 @@ class DynamicWillingManager(BaseWillingManager):
         self._decay_task = None
         self._mode_switch_task = None
 
-
     async def async_task_starter(self):
         if self._decay_task is None:
             self._decay_task = asyncio.create_task(self._decay_reply_willing())
@@ -84,7 +83,9 @@ class DynamicWillingManager(BaseWillingManager):
             self.chat_high_willing_mode[chat_id] = True
             self.chat_reply_willing[chat_id] = 1.0  # 设置为较高回复意愿
             self.chat_high_willing_duration[chat_id] = random.randint(180, 240)  # 3-4分钟
-            self.logger.debug(f"聊天流 {chat_id} 切换到高回复意愿期，持续 {self.chat_high_willing_duration[chat_id]} 秒")
+            self.logger.debug(
+                f"聊天流 {chat_id} 切换到高回复意愿期，持续 {self.chat_high_willing_duration[chat_id]} 秒"
+            )
 
         self.chat_last_mode_change[chat_id] = time.time()
         self.chat_msg_count[chat_id] = 0  # 重置消息计数
@@ -148,7 +149,9 @@ class DynamicWillingManager(BaseWillingManager):
 
         # 根据话题兴趣度适当调整
         if willing_info.interested_rate > 0.5:
-            current_willing += (willing_info.interested_rate - 0.5) * 0.5 * self.global_config.response_interested_rate_amplifier
+            current_willing += (
+                (willing_info.interested_rate - 0.5) * 0.5 * self.global_config.response_interested_rate_amplifier
+            )
 
         # 根据当前模式计算回复概率
         base_probability = 0.0
@@ -228,12 +231,12 @@ class DynamicWillingManager(BaseWillingManager):
 
     async def bombing_buffer_message_handle(self, message_id):
         return await super().bombing_buffer_message_handle(message_id)
-    
+
     async def after_generate_reply_handle(self, message_id):
         return await super().after_generate_reply_handle(message_id)
 
     async def get_variable_parameters(self):
         return await super().get_variable_parameters()
-    
+
     async def set_variable_parameters(self, parameters):
         return await super().set_variable_parameters(parameters)
