@@ -332,27 +332,35 @@ def random_remove_punctuation(text: str) -> str:
 
 
 def process_llm_response(text: str) -> List[str]:
-    # processed_response = process_text_with_typos(content)
-    # 对西文字符段落的回复长度设置为汉字字符的两倍
-    max_length = global_config.response_max_length * 3
+    # 提取被 () 或 [] 包裹的内容
+    pattern = re.compile(r"[\(\[].*?[\)\]]")
+    _extracted_contents = pattern.findall(text)
+    # 去除 () 和 [] 及其包裹的内容
+    cleaned_text = pattern.sub("", text)
+    logger.debug(f"{text}去除括号处理后的文本: {cleaned_text}")
+
+    # 对清理后的文本进行进一步处理
+    max_length = global_config.response_max_length * 2
     max_sentence_num = global_config.response_max_sentence_num
-    if len(text) > max_length and not is_western_paragraph(text):
-        logger.warning(f"回复过长 ({len(text)} 字符)，返回默认回复")
+    if len(cleaned_text) > max_length and not is_western_paragraph(cleaned_text):
+        logger.warning(f"回复过长 ({len(cleaned_text)} 字符)，返回默认回复")
         return ["懒得说"]
-    elif len(text) > 200:
-        logger.warning(f"回复过长 ({len(text)} 字符)，返回默认回复")
+    elif len(cleaned_text) > 200:
+        logger.warning(f"回复过长 ({len(cleaned_text)} 字符)，返回默认回复")
         return ["懒得说"]
-    # 处理长消息
+
     typo_generator = ChineseTypoGenerator(
         error_rate=global_config.chinese_typo_error_rate,
         min_freq=global_config.chinese_typo_min_freq,
         tone_error_rate=global_config.chinese_typo_tone_error_rate,
         word_replace_rate=global_config.chinese_typo_word_replace_rate,
     )
-    if global_config.enable_response_spliter:
-        split_sentences = split_into_sentences_w_remove_punctuation(text)
+
+    if global_config.enable_response_splitter:
+        split_sentences = split_into_sentences_w_remove_punctuation(cleaned_text)
     else:
-        split_sentences = [text]
+        split_sentences = [cleaned_text]
+
     sentences = []
     for sentence in split_sentences:
         if global_config.chinese_typo_enable:
@@ -362,7 +370,6 @@ def process_llm_response(text: str) -> List[str]:
                 sentences.append(typo_corrections)
         else:
             sentences.append(sentence)
-    # 检查分割后的消息数量是否过多（超过3条）
 
     if len(sentences) > (max_sentence_num * 2):
         logger.warning(f"分割后消息数量过多 ({len(sentences)} 条)，返回默认回复")
@@ -373,6 +380,8 @@ def process_llm_response(text: str) -> List[str]:
             idx1, idx2 = random.sample(range(len(sentences)), 2)
             sentences[idx1] = sentences[idx1] + "，" + sentences[idx2]
             del sentences[idx2]
+
+    # sentences.extend(extracted_contents)
 
     return sentences
 

@@ -29,7 +29,10 @@ class ResponseGenerator:
             request_type="response_reasoning",
         )
         self.model_normal = LLM_request(
-            model=global_config.llm_normal, temperature=0.8, max_tokens=256, request_type="response_reasoning"
+            model=global_config.llm_normal,
+            temperature=global_config.llm_normal["temp"],
+            max_tokens=256,
+            request_type="response_reasoning",
         )
 
         self.model_sum = LLM_request(

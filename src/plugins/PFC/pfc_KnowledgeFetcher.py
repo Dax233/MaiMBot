@@ -13,7 +13,10 @@ class KnowledgeFetcher:
 
     def __init__(self):
         self.llm = LLM_request(
-            model=global_config.llm_normal, temperature=0.7, max_tokens=1000, request_type="knowledge_fetch"
+            model=global_config.llm_normal,
+            temperature=global_config.llm_normal["temp"],
+            max_tokens=1000,
+            request_type="knowledge_fetch",
         )
 
     async def fetch(self, query: str, chat_history: List[Message]) -> Tuple[str, str]:

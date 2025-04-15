@@ -24,7 +24,10 @@ class ActionPlanner:
 
     def __init__(self, stream_id: str):
         self.llm = LLM_request(
-            model=global_config.llm_normal, temperature=0.2, max_tokens=1000, request_type="action_planning"
+            model=global_config.llm_normal,
+            temperature=global_config.llm_normal["temp"],
+            max_tokens=1000,
+            request_type="action_planning",
         )
         self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=2)
         self.name = global_config.BOT_NICKNAME

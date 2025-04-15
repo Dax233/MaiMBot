@@ -1,7 +1,8 @@
-from src.do_tool.tool_can_use.base_tool import BaseTool, register_tool
+from src.do_tool.tool_can_use.base_tool import BaseTool
 from src.plugins.schedule.schedule_generator import bot_schedule
 from src.common.logger import get_module_logger
 from typing import Dict, Any
+from datetime import datetime
 
 logger = get_module_logger("get_current_task_tool")
 
@@ -9,19 +10,19 @@ logger = get_module_logger("get_current_task_tool")
 class GetCurrentTaskTool(BaseTool):
     """获取当前正在做的事情/最近的任务工具"""
 
-    name = "get_current_task"
-    description = "获取当前正在做的事情/最近的任务"
+    name = "get_schedule"
+    description = "获取当前正在做的事情，或者某个时间点/时间段的日程信息"
     parameters = {
         "type": "object",
         "properties": {
-            "num": {"type": "integer", "description": "要获取的任务数量"},
-            "time_info": {"type": "boolean", "description": "是否包含时间信息"},
+            "start_time": {"type": "string", "description": "开始时间，格式为'HH:MM'，填写current则获取当前任务"},
+            "end_time": {"type": "string", "description": "结束时间，格式为'HH:MM'，填写current则获取当前任务"},
         },
-        "required": [],
+        "required": ["start_time", "end_time"],
     }
 
     async def execute(self, function_args: Dict[str, Any], message_txt: str = "") -> Dict[str, Any]:
-        """执行获取当前任务
+        """执行获取当前任务或指定时间段的日程信息
 
         Args:
             function_args: 工具参数
@@ -30,25 +31,29 @@ class GetCurrentTaskTool(BaseTool):
         Returns:
             Dict: 工具执行结果
         """
-        try:
-            # 获取参数，如果没有提供则使用默认值
-            num = function_args.get("num", 1)
-            time_info = function_args.get("time_info", False)
+        start_time = function_args.get("start_time")
+        end_time = function_args.get("end_time")
 
-            # 调用日程系统获取当前任务
-            current_task = bot_schedule.get_current_num_task(num=num, time_info=time_info)
-
-            # 格式化返回结果
+        # 如果 start_time 或 end_time 为 "current"，则获取当前任务
+        if start_time == "current" or end_time == "current":
+            current_task = bot_schedule.get_current_num_task(num=1, time_info=True)
+            current_time = datetime.now().strftime("%H:%M:%S")
+            current_date = datetime.now().strftime("%Y-%m-%d")
             if current_task:
-                task_info = current_task
+                task_info = f"{current_date} {current_time}，你在{current_task}"
             else:
-                task_info = "当前没有正在进行的任务"
+                task_info = f"{current_time} {current_date}，没在做任何事情"
+        # 如果提供了时间范围，则获取该时间段的日程信息
+        elif start_time and end_time:
+            tasks = await bot_schedule.get_task_from_time_to_time(start_time, end_time)
+            if tasks:
+                task_list = []
+                for task in tasks:
+                    task_time = task[0].strftime("%H:%M")
+                    task_content = task[1]
+                    task_list.append(f"{task_time}时，{task_content}")
+                task_info = "\n".join(task_list)
+            else:
+                task_info = f"在 {start_time} 到 {end_time} 之间没有找到日程信息"
 
-            return {"name": "get_current_task", "content": f"当前任务信息: {task_info}"}
-        except Exception as e:
-            logger.error(f"获取当前任务工具执行失败: {str(e)}")
-            return {"name": "get_current_task", "content": f"获取当前任务失败: {str(e)}"}
-
-
-# 注册工具
-# register_tool(GetCurrentTaskTool)
+        return {"name": "get_current_task", "content": f"日程信息: {task_info}"}

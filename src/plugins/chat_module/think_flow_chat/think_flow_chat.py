@@ -108,35 +108,35 @@ class ThinkFlowChat:
         message_manager.add_message(message_set)
         return first_bot_msg
 
-    async def _handle_emoji(self, message, chat, response):
+    async def _handle_emoji(self, message, chat, response, send_emoji=""):
         """处理表情包"""
-        if random() < global_config.emoji_chance:
+        if send_emoji:
+            emoji_raw = await emoji_manager.get_emoji_for_text(send_emoji)
+        else:
             emoji_raw = await emoji_manager.get_emoji_for_text(response)
-            if emoji_raw:
-                emoji_path, description = emoji_raw
-                emoji_cq = image_path_to_base64(emoji_path)
+        if emoji_raw:
+            emoji_path, description = emoji_raw
+            emoji_cq = image_path_to_base64(emoji_path)
 
-                thinking_time_point = round(message.message_info.time, 2)
+            thinking_time_point = round(message.message_info.time, 2)
 
-                message_segment = Seg(type="emoji", data=emoji_cq)
-                bot_message = MessageSending(
-                    message_id="mt" + str(thinking_time_point),
-                    chat_stream=chat,
-                    bot_user_info=UserInfo(
-                        user_id=global_config.BOT_QQ,
-                        user_nickname=global_config.BOT_NICKNAME,
-                        platform=message.message_info.platform,
-                    ),
-                    sender_info=message.message_info.user_info,
-                    message_segment=message_segment,
-                    reply=message,
-                    is_head=False,
-                    is_emoji=True,
-                )
+            message_segment = Seg(type="emoji", data=emoji_cq)
+            bot_message = MessageSending(
+                message_id="mt" + str(thinking_time_point),
+                chat_stream=chat,
+                bot_user_info=UserInfo(
+                    user_id=global_config.BOT_QQ,
+                    user_nickname=global_config.BOT_NICKNAME,
+                    platform=message.message_info.platform,
+                ),
+                sender_info=message.message_info.user_info,
+                message_segment=message_segment,
+                reply=message,
+                is_head=False,
+                is_emoji=True,
+            )
 
-                message_manager.add_message(bot_message)
-
-        
+            message_manager.add_message(bot_message)
 
     async def _update_relationship(self, message: MessageRecv, response_set):
         """更新关系情绪"""
@@ -252,80 +252,76 @@ class ThinkFlowChat:
                 info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
                 info_catcher.catch_decide_to_response(message)
 
+                # 观察
                 try:
-                    # 观察
                     with Timer("观察", timing_results):
                         await heartflow.get_subheartflow(chat.stream_id).do_observe()
                 except Exception as e:
                     logger.error(f"心流观察失败: {e}")
+                    traceback.print_exc()
 
                 info_catcher.catch_after_observe(timing_results["观察"])
-                
+
                 # 思考前使用工具
                 update_relationship = ""
+                get_mid_memory_id = []
+                tool_result_info = {}
+                send_emoji = ""
                 try:
                     with Timer("思考前使用工具", timing_results):
-                        tool_result = await self.tool_user.use_tool(message.processed_plain_text, message.message_info.user_info.user_nickname, chat)
+                        tool_result = await self.tool_user.use_tool(
+                            message.processed_plain_text,
+                            message.message_info.user_info.user_nickname,
+                            chat,
+                            heartflow.get_subheartflow(chat.stream_id),
+                        )
                         # 如果工具被使用且获得了结果，将收集到的信息合并到思考中
-                        collected_info = ""
+                        # collected_info = ""
                         if tool_result.get("used_tools", False):
-
-                            # 如果有收集到的结构化信息，将其格式化后添加到当前思考中
                             if "structured_info" in tool_result:
-                                info = tool_result["structured_info"]
-                                # 处理记忆信息
-                                if info["memory"]:
-                                    collected_info += "\n记忆相关信息:\n"
-                                    for mem in info["memory"]:
-                                        collected_info += f"- {mem['name']}: {mem['content']}\n"
-                                
-                                # 处理日程信息
-                                if info["schedule"]:
-                                    collected_info += "\n日程相关信息:\n"
-                                    for sch in info["schedule"]:
-                                        collected_info += f"- {sch['name']}: {sch['content']}\n"
-                                
-                                # 处理知识信息
-                                if info["knowledge"]:
-                                    collected_info += "\n知识相关信息:\n"
-                                    for know in info["knowledge"]:
-                                        collected_info += f"- {know['name']}: {know['content']}\n"
-                                        
-                                # 处理关系信息
-                                if info["change_relationship"]:
-                                    collected_info += "\n关系相关信息:\n"
-                                    for rel in info["change_relationship"]:
-                                        collected_info += f"- {rel['name']}: {rel['content']}\n"
-                                        # print("11111111111111111111111111111")
-                                        update_relationship += rel["content"]
-                                        # print(f"11111111111111111111111111111{update_relationship}")
+                                tool_result_info = tool_result["structured_info"]
+                                # collected_info = ""
+                                get_mid_memory_id = []
+                                update_relationship = ""
 
-                                # 处理心情信息
-                                if info["change_mood"]:
-                                    collected_info += "\n心情相关信息:\n"
-                                    for mood in info["change_mood"]:
-                                        collected_info += f"- {mood['name']}: {mood['content']}\n"
-                                
-                                # 处理其他信息
-                                if info["other"]:
-                                    collected_info += "\n其他相关信息:\n"
-                                    for other in info["other"]:
-                                        collected_info += f"- {other['name']}: {other['content']}\n"
+                                # 动态解析工具结果
+                                for tool_name, tool_data in tool_result_info.items():
+                                    # tool_result_info += f"\n{tool_name} 相关信息:\n"
+                                    # for item in tool_data:
+                                    # tool_result_info += f"- {item['name']}: {item['content']}\n"
+
+                                    # 特殊判定：mid_chat_mem
+                                    if tool_name == "mid_chat_mem":
+                                        for mid_memory in tool_data:
+                                            get_mid_memory_id.append(mid_memory["content"])
+
+                                    # 特殊判定：change_mood
+                                    if tool_name == "change_mood":
+                                        for mood in tool_data:
+                                            self.mood_manager.update_mood_from_emotion(
+                                                mood["content"], global_config.mood_intensity_factor
+                                            )
+
+                                    # 特殊判定：change_relationship
+                                    if tool_name == "change_relationship":
+                                        update_relationship = tool_data[0]["content"]
+
+                                    if tool_name == "send_emoji":
+                                        send_emoji = tool_data[0]["content"]
+
                 except Exception as e:
                     logger.error(f"思考前工具调用失败: {e}")
                     logger.error(traceback.format_exc())
-                    
-                    
+
+                # 处理关系更新
                 if update_relationship:
-                    # ori_response = ",".join(response_set)
-                    # print("22222222222222222222222222222")
-                    stance, emotion = await self.gpt._get_emotion_tags_with_reason("你还没有回复", message.processed_plain_text,update_relationship)
+                    stance, emotion = await self.gpt._get_emotion_tags_with_reason(
+                        "你还没有回复", message.processed_plain_text, update_relationship
+                    )
                     await relationship_manager.calculate_update_relationship_value(
                         chat_stream=message.chat_stream, label=emotion, stance=stance
-                    )  
-                    print("33333333333333333333333333333")
-                    
-                
+                    )
+
                 # 思考前脑内状态
                 try:
                     with Timer("思考前脑内状态", timing_results):
@@ -335,7 +331,8 @@ class ThinkFlowChat:
                             message_txt=message.processed_plain_text,
                             sender_name=message.message_info.user_info.user_nickname,
                             chat_stream=chat,
-                            extra_info=collected_info
+                            obs_id=get_mid_memory_id,
+                            extra_info=tool_result_info,
                         )
                 except Exception as e:
                     logger.error(f"心流思考前脑内状态失败: {e}")
@@ -366,71 +363,16 @@ class ThinkFlowChat:
                 # 处理表情包
                 try:
                     with Timer("处理表情包", timing_results):
-                        await self._handle_emoji(message, chat, response_set)
+                        if global_config.emoji_chance == 1:
+                            if send_emoji:
+                                logger.info(f"麦麦决定发送表情包{send_emoji}")
+                                await self._handle_emoji(message, chat, response_set, send_emoji)
+                        else:
+                            if random() < global_config.emoji_chance:
+                                await self._handle_emoji(message, chat, response_set)
                 except Exception as e:
                     logger.error(f"心流处理表情包失败: {e}")
 
-
-                # 思考后使用工具
-                try:
-                    with Timer("思考后使用工具", timing_results):
-                        tool_result = await self.tool_user.use_tool(message.processed_plain_text, message.message_info.user_info.user_nickname, chat)
-                        # 如果工具被使用且获得了结果，将收集到的信息合并到思考中
-                        collected_info = ""
-                        if tool_result.get("used_tools", False):
-
-                            # 如果有收集到的结构化信息，将其格式化后添加到当前思考中
-                            if "structured_info" in tool_result:
-                                info = tool_result["structured_info"]
-                                # 处理记忆信息
-                                if info["memory"]:
-                                    collected_info += "\n记忆相关信息:\n"
-                                    for mem in info["memory"]:
-                                        collected_info += f"- {mem['name']}: {mem['content']}\n"
-                                
-                                # 处理日程信息
-                                if info["schedule"]:
-                                    collected_info += "\n日程相关信息:\n"
-                                    for sch in info["schedule"]:
-                                        collected_info += f"- {sch['name']}: {sch['content']}\n"
-                                
-                                # 处理知识信息
-                                if info["knowledge"]:
-                                    collected_info += "\n知识相关信息:\n"
-                                    for know in info["knowledge"]:
-                                        collected_info += f"- {know['name']}: {know['content']}\n"
-                                        
-                                # 处理关系信息
-                                if info["change_relationship"]:
-                                    collected_info += "\n关系相关信息:\n"
-                                    for rel in info["change_relationship"]:
-                                        collected_info += f"- {rel['name']}: {rel['content']}\n"
-                                        
-                                # 处理心情信息
-                                if info["change_mood"]:
-                                    collected_info += "\n心情相关信息:\n"
-                                    for mood in info["change_mood"]:
-                                        collected_info += f"- {mood['name']}: {mood['content']}\n"
-                                
-                                # 处理其他信息
-                                if info["other"]:
-                                    collected_info += "\n其他相关信息:\n"
-                                    for other in info["other"]:
-                                        collected_info += f"- {other['name']}: {other['content']}\n"
-                except Exception as e:
-                    logger.error(f"思考后工具调用失败: {e}")
-                    logger.error(traceback.format_exc())
-
-                # 更新关系
-                if info["change_relationship"]:
-                    ori_response = ",".join(response_set)
-                    stance, emotion = await self.gpt._get_emotion_tags(ori_response, message.processed_plain_text,info["change_relationship"]["content"])
-                    await relationship_manager.calculate_update_relationship_value(
-                        chat_stream=message.chat_stream, label=emotion, stance=stance
-                    )
-                    
-                    
-                
                 try:
                     with Timer("思考后脑内状态更新", timing_results):
                         stream_id = message.chat_stream.stream_id
@@ -440,10 +382,11 @@ class ThinkFlowChat:
                                 stream_id, limit=global_config.MAX_CONTEXT_SIZE, combine=True
                             )
 
-                        await heartflow.get_subheartflow(stream_id).do_thinking_after_reply(response_set, chat_talking_prompt,collected_info)
+                        await heartflow.get_subheartflow(stream_id).do_thinking_after_reply(
+                            response_set, chat_talking_prompt, tool_result_info
+                        )
                 except Exception as e:
                     logger.error(f"心流思考后脑内状态更新失败: {e}")
-
 
                 # 回复后处理
                 await willing_manager.after_generate_reply_handle(message.message_info.message_id)

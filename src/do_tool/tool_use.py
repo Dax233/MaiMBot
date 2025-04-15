@@ -6,6 +6,7 @@ import time
 import json
 from src.common.logger import get_module_logger, TOOL_USE_STYLE_CONFIG, LogConfig
 from src.do_tool.tool_can_use import get_all_tool_definitions, get_tool_instance
+from src.heart_flow.sub_heartflow import SubHeartflow
 
 tool_use_config = LogConfig(
     # 使用消息发送专用样式
@@ -18,10 +19,12 @@ logger = get_module_logger("tool_use", config=tool_use_config)
 class ToolUser:
     def __init__(self):
         self.llm_model_tool = LLM_request(
-            model=global_config.llm_heartflow, temperature=0.2, max_tokens=1000, request_type="tool_use"
+            model=global_config.llm_tool_use, temperature=0.2, max_tokens=1000, request_type="tool_use"
         )
 
-    async def _build_tool_prompt(self, message_txt: str, sender_name: str, chat_stream: ChatStream, reply_message:str = ""):
+    async def _build_tool_prompt(
+        self, message_txt: str, sender_name: str, chat_stream: ChatStream, subheartflow: SubHeartflow = None
+    ):
         """构建工具使用的提示词
 
         Args:
@@ -32,6 +35,12 @@ class ToolUser:
         Returns:
             str: 构建好的提示词
         """
+        if subheartflow:
+            mid_memory_info = subheartflow.observations[0].mid_memory_info
+            # print(f"intol111111111111111111111111111111111222222222222mid_memory_info：{mid_memory_info}")
+        else:
+            mid_memory_info = ""
+
         new_messages = list(
             db.messages.find({"chat_id": chat_stream.stream_id, "time": {"$gt": time.time()}}).sort("time", 1).limit(15)
         )
@@ -43,13 +52,12 @@ class ToolUser:
         # 这些信息应该从调用者传入，而不是从self获取
         bot_name = global_config.BOT_NICKNAME
         prompt = ""
+        prompt += mid_memory_info
         prompt += "你正在思考如何回复群里的消息。\n"
         prompt += f"你注意到{sender_name}刚刚说：{message_txt}\n"
-        if reply_message:
-            prompt += f"你刚刚回复的内容是：{reply_message}\n"
         prompt += f"注意你就是{bot_name}，{bot_name}指的就是你。"
 
-        prompt += "你现在需要对群里的聊天内容进行回复，现在选择工具来对消息和你的回复进行处理，你是否需要额外的信息，或者进行一些动作，比如回忆或者搜寻已有的知识，改变关系和情感，或者了解你现在正在做什么，请输出你需要的工具，或者你需要的额外信息。"
+        prompt += "你现在需要对群里的聊天内容进行回复，现在选择工具来对消息和你的回复进行处理，你是否需要额外的信息，比如回忆或者搜寻已有的知识，改变关系和情感，或者了解你现在正在做什么。"
         return prompt
 
     def _define_tools(self):
@@ -83,20 +91,8 @@ class ToolUser:
             # 执行工具
             result = await tool_instance.execute(function_args, message_txt)
             if result:
-                # 根据工具名称确定类型标签
-                tool_type = ""
-                if "memory" in function_name.lower():
-                    tool_type = "memory"
-                elif "schedule" in function_name.lower() or "task" in function_name.lower():
-                    tool_type = "schedule"
-                elif "knowledge" in function_name.lower():
-                    tool_type = "knowledge"
-                elif "change_relationship" in function_name.lower():
-                    tool_type = "change_relationship"
-                elif "change_mood" in function_name.lower():
-                    tool_type = "change_mood"
-                else:
-                    tool_type = "other"
+                # 直接使用 function_name 作为 tool_type
+                tool_type = function_name
 
                 return {
                     "tool_call_id": tool_call["id"],
@@ -110,7 +106,9 @@ class ToolUser:
             logger.error(f"执行工具调用时发生错误: {str(e)}")
             return None
 
-    async def use_tool(self, message_txt: str, sender_name: str, chat_stream: ChatStream):
+    async def use_tool(
+        self, message_txt: str, sender_name: str, chat_stream: ChatStream, subheartflow: SubHeartflow = None
+    ):
         """使用工具辅助思考，判断是否需要额外信息
 
         Args:
@@ -123,7 +121,7 @@ class ToolUser:
         """
         try:
             # 构建提示词
-            prompt = await self._build_tool_prompt(message_txt, sender_name, chat_stream)
+            prompt = await self._build_tool_prompt(message_txt, sender_name, chat_stream, subheartflow)
 
             # 定义可用工具
             tools = self._define_tools()
@@ -155,38 +153,28 @@ class ToolUser:
                     logger.debug("模型返回了空的tool_calls列表")
                     return {"used_tools": False}
 
-                tool_calls_str = "" 
+                tool_calls_str = ""
                 for tool_call in tool_calls:
                     tool_calls_str += f"{tool_call['function']['name']}\n"
-                logger.info(f"模型请求调用{len(tool_calls)}个工具: {tool_calls_str}")
+                logger.info(f"根据:\n{prompt}\n模型请求调用{len(tool_calls)}个工具: {tool_calls_str}")
                 tool_results = []
-                structured_info = {
-                    "memory": [],
-                    "schedule": [],
-                    "knowledge": [],
-                    "change_relationship": [],
-                    "change_mood": [],
-                    "other": []
-                }
+                structured_info = {}  # 动态生成键
 
                 # 执行所有工具调用
                 for tool_call in tool_calls:
                     result = await self._execute_tool_call(tool_call, message_txt)
                     if result:
                         tool_results.append(result)
-                        # 将工具结果添加到对应类型的列表中
-                        structured_info[result["type"]].append({
-                            "name": result["name"],
-                            "content": result["content"]
-                        })
+                        # 使用工具名称作为键
+                        tool_name = result["name"]
+                        if tool_name not in structured_info:
+                            structured_info[tool_name] = []
+                        structured_info[tool_name].append({"name": result["name"], "content": result["content"]})
 
                 # 如果有工具结果，返回结构化的信息
-                if any(structured_info.values()):
+                if structured_info:
                     logger.info(f"工具调用收集到结构化信息: {json.dumps(structured_info, ensure_ascii=False)}")
-                    return {
-                        "used_tools": True,
-                        "structured_info": structured_info
-                    }
+                    return {"used_tools": True, "structured_info": structured_info}
             else:
                 # 没有工具调用
                 content, reasoning_content = response

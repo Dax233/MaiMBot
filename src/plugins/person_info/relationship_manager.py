@@ -84,10 +84,10 @@ class RelationshipManager:
                 2.关系越差，改善越难，关系越好，恶化越容易
                 3.人维护关系的精力往往有限，所以当高关系值用户越多，对于中高关系值用户增长越慢
                 4.连续正面或负面情感会正反馈
-                
+
         返回：
             用户昵称，变更值，变更后关系等级
-            
+
         """
         stancedict = {
             "支持": 0,
@@ -159,10 +159,12 @@ class RelationshipManager:
         )
 
         await person_info_manager.update_one_field(person_id, "relationship_value", old_value + value, data)
-        
-        return chat_stream.user_info.user_nickname,value,relationship_level[level_num]
-    
-    async def calculate_update_relationship_value_with_reason(self, chat_stream: ChatStream, label: str, stance: str, reason: str) -> tuple:
+
+        return chat_stream.user_info.user_nickname, value, relationship_level[level_num]
+
+    async def calculate_update_relationship_value_with_reason(
+        self, chat_stream: ChatStream, label: str, stance: str, reason: str
+    ) -> tuple:
         """计算并变更关系值
         新的关系值变更计算方式：
             将关系值限定在-1000到1000
@@ -171,10 +173,10 @@ class RelationshipManager:
                 2.关系越差，改善越难，关系越好，恶化越容易
                 3.人维护关系的精力往往有限，所以当高关系值用户越多，对于中高关系值用户增长越慢
                 4.连续正面或负面情感会正反馈
-                
+
         返回：
             用户昵称，变更值，变更后关系等级
-            
+
         """
         stancedict = {
             "支持": 0,
@@ -246,8 +248,8 @@ class RelationshipManager:
         )
 
         await person_info_manager.update_one_field(person_id, "relationship_value", old_value + value, data)
-        
-        return chat_stream.user_info.user_nickname,value,relationship_level[level_num]
+
+        return chat_stream.user_info.user_nickname, value, relationship_level[level_num]
 
     async def build_relationship_info(self, person) -> str:
         person_id = person_info_manager.get_person_id(person[0], person[1])

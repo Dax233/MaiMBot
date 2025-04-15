@@ -1,15 +1,15 @@
-from src.do_tool.tool_can_use.base_tool import BaseTool, register_tool
+from src.do_tool.tool_can_use.base_tool import BaseTool
 from src.plugins.memory_system.Hippocampus import HippocampusManager
 from src.common.logger import get_module_logger
 from typing import Dict, Any
 
-logger = get_module_logger("get_memory_tool")
+logger = get_module_logger("mid_chat_mem_tool")
 
 
 class GetMemoryTool(BaseTool):
     """从记忆系统中获取相关记忆的工具"""
 
-    name = "get_memory"
+    name = "mid_chat_mem"
     description = "从记忆系统中获取相关记忆"
     parameters = {
         "type": "object",
@@ -49,10 +49,10 @@ class GetMemoryTool(BaseTool):
             else:
                 content = f"你不太记得有关{text}的记忆，你对此不太了解"
 
-            return {"name": "get_memory", "content": content}
+            return {"name": "mid_chat_mem", "content": content}
         except Exception as e:
             logger.error(f"记忆获取工具执行失败: {str(e)}")
-            return {"name": "get_memory", "content": f"记忆获取失败: {str(e)}"}
+            return {"name": "mid_chat_mem", "content": f"记忆获取失败: {str(e)}"}
 
 
 # 注册工具

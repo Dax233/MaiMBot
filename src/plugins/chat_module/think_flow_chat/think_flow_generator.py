@@ -26,7 +26,10 @@ logger = get_module_logger("llm_generator", config=llm_config)
 class ResponseGenerator:
     def __init__(self):
         self.model_normal = LLM_request(
-            model=global_config.llm_normal, temperature=0.15, max_tokens=256, request_type="response_heartflow"
+            model=global_config.llm_normal,
+            temperature=global_config.llm_normal["temp"],
+            max_tokens=256,
+            request_type="response_heartflow",
         )
 
         self.model_sum = LLM_request(
@@ -49,7 +52,9 @@ class ResponseGenerator:
             if random.random() > 0:
                 checked = False
                 current_model = self.model_normal
-                current_model.temperature = 0.3 * arousal_multiplier  # 激活度越高，温度越高
+                current_model.temperature = (
+                    global_config.llm_normal["temp"] * arousal_multiplier
+                )  # 激活度越高，温度越高
                 model_response = await self._generate_response_with_model(
                     message, current_model, thinking_id, mode="normal"
                 )
@@ -58,13 +63,15 @@ class ResponseGenerator:
             else:
                 checked = True
                 current_model = self.model_normal
-                current_model.temperature = 0.3 * arousal_multiplier  # 激活度越高，温度越高
+                current_model.temperature = (
+                    global_config.llm_normal["temp"] * arousal_multiplier
+                )  # 激活度越高，温度越高
                 print(f"生成{message.processed_plain_text}回复温度是：{current_model.temperature}")
                 model_response = await self._generate_response_with_model(
                     message, current_model, thinking_id, mode="simple"
                 )
 
-                current_model.temperature = 0.3
+                current_model.temperature = global_config.llm_normal["temp"]
                 model_checked_response = await self._check_response_with_model(
                     message, model_response, current_model, thinking_id
                 )
@@ -225,8 +232,7 @@ class ResponseGenerator:
         except Exception as e:
             logger.debug(f"获取情感标签时出错: {e}")
             return "中立", "平静"  # 出错时返回默认值
-    
-    
+
     async def _get_emotion_tags_with_reason(self, content: str, processed_plain_text: str, reason: str):
         """提取情感标签，结合立场和情绪"""
         try:
