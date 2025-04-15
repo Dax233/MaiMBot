@@ -225,11 +225,11 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
     # 处理文本，分行区分西文和中文字符
     new_text = []
     for i, char in enumerate(text):
-        if char == ' ' and should_split(text, i):
-            new_text.append('|seg|')
+        if char == " " and should_split(text, i):
+            new_text.append("|seg|")
         else:
             new_text.append(char)
-    text = ''.join(new_text)
+    text = "".join(new_text)
 
     # 检查是否为西文字符段落
     if not is_western_paragraph(text):
@@ -245,7 +245,7 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
     text_no_1 = ""
     for letter in text:
         # print(f"当前字符: {letter}")
-        if letter in ["！","？"]:
+        if letter in ["！", "？"]:
             # print(f"当前字符: {letter}, 随机数: {random.random()}")
             if random.random() > split_strength:
                 letter += "|seg|"
@@ -406,9 +406,9 @@ def calculate_typing_time(
     - 如果is_emoji为True，将使用固定1秒的输入时间
     """
     total_time = 0.0
-    pattern = re.compile(r'\[表情包：|图片：][\s\S]*?\]')
+    pattern = re.compile(r"\[表情包：|图片：][\s\S]*?\]")
     if re.match(pattern, input_string):
-        input_string = re.sub(pattern, '', input_string)
+        input_string = re.sub(pattern, "", input_string)
         total_time += random.randrange(1, 3)
 
     mood_manager = MoodManager.get_instance()
@@ -648,6 +648,7 @@ def count_messages_between(start_time: float, end_time: float, stream_id: str) -
     except Exception as e:
         logger.error(f"计算消息数量时出错: {str(e)}")
         return 0, 0
+
 
 def should_split(text, index):
     """检测空格两边的字符是否为西文字符"""
