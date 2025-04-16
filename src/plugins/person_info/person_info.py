@@ -191,7 +191,7 @@ class PersonInfoManager:
             if old_name:
                 qv_name_prompt += f"你之前叫他{old_name}，是因为{old_reason}，"
 
-            qv_name_prompt += "\n请根据以上用户信息，想想你叫他什么比较好，请最好使用用户的qq昵称，可以稍作修改"
+            qv_name_prompt += "\n请根据以上用户信息，想想你叫他什么比较好，请最好使用用户的群昵称，可以稍作修改，尽量不作修改"
             if existing_names:
                 qv_name_prompt += f"\n请注意，以下名称已被使用，不要使用以下昵称：{existing_names}。\n"
             qv_name_prompt += "请用json给出你的想法，并给出理由，示例如下："
