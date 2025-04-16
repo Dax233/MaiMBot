@@ -153,11 +153,11 @@ class MessageBuffer:
                     # 更新当前消息的processed_plain_text
                     if combined_text and combined_text[0] != message.processed_plain_text and is_update:
                         if type == "text":
-                            message.processed_plain_text = "".join(combined_text)
+                            message.processed_plain_text = "，".join(combined_text)
                             logger.debug(f"整合了{len(combined_text) - 1}条F消息的内容到当前消息")
                         elif type == "emoji":
                             combined_text.pop()
-                            message.processed_plain_text = "".join(combined_text)
+                            message.processed_plain_text = "，".join(combined_text)
                             message.is_emoji = False
                             logger.debug(f"整合了{len(combined_text) - 1}条F消息的内容，覆盖当前emoji消息")
 

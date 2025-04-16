@@ -235,6 +235,7 @@ class ThinkFlowChat:
         do_reply = False
         if random() < reply_probability:
             try:
+                
                 do_reply = True
 
                 # 回复前处理
@@ -258,7 +259,7 @@ class ThinkFlowChat:
                         await heartflow.get_subheartflow(chat.stream_id).do_observe()
                 except Exception as e:
                     logger.error(f"心流观察失败: {e}")
-                    traceback.print_exc()
+                    logger.error(traceback.format_exc())
 
                 info_catcher.catch_after_observe(timing_results["观察"])
 
@@ -329,13 +330,17 @@ class ThinkFlowChat:
                             chat.stream_id
                         ).do_thinking_before_reply(
                             message_txt=message.processed_plain_text,
-                            sender_name=message.message_info.user_info.user_nickname,
+                            sender_info=message.message_info.user_info,
                             chat_stream=chat,
                             obs_id=get_mid_memory_id,
                             extra_info=tool_result_info,
                         )
                 except Exception as e:
                     logger.error(f"心流思考前脑内状态失败: {e}")
+                    logger.error(traceback.format_exc())
+                    # 确保变量被定义，即使在错误情况下
+                    current_mind = ""
+                    past_mind = ""
 
                 info_catcher.catch_afer_shf_step(timing_results["思考前脑内状态"], past_mind, current_mind)
 
@@ -373,6 +378,7 @@ class ThinkFlowChat:
                 except Exception as e:
                     logger.error(f"心流处理表情包失败: {e}")
 
+                # 思考后脑内状态更新
                 try:
                     with Timer("思考后脑内状态更新", timing_results):
                         stream_id = message.chat_stream.stream_id
@@ -387,9 +393,43 @@ class ThinkFlowChat:
                         )
                 except Exception as e:
                     logger.error(f"心流思考后脑内状态更新失败: {e}")
+                    logger.error(traceback.format_exc())
 
                 # 回复后处理
                 await willing_manager.after_generate_reply_handle(message.message_info.message_id)
+                
+                # 处理认识关系
+                try:
+                    is_known = await relationship_manager.is_known_some_one(
+                        message.message_info.platform, 
+                        message.message_info.user_info.user_id
+                    )
+                    if not is_known:
+                        logger.info(f"首次认识用户: {message.message_info.user_info.user_nickname}")
+                        await relationship_manager.first_knowing_some_one(
+                            message.message_info.platform,
+                            message.message_info.user_info.user_id,
+                            message.message_info.user_info.user_nickname,
+                            message.message_info.user_info.user_cardname or message.message_info.user_info.user_nickname,
+                            ""
+                        )
+                    else:
+                        logger.debug(f"已认识用户: {message.message_info.user_info.user_nickname}")
+                        if not await relationship_manager.is_qved_name(
+                            message.message_info.platform, 
+                            message.message_info.user_info.user_id
+                        ):
+                            logger.info(f"更新已认识但未取名的用户: {message.message_info.user_info.user_nickname}")
+                            await relationship_manager.first_knowing_some_one(
+                                message.message_info.platform,
+                                message.message_info.user_info.user_id,
+                                message.message_info.user_info.user_nickname,
+                                message.message_info.user_info.user_cardname or message.message_info.user_info.user_nickname,
+                                ""
+                            )
+                except Exception as e:
+                    logger.error(f"处理认识关系失败: {e}")
+                    logger.error(traceback.format_exc())
 
             except Exception as e:
                 logger.error(f"心流处理消息失败: {e}")

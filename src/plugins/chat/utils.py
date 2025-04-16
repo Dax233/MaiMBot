@@ -650,6 +650,144 @@ def count_messages_between(start_time: float, end_time: float, stream_id: str) -
         return 0, 0
 
 
+def translate_timestamp_to_human_readable(timestamp: float, mode: str = "normal") -> str:
+    """将时间戳转换为人类可读的时间格式
+    
+    Args:
+        timestamp: 时间戳
+        mode: 转换模式，"normal"为标准格式，"relative"为相对时间格式
+        
+    Returns:
+        str: 格式化后的时间字符串
+    """
+    if mode == "normal":
+        return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
+    elif mode == "relative":
+        now = time.time()
+        diff = now - timestamp
+        
+        if diff < 20:
+            return "刚刚:"
+        elif diff < 60:
+            return f"{int(diff)}秒前:"
+        elif diff < 1800:
+            return f"{int(diff / 60)}分钟前:"
+        elif diff < 3600:
+            return f"{int(diff / 60)}分钟前:\n"
+        elif diff < 86400:
+            return f"{int(diff / 3600)}小时前:\n"
+        elif diff < 604800:
+            return f"{int(diff / 86400)}天前:\n"
+        else:
+            return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp)) + ":"
+            
+def parse_text_timestamps(text: str, mode: str = "normal") -> str:
+    """解析文本中的时间戳并转换为可读时间格式
+    
+    Args:
+        text: 包含时间戳的文本，时间戳应以[]包裹
+        mode: 转换模式，传递给translate_timestamp_to_human_readable，"normal"或"relative"
+        
+    Returns:
+        str: 替换后的文本
+    
+    转换规则:
+    - normal模式: 将文本中所有时间戳转换为可读格式
+    - lite模式: 
+        - 第一个和最后一个时间戳必须转换
+        - 以5秒为间隔划分时间段，每段最多转换一个时间戳
+        - 不转换的时间戳替换为空字符串
+    """
+    # 匹配[数字]或[数字.数字]格式的时间戳
+    pattern = r'\[(\d+(?:\.\d+)?)\]'
+    
+    # 找出所有匹配的时间戳
+    matches = list(re.finditer(pattern, text))
+    
+    if not matches:
+        return text
+    
+    # normal模式: 直接转换所有时间戳
+    if mode == "normal":
+        result_text = text
+        for match in matches:
+            timestamp = float(match.group(1))
+            readable_time = translate_timestamp_to_human_readable(timestamp, "normal")
+            # 由于替换会改变文本长度，需要使用正则替换而非直接替换
+            pattern_instance = re.escape(match.group(0))
+            result_text = re.sub(pattern_instance, readable_time, result_text, count=1)
+        return result_text
+    else:
+        # lite模式: 按5秒间隔划分并选择性转换
+        result_text = text
+        
+        # 提取所有时间戳及其位置
+        timestamps = [(float(m.group(1)), m) for m in matches]
+        timestamps.sort(key=lambda x: x[0])  # 按时间戳升序排序
+        
+        if not timestamps:
+            return text
+            
+        # 获取第一个和最后一个时间戳
+        first_timestamp, first_match = timestamps[0]
+        last_timestamp, last_match = timestamps[-1]
+        
+        # 将时间范围划分成5秒间隔的时间段
+        time_segments = {}
+        
+        # 对所有时间戳按15秒间隔分组
+        for ts, match in timestamps:
+            segment_key = int(ts // 15)  # 将时间戳除以15取整，作为时间段的键
+            if segment_key not in time_segments:
+                time_segments[segment_key] = []
+            time_segments[segment_key].append((ts, match))
+        
+        # 记录需要转换的时间戳
+        to_convert = []
+        
+        # 从每个时间段中选择一个时间戳进行转换
+        for segment, segment_timestamps in time_segments.items():
+            # 选择这个时间段中的第一个时间戳
+            to_convert.append(segment_timestamps[0])
+        
+        # 确保第一个和最后一个时间戳在转换列表中
+        first_in_list = False
+        last_in_list = False
+        
+        for ts, match in to_convert:
+            if ts == first_timestamp:
+                first_in_list = True
+            if ts == last_timestamp:
+                last_in_list = True
+        
+        if not first_in_list:
+            to_convert.append((first_timestamp, first_match))
+        if not last_in_list:
+            to_convert.append((last_timestamp, last_match))
+        
+        # 创建需要转换的时间戳集合，用于快速查找
+        to_convert_set = {match.group(0) for _, match in to_convert}
+        
+        # 首先替换所有不需要转换的时间戳为空字符串
+        for ts, match in timestamps:
+            if match.group(0) not in to_convert_set:
+                pattern_instance = re.escape(match.group(0))
+                result_text = re.sub(pattern_instance, "", result_text, count=1)
+        
+        # 按照时间戳原始顺序排序，避免替换时位置错误
+        to_convert.sort(key=lambda x: x[1].start())
+        
+        # 执行替换
+        # 由于替换会改变文本长度，从后向前替换
+        to_convert.reverse()
+        for ts, match in to_convert:
+            readable_time = translate_timestamp_to_human_readable(ts, "relative")
+            pattern_instance = re.escape(match.group(0))
+            result_text = re.sub(pattern_instance, readable_time, result_text, count=1)
+        
+        return result_text
+
+
 def should_split(text, index):
     """检测空格两边的字符是否为西文字符"""
     if index == 0 or index == len(text) - 1:

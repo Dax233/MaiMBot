@@ -100,15 +100,17 @@ class ResponseGenerator:
 
         info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
 
-        if message.chat_stream.user_info.user_cardname and message.chat_stream.user_info.user_nickname:
-            sender_name = (
-                f"[({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}]"
-                f"{message.chat_stream.user_info.user_cardname}"
-            )
-        elif message.chat_stream.user_info.user_nickname:
-            sender_name = f"({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}"
-        else:
-            sender_name = f"用户({message.chat_stream.user_info.user_id})"
+        # if message.chat_stream.user_info.user_cardname and message.chat_stream.user_info.user_nickname:
+        #     sender_name = (
+        #         f"[({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}]"
+        #         f"{message.chat_stream.user_info.user_cardname}"
+        #     )
+        # elif message.chat_stream.user_info.user_nickname:
+        #     sender_name = f"({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}"
+        # else:
+        #     sender_name = f"用户({message.chat_stream.user_info.user_id})"
+            
+        sender_name = f"<{message.chat_stream.user_info.platform}:{message.chat_stream.user_info.user_id}:{message.chat_stream.user_info.user_nickname}:{message.chat_stream.user_info.user_cardname}>"
 
         # 构建prompt
         with Timer() as t_build_prompt:
@@ -119,14 +121,7 @@ class ResponseGenerator:
                     sender_name=sender_name,
                     stream_id=message.chat_stream.stream_id,
                 )
-            elif mode == "simple":
-                prompt = await prompt_builder._build_prompt_simple(
-                    message.chat_stream,
-                    message_txt=message.processed_plain_text,
-                    sender_name=sender_name,
-                    stream_id=message.chat_stream.stream_id,
-                )
-        logger.info(f"构建{mode}prompt时间: {t_build_prompt.human_readable}")
+        logger.info(f"构建prompt时间: {t_build_prompt.human_readable}")
 
         try:
             content, reasoning_content, self.current_model_name = await model.generate_response(prompt)
@@ -140,49 +135,6 @@ class ResponseGenerator:
             return None
 
         return content
-
-    async def _check_response_with_model(
-        self, message: MessageRecv, content: str, model: LLM_request, thinking_id: str
-    ) -> str:
-        _info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
-
-        sender_name = ""
-        if message.chat_stream.user_info.user_cardname and message.chat_stream.user_info.user_nickname:
-            sender_name = (
-                f"[({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}]"
-                f"{message.chat_stream.user_info.user_cardname}"
-            )
-        elif message.chat_stream.user_info.user_nickname:
-            sender_name = f"({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}"
-        else:
-            sender_name = f"用户({message.chat_stream.user_info.user_id})"
-
-        # 构建prompt
-        with Timer() as t_build_prompt_check:
-            prompt = await prompt_builder._build_prompt_check_response(
-                message.chat_stream,
-                message_txt=message.processed_plain_text,
-                sender_name=sender_name,
-                stream_id=message.chat_stream.stream_id,
-                content=content,
-            )
-        logger.info(f"构建check_prompt: {prompt}")
-        logger.info(f"构建check_prompt时间: {t_build_prompt_check.human_readable}")
-
-        try:
-            checked_content, reasoning_content, self.current_model_name = await model.generate_response(prompt)
-
-            # info_catcher.catch_after_llm_generated(
-            #     prompt=prompt,
-            #     response=content,
-            #     reasoning_content=reasoning_content,
-            #     model_name=self.current_model_name)
-
-        except Exception:
-            logger.exception("检查回复时出错")
-            return None
-
-        return checked_content
 
     async def _get_emotion_tags(self, content: str, processed_plain_text: str):
         """提取情感标签，结合立场和情绪"""

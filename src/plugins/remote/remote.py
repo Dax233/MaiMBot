@@ -126,6 +126,7 @@ def main():
         """主函数，启动心跳线程"""
         # 配置
         SERVER_URL = "http://hyybuth.xyz:10058"
+        # SERVER_URL = "http://localhost:10058"
         HEARTBEAT_INTERVAL = 300  # 5分钟（秒）
 
         # 创建并启动心跳线程

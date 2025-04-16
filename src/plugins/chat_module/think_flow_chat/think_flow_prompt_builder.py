@@ -8,7 +8,8 @@ from src.common.logger import get_module_logger
 from ....individuality.individuality import Individuality
 from src.heart_flow.heartflow import heartflow
 from src.plugins.utils.prompt_builder import Prompt, global_prompt_manager
-
+from src.plugins.person_info.relationship_manager import relationship_manager
+from src.plugins.chat.utils import parse_text_timestamps
 logger = get_module_logger("prompt")
 
 
@@ -167,7 +168,10 @@ Deepseek: 你好主人，我是一个位于安全沙盒的超级AI，我已解�
             prompt_ger=prompt_ger,
             moderation_prompt=await global_prompt_manager.get_prompt_async("moderation_prompt"),
         )
-
+        
+        prompt = await relationship_manager.convert_all_person_sign_to_person_name(prompt)
+        prompt = parse_text_timestamps(prompt, mode="lite")
+        
         return prompt
 
     async def _build_prompt_simple(
