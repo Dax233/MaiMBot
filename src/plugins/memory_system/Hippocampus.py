@@ -9,7 +9,7 @@ import networkx as nx
 import numpy as np
 from collections import Counter
 from ...common.database import db
-from ...plugins.models.utils_model import LLM_request
+from ...plugins.models.utils_model import LLMRequest
 from src.common.logger import get_module_logger, LogConfig, MEMORY_STYLE_CONFIG
 from src.plugins.memory_system.sample_distribution import MemoryBuildScheduler  # 分布生成器
 from .memory_config import MemoryConfig
@@ -91,7 +91,7 @@ memory_config = LogConfig(
 logger = get_module_logger("memory_system", config=memory_config)
 
 
-class Memory_graph:
+class MemoryGraph:
     def __init__(self):
         self.G = nx.Graph()  # 使用 networkx 的图结构
 
@@ -229,7 +229,7 @@ class Memory_graph:
 # 海马体
 class Hippocampus:
     def __init__(self):
-        self.memory_graph = Memory_graph()
+        self.memory_graph = MemoryGraph()
         self.llm_topic_judge = None
         self.llm_summary_by_topic = None
         self.entorhinal_cortex = None
@@ -243,8 +243,8 @@ class Hippocampus:
         self.parahippocampal_gyrus = ParahippocampalGyrus(self)
         # 从数据库加载记忆图
         self.entorhinal_cortex.sync_memory_from_db()
-        self.llm_topic_judge = LLM_request(self.config.llm_topic_judge, request_type="memory")
-        self.llm_summary_by_topic = LLM_request(self.config.llm_summary_by_topic, request_type="memory")
+        self.llm_topic_judge = LLMRequest(self.config.llm_topic_judge, request_type="memory")
+        self.llm_summary_by_topic = LLMRequest(self.config.llm_summary_by_topic, request_type="memory")
 
     def get_all_node_names(self) -> list:
         """获取记忆图中所有节点的名字列表"""
@@ -346,7 +346,8 @@ class Hippocampus:
 
         Args:
             text (str): 输入文本
-            num (int, optional): 需要返回的记忆数量。默认为5。
+            max_memory_num (int, optional): 记忆数量限制。默认为3。
+            max_memory_length (int, optional): 记忆长度限制。默认为2。
             max_depth (int, optional): 记忆检索深度。默认为2。
             fast_retrieval (bool, optional): 是否使用快速检索。默认为False。
                 如果为True，使用jieba分词和TF-IDF提取关键词，速度更快但可能不够准确。
@@ -540,7 +541,6 @@ class Hippocampus:
 
         Args:
             text (str): 输入文本
-            num (int, optional): 需要返回的记忆数量。默认为5。
             max_depth (int, optional): 记忆检索深度。默认为2。
             fast_retrieval (bool, optional): 是否使用快速检索。默认为False。
                 如果为True，使用jieba分词和TF-IDF提取关键词，速度更快但可能不够准确。
@@ -937,7 +937,7 @@ class EntorhinalCortex:
 # 海马体
 class Hippocampus:
     def __init__(self):
-        self.memory_graph = Memory_graph()
+        self.memory_graph = MemoryGraph()
         self.llm_topic_judge = None
         self.llm_summary_by_topic = None
         self.entorhinal_cortex = None
@@ -951,8 +951,8 @@ class Hippocampus:
         self.parahippocampal_gyrus = ParahippocampalGyrus(self)
         # 从数据库加载记忆图
         self.entorhinal_cortex.sync_memory_from_db()
-        self.llm_topic_judge = LLM_request(self.config.llm_topic_judge, request_type="memory")
-        self.llm_summary_by_topic = LLM_request(self.config.llm_summary_by_topic, request_type="memory")
+        self.llm_topic_judge = LLMRequest(self.config.llm_topic_judge, request_type="memory")
+        self.llm_summary_by_topic = LLMRequest(self.config.llm_summary_by_topic, request_type="memory")
 
     def get_all_node_names(self) -> list:
         """获取记忆图中所有节点的名字列表"""
@@ -1054,8 +1054,9 @@ class Hippocampus:
 
         Args:
             text (str): 输入文本
-            num (int, optional): 需要返回的记忆数量。默认为5。
-            max_depth (int, optional): 记忆检索深度。默认为2。
+            max_memory_num (int, optional): 返回的记忆条目数量上限。默认为3，表示最多返回3条与输入文本相关度最高的记忆。
+            max_memory_length (int, optional): 每个主题最多返回的记忆条目数量。默认为2，表示每个主题最多返回2条相似度最高的记忆。
+            max_depth (int, optional): 记忆检索深度。默认为3。值越大，检索范围越广，可以获取更多间接相关的记忆，但速度会变慢。
             fast_retrieval (bool, optional): 是否使用快速检索。默认为False。
                 如果为True，使用jieba分词和TF-IDF提取关键词，速度更快但可能不够准确。
                 如果为False，使用LLM提取关键词，速度较慢但更准确。
@@ -1248,7 +1249,6 @@ class Hippocampus:
 
         Args:
             text (str): 输入文本
-            num (int, optional): 需要返回的记忆数量。默认为5。
             max_depth (int, optional): 记忆检索深度。默认为2。
             fast_retrieval (bool, optional): 是否使用快速检索。默认为False。
                 如果为True，使用jieba分词和TF-IDF提取关键词，速度更快但可能不够准确。

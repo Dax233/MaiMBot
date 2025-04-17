@@ -9,7 +9,7 @@ logger = get_module_logger("mid_chat_mem_tool")
 class GetMemoryTool(BaseTool):
     """从记忆系统中获取相关记忆的工具"""
 
-    name = "mid_chat_mem"
+    name = "get_memory"
     description = "从记忆系统中获取相关记忆"
     parameters = {
         "type": "object",
@@ -49,10 +49,10 @@ class GetMemoryTool(BaseTool):
             else:
                 content = f"你不太记得有关{text}的记忆，你对此不太了解"
 
-            return {"name": "mid_chat_mem", "content": content}
+            return {"name": "get_memory", "content": content}
         except Exception as e:
             logger.error(f"记忆获取工具执行失败: {str(e)}")
-            return {"name": "mid_chat_mem", "content": f"记忆获取失败: {str(e)}"}
+            return {"name": "get_memory", "content": f"记忆获取失败: {str(e)}"}
 
 
 # 注册工具

@@ -29,7 +29,6 @@ config/bot_config_dev.toml
 config/bot_config.toml
 config/bot_config.toml.bak
 src/plugins/remote/client_uuid.json
-run_none.bat
 （测试版）麦麦生成人格.bat
 （临时版）麦麦开始学习.bat
 src/plugins/utils/statistic.py

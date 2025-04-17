@@ -1,8 +1,8 @@
 from .sub_heartflow import SubHeartflow
 from .observation import ChattingObservation
 from src.plugins.moods.moods import MoodManager
-from src.plugins.models.utils_model import LLM_request
-from src.plugins.config.config import global_config
+from src.plugins.models.utils_model import LLMRequest
+from src.config.config import global_config
 from src.plugins.schedule.schedule_generator import bot_schedule
 from src.plugins.utils.prompt_builder import Prompt, global_prompt_manager
 import asyncio
@@ -60,7 +60,7 @@ class Heartflow:
         self.current_mind = "你什么也没想"
         self.past_mind = []
         self.current_state: CurrentState = CurrentState()
-        self.llm_model = LLM_request(
+        self.llm_model = LLMRequest(
             model=global_config.llm_heartflow, temperature=0.6, max_tokens=1000, request_type="heart_flow"
         )
 

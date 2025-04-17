@@ -11,8 +11,8 @@ sys.path.append(root_path)
 
 from src.common.database import db  # noqa: E402
 from src.common.logger import get_module_logger, SCHEDULE_STYLE_CONFIG, LogConfig  # noqa: E402
-from src.plugins.models.utils_model import LLM_request  # noqa: E402
-from src.plugins.config.config import global_config  # noqa: E402
+from src.plugins.models.utils_model import LLMRequest  # noqa: E402
+from src.config.config import global_config  # noqa: E402
 
 TIME_ZONE = tz.gettz(global_config.TIME_ZONE)  # 设置时区
 
@@ -30,13 +30,13 @@ class ScheduleGenerator:
 
     def __init__(self):
         # 使用离线LLM模型
-        self.llm_scheduler_all = LLM_request(
+        self.llm_scheduler_all = LLMRequest(
             model=global_config.llm_reasoning,
             temperature=global_config.SCHEDULE_TEMPERATURE + 0.3,
             max_tokens=7000,
             request_type="schedule",
         )
-        self.llm_scheduler_doing = LLM_request(
+        self.llm_scheduler_doing = LLMRequest(
             model=global_config.llm_normal,
             temperature=global_config.SCHEDULE_TEMPERATURE,
             max_tokens=2048,

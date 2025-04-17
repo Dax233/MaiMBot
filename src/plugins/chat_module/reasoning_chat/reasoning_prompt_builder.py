@@ -9,7 +9,7 @@ from ...moods.moods import MoodManager
 from ....individuality.individuality import Individuality
 from ...memory_system.Hippocampus import HippocampusManager
 from ...schedule.schedule_generator import bot_schedule
-from ...config.config import global_config
+from ....config.config import global_config
 from ...person_info.relationship_manager import relationship_manager
 from src.common.logger import get_module_logger
 from src.plugins.utils.prompt_builder import Prompt, global_prompt_manager

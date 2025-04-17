@@ -76,13 +76,13 @@ class RelationshipManager:
             return mood_value * coefficient
         else:
             return mood_value / coefficient
-        
-    async def is_known_some_one(self, platform , user_id):
+
+    async def is_known_some_one(self, platform, user_id):
         """判断是否认识某人"""
         is_known = person_info_manager.is_person_known(platform, user_id)
         return is_known
 
-    async def is_qved_name(self, platform , user_id):
+    async def is_qved_name(self, platform, user_id):
         """判断是否认识某人"""
         person_id = person_info_manager.get_person_id(platform, user_id)
         is_qved = await person_info_manager.has_one_field(person_id, "person_name")
@@ -93,42 +93,41 @@ class RelationshipManager:
             return True
         else:
             return False
-        
-    async def first_knowing_some_one(self, platform , user_id, user_nickname, user_cardname, user_avatar):
+
+    async def first_knowing_some_one(self, platform, user_id, user_nickname, user_cardname, user_avatar):
         """判断是否认识某人"""
-        person_id = person_info_manager.get_person_id(platform,user_id)
+        person_id = person_info_manager.get_person_id(platform, user_id)
         await person_info_manager.update_one_field(person_id, "nickname", user_nickname)
         # await person_info_manager.update_one_field(person_id, "user_cardname", user_cardname)
         # await person_info_manager.update_one_field(person_id, "user_avatar", user_avatar)
         await person_info_manager.qv_person_name(person_id, user_nickname, user_cardname, user_avatar)
-        
-    async def convert_all_person_sign_to_person_name(self,input_text:str):
+
+    async def convert_all_person_sign_to_person_name(self, input_text: str):
         """将所有人的<platform:user_id:nickname:cardname>格式转换为person_name"""
         try:
             # 使用正则表达式匹配<platform:user_id:nickname:cardname>格式
             all_person = person_info_manager.person_name_list
-            
-            pattern = r'<([^:]+):(\d+):([^:]+):([^>]+)>'
+
+            pattern = r"<([^:]+):(\d+):([^:]+):([^>]+)>"
             matches = re.findall(pattern, input_text)
-            
+
             # 遍历匹配结果，将<platform:user_id:nickname:cardname>替换为person_name
             result_text = input_text
             for platform, user_id, nickname, cardname in matches:
                 person_id = person_info_manager.get_person_id(platform, user_id)
                 # 默认使用昵称作为人名
                 person_name = nickname.strip() if nickname.strip() else cardname.strip()
-                
+
                 if person_id in all_person:
                     if all_person[person_id] != None:
                         person_name = all_person[person_id]
-                        
+
                     print(f"将<{platform}:{user_id}:{nickname}:{cardname}>替换为{person_name}")
-                
-                
+
                 result_text = result_text.replace(f"<{platform}:{user_id}:{nickname}:{cardname}>", person_name)
-            
+
             return result_text
-        except Exception as e:
+        except Exception:
             logger.error(traceback.format_exc())
             return input_text
 

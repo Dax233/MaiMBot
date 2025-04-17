@@ -2,8 +2,8 @@ import json
 import datetime
 from typing import Tuple
 from src.common.logger import get_module_logger
-from ..models.utils_model import LLM_request
-from ..config.config import global_config
+from ..models.utils_model import LLMRequest
+from ...config.config import global_config
 from .chat_observer import ChatObserver
 from ..message.message_base import UserInfo
 
@@ -14,7 +14,7 @@ class ReplyChecker:
     """回复检查器"""
 
     def __init__(self, stream_id: str):
-        self.llm = LLM_request(
+        self.llm = LLMRequest(
             model=global_config.llm_normal, temperature=0.7, max_tokens=1000, request_type="reply_check"
         )
         self.name = global_config.BOT_NICKNAME

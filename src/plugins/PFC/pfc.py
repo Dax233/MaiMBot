@@ -8,8 +8,8 @@ from src.common.logger import get_module_logger
 from ..chat.chat_stream import ChatStream
 from ..message.message_base import UserInfo, Seg
 from ..chat.message import Message
-from ..models.utils_model import LLM_request
-from ..config.config import global_config
+from ..models.utils_model import LLMRequest
+from ...config.config import global_config
 from src.plugins.chat.message import MessageSending
 from ..message.api import global_api
 from ..storage.storage import MessageStorage
@@ -30,7 +30,7 @@ class GoalAnalyzer:
     """对话目标分析器"""
 
     def __init__(self, stream_id: str):
-        self.llm = LLM_request(
+        self.llm = LLMRequest(
             model=global_config.llm_normal, temperature=0.7, max_tokens=1000, request_type="conversation_goal"
         )
 
@@ -350,7 +350,7 @@ class DirectMessageSender:
                 # logger.info(f"发送消息到{end_point}")
                 # logger.info(message_json)
                 try:
-                    await global_api.send_message_REST(end_point, message_json)
+                    await global_api.send_message_rest(end_point, message_json)
                 except Exception as e:
                     logger.error(f"REST方式发送失败，出现错误: {str(e)}")
                     logger.info("尝试使用ws发送")

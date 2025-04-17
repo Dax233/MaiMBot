@@ -11,12 +11,12 @@ from PIL import Image
 import io
 import os
 from ...common.database import db
-from ..config.config import global_config
+from ...config.config import global_config
 
 logger = get_module_logger("model_utils")
 
 
-class LLM_request:
+class LLMRequest:
     # 定义需要转换的模型列表，作为类变量避免重复
     MODELS_NEEDING_TRANSFORMATION = [
         "o3-mini",

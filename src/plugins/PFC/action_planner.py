@@ -1,7 +1,7 @@
 from typing import Tuple
 from src.common.logger import get_module_logger
-from ..models.utils_model import LLM_request
-from ..config.config import global_config
+from ..models.utils_model import LLMRequest
+from ...config.config import global_config
 from .chat_observer import ChatObserver
 from .pfc_utils import get_items_from_json
 from src.individuality.individuality import Individuality
@@ -23,7 +23,7 @@ class ActionPlanner:
     """行动规划器"""
 
     def __init__(self, stream_id: str):
-        self.llm = LLM_request(
+        self.llm = LLMRequest(
             model=global_config.llm_normal,
             temperature=global_config.llm_normal["temp"],
             max_tokens=1000,

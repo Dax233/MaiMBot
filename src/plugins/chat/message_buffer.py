@@ -3,13 +3,13 @@ from src.common.logger import get_module_logger
 import asyncio
 from dataclasses import dataclass, field
 from .message import MessageRecv
-from ..message.message_base import BaseMessageInfo, GroupInfo
+from ..message.message_base import BaseMessageInfo, GroupInfo, Seg
 import hashlib
 from typing import Dict
 from collections import OrderedDict
 import random
 import time
-from ..config.config import global_config
+from ...config.config import global_config
 
 logger = get_module_logger("message_buffer")
 
@@ -59,20 +59,20 @@ class MessageBuffer:
                     logger.debug(f"被新消息覆盖信息id: {cache_msg.message.message_info.message_id}")
 
             # 查找最近的处理成功消息(T)
-            recent_F_count = 0
+            recent_f_count = 0
             for msg_id in reversed(self.buffer_pool[person_id_]):
                 msg = self.buffer_pool[person_id_][msg_id]
                 if msg.result == "T":
                     break
                 elif msg.result == "F":
-                    recent_F_count += 1
+                    recent_f_count += 1
 
             # 判断条件：最近T之后有超过3-5条F
-            if recent_F_count >= random.randint(3, 5):
+            if recent_f_count >= random.randint(3, 5):
                 new_msg = CacheMessages(message=message, result="T")
                 new_msg.cache_determination.set()
                 self.buffer_pool[person_id_][message.message_info.message_id] = new_msg
-                logger.debug(f"快速处理消息(已堆积{recent_F_count}条F): {message.message_info.message_id}")
+                logger.debug(f"快速处理消息(已堆积{recent_f_count}条F): {message.message_info.message_id}")
                 return
 
             # 添加新消息
@@ -130,22 +130,36 @@ class MessageBuffer:
                     keep_msgs = OrderedDict()
                     combined_text = []
                     found = False
-                    type = "text"
+                    type = "seglist"
                     is_update = True
                     for msg_id, msg in self.buffer_pool[person_id_].items():
                         if msg_id == message.message_info.message_id:
                             found = True
-                            type = msg.message.message_segment.type
+                            if msg.message.message_segment.type != "seglist":
+                                type = msg.message.message_segment.type
+                            else:
+                                if (isinstance(msg.message.message_segment.data, list) 
+                                and all(isinstance(x, Seg) for x in msg.message.message_segment.data)
+                                and len(msg.message.message_segment.data) == 1):
+                                    type = msg.message.message_segment.data[0].type
                             combined_text.append(msg.message.processed_plain_text)
                             continue
                         if found:
                             keep_msgs[msg_id] = msg
                         elif msg.result == "F":
                             # 收集F消息的文本内容
+                            F_type = "seglist"
+                            if msg.message.message_segment.type != "seglist":
+                                F_type = msg.message.message_segment.type
+                            else:
+                                if (isinstance(msg.message.message_segment.data, list) 
+                                and all(isinstance(x, Seg) for x in msg.message.message_segment.data)
+                                and len(msg.message.message_segment.data) == 1):
+                                    F_type = msg.message.message_segment.data[0].type
                             if hasattr(msg.message, "processed_plain_text") and msg.message.processed_plain_text:
-                                if msg.message.message_segment.type == "text":
+                                if F_type == "text":
                                     combined_text.append(msg.message.processed_plain_text)
-                                elif msg.message.message_segment.type != "text":
+                                elif F_type != "text":
                                     is_update = False
                         elif msg.result == "U":
                             logger.debug(f"异常未处理信息id： {msg.message.message_info.message_id}")

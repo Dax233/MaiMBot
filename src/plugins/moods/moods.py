@@ -3,7 +3,7 @@ import threading
 import time
 from dataclasses import dataclass
 
-from ..config.config import global_config
+from ...config.config import global_config
 from src.common.logger import get_module_logger, LogConfig, MOOD_STYLE_CONFIG
 from ..person_info.relationship_manager import relationship_manager
 from src.individuality.individuality import Individuality

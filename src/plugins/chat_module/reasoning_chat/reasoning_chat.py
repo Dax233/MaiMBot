@@ -4,11 +4,11 @@ from random import random
 from typing import List
 from ...memory_system.Hippocampus import HippocampusManager
 from ...moods.moods import MoodManager
-from ...config.config import global_config
+from ....config.config import global_config
 from ...chat.emoji_manager import emoji_manager
 from .reasoning_generator import ResponseGenerator
 from ...chat.message import MessageSending, MessageRecv, MessageThinking, MessageSet
-from ...chat.message_sender import message_manager
+from ...chat.messagesender import message_manager
 from ...storage.storage import MessageStorage
 from ...chat.utils import is_mentioned_bot_in_message
 from ...chat.utils_image import image_path_to_base64
@@ -192,11 +192,19 @@ class ReasoningChat:
         if not buffer_result:
             await willing_manager.bombing_buffer_message_handle(message.message_info.message_id)
             willing_manager.delete(message.message_info.message_id)
-            if message.message_segment.type == "text":
+            F_type = "seglist"
+            if message.message_segment.type != "seglist":
+                F_type =message.message_segment.type
+            else:
+                if (isinstance(message.message_segment.data, list) 
+                and all(isinstance(x, Seg) for x in message.message_segment.data)
+                and len(message.message_segment.data) == 1):
+                    F_type = message.message_segment.data[0].type
+            if F_type == "text":
                 logger.info(f"触发缓冲，已炸飞消息：{message.processed_plain_text}")
-            elif message.message_segment.type == "image":
+            elif F_type == "image":
                 logger.info("触发缓冲，已炸飞表情包/图片")
-            elif message.message_segment.type == "seglist":
+            elif F_type == "seglist":
                 logger.info("触发缓冲，已炸飞消息列")
             return
 

@@ -7,7 +7,7 @@ import os
 # 添加项目根目录到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 from src.plugins.memory_system.Hippocampus import HippocampusManager
-from src.plugins.config.config import global_config
+from src.config.config import global_config
 
 
 async def test_memory_system():

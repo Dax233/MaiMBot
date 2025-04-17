@@ -1,4 +1,4 @@
-from src.plugins.config.config import global_config
+from src.config.config import global_config
 from src.plugins.chat.message import MessageRecv, MessageSending, Message
 from src.common.database import db
 import time

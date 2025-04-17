@@ -1,5 +1,5 @@
 from src.do_tool.tool_can_use.base_tool import BaseTool
-from src.plugins.config.config import global_config
+from src.config.config import global_config
 from src.common.logger import get_module_logger
 from src.plugins.moods.moods import MoodManager
 from src.plugins.chat_module.think_flow_chat.think_flow_generator import ResponseGenerator

@@ -1,5 +1,5 @@
 from ..moods.moods import MoodManager  # 导入情绪管理器
-from ..config.config import global_config
+from ...config.config import global_config
 from .message import MessageRecv
 from ..PFC.pfc_manager import PFCManager
 from .chat_stream import chat_manager
@@ -42,7 +42,7 @@ class ChatBot:
 
             self._started = True
 
-    async def _create_PFC_chat(self, message: MessageRecv):
+    async def _create_pfc_chat(self, message: MessageRecv):
         try:
             chat_id = str(message.chat_stream.stream_id)
 
@@ -112,7 +112,7 @@ class ChatBot:
                                 )
                                 message.update_chat_stream(chat)
                                 await self.only_process_chat.process_message(message)
-                                await self._create_PFC_chat(message)
+                                await self._create_pfc_chat(message)
                         else:
                             if groupinfo.group_id in global_config.talk_allowed_groups:
                                 # logger.debug(f"开始群聊模式{str(message_data)[:50]}...")

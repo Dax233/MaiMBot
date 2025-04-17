@@ -150,9 +150,7 @@ class MessageRecv(Message):
         #     if user_info.user_cardname != None
         #     else f"{user_info.user_nickname}(ta的id:{user_info.user_id})"
         # )
-        name = (
-            f"<{self.message_info.platform}:{user_info.user_id}:{user_info.user_nickname}:{user_info.user_cardname}>"
-        )
+        name = f"<{self.message_info.platform}:{user_info.user_id}:{user_info.user_nickname}:{user_info.user_cardname}>"
         return f"[{time}] {name}: {self.processed_plain_text}\n"
 
 
@@ -251,9 +249,7 @@ class MessageProcessBase(Message):
         #     if user_info.user_cardname != None
         #     else f"{user_info.user_nickname}(ta的id:{user_info.user_id})"
         # )
-        name = (
-            f"<{self.message_info.platform}:{user_info.user_id}:{user_info.user_nickname}:{user_info.user_cardname}>"
-        )
+        name = f"<{self.message_info.platform}:{user_info.user_id}:{user_info.user_nickname}:{user_info.user_cardname}>"
         return f"[{time}] {name}: {self.processed_plain_text}\n"
 
 

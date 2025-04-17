@@ -10,10 +10,10 @@ from PIL import Image
 import io
 
 from ...common.database import db
-from ..config.config import global_config
+from ...config.config import global_config
 from ..chat.utils import get_embedding
 from ..chat.utils_image import ImageManager, image_path_to_base64
-from ..models.utils_model import LLM_request
+from ..models.utils_model import LLMRequest
 from src.common.logger import get_module_logger
 
 logger = get_module_logger("emoji")
@@ -34,8 +34,8 @@ class EmojiManager:
 
     def __init__(self):
         self._scan_task = None
-        self.vlm = LLM_request(model=global_config.vlm, temperature=0.3, max_tokens=1000, request_type="emoji")
-        self.llm_emotion_judge = LLM_request(
+        self.vlm = LLMRequest(model=global_config.vlm, temperature=0.3, max_tokens=1000, request_type="emoji")
+        self.llm_emotion_judge = LLMRequest(
             model=global_config.llm_emotion_judge, max_tokens=600, temperature=0.8, request_type="emoji"
         )  # 更高的温度，更少的token（后续可以根据情绪来调整温度）
 

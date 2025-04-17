@@ -1,8 +1,8 @@
 from typing import List, Tuple
 from src.common.logger import get_module_logger
 from src.plugins.memory_system.Hippocampus import HippocampusManager
-from ..models.utils_model import LLM_request
-from ..config.config import global_config
+from ..models.utils_model import LLMRequest
+from ...config.config import global_config
 from ..chat.message import Message
 
 logger = get_module_logger("knowledge_fetcher")
@@ -12,7 +12,7 @@ class KnowledgeFetcher:
     """知识调取器"""
 
     def __init__(self):
-        self.llm = LLM_request(
+        self.llm = LLMRequest(
             model=global_config.llm_normal,
             temperature=global_config.llm_normal["temp"],
             max_tokens=1000,

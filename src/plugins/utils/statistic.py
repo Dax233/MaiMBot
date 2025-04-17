@@ -175,13 +175,8 @@ class LLMStatistics:
 
     def _format_stats_section(self, stats: Dict[str, Any], title: str) -> str:
         """格式化统计部分的输出"""
-        output = []
+        output = ["\n" + "-" * 84, f"{title}", "-" * 84, f"总请求数: {stats['total_requests']}"]
 
-        output.append("\n" + "-" * 84)
-        output.append(f"{title}")
-        output.append("-" * 84)
-
-        output.append(f"总请求数: {stats['total_requests']}")
         if stats["total_requests"] > 0:
             output.append(f"总Token数: {stats['total_tokens']}")
             output.append(f"总花费: {stats['total_cost']:.4f}¥")
@@ -238,11 +233,7 @@ class LLMStatistics:
 
     def _format_stats_section_lite(self, stats: Dict[str, Any], title: str) -> str:
         """格式化统计部分的输出"""
-        output = []
-
-        output.append("\n" + "-" * 84)
-        output.append(f"{title}")
-        output.append("-" * 84)
+        output = ["\n" + "-" * 84, f"{title}", "-" * 84]
 
         # output.append(f"总请求数: {stats['total_requests']}")
         if stats["total_requests"] > 0:
@@ -303,8 +294,7 @@ class LLMStatistics:
         """将统计结果保存到文件"""
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        output = []
-        output.append(f"LLM请求统计报告 (生成时间: {current_time})")
+        output = [f"LLM请求统计报告 (生成时间: {current_time})"]
 
         # 添加各个时间段的统计
         sections = [

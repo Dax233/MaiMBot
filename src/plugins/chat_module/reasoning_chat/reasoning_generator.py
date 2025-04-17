@@ -1,8 +1,8 @@
 from typing import List, Optional, Tuple, Union
 import random
 
-from ...models.utils_model import LLM_request
-from ...config.config import global_config
+from ...models.utils_model import LLMRequest
+from ....config.config import global_config
 from ...chat.message import MessageThinking
 from .reasoning_prompt_builder import prompt_builder
 from ...chat.utils import process_llm_response
@@ -22,20 +22,20 @@ logger = get_module_logger("llm_generator", config=llm_config)
 
 class ResponseGenerator:
     def __init__(self):
-        self.model_reasoning = LLM_request(
+        self.model_reasoning = LLMRequest(
             model=global_config.llm_reasoning,
             temperature=0.7,
             max_tokens=3000,
             request_type="response_reasoning",
         )
-        self.model_normal = LLM_request(
+        self.model_normal = LLMRequest(
             model=global_config.llm_normal,
             temperature=global_config.llm_normal["temp"],
             max_tokens=256,
             request_type="response_reasoning",
         )
 
-        self.model_sum = LLM_request(
+        self.model_sum = LLMRequest(
             model=global_config.llm_summary_by_topic, temperature=0.7, max_tokens=3000, request_type="relation"
         )
         self.current_model_type = "r1"  # 默认使用 R1
@@ -68,7 +68,7 @@ class ResponseGenerator:
             logger.info(f"{self.current_model_type}思考，失败")
             return None
 
-    async def _generate_response_with_model(self, message: MessageThinking, model: LLM_request, thinking_id: str):
+    async def _generate_response_with_model(self, message: MessageThinking, model: LLMRequest, thinking_id: str):
         sender_name = ""
 
         info_catcher = info_catcher_manager.get_info_catcher(thinking_id)

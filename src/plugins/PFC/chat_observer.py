@@ -4,7 +4,7 @@ import traceback
 from typing import Optional, Dict, Any, List
 from src.common.logger import get_module_logger
 from ..message.message_base import UserInfo
-from ..config.config import global_config
+from ...config.config import global_config
 from .chat_states import NotificationManager, create_new_message_notification, create_cold_chat_notification
 from .message_storage import MongoDBMessageStorage
 

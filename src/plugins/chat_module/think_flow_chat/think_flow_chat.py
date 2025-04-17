@@ -4,11 +4,11 @@ import traceback
 from typing import List
 from ...memory_system.Hippocampus import HippocampusManager
 from ...moods.moods import MoodManager
-from ...config.config import global_config
+from ....config.config import global_config
 from ...chat.emoji_manager import emoji_manager
 from .think_flow_generator import ResponseGenerator
 from ...chat.message import MessageSending, MessageRecv, MessageThinking, MessageSet
-from ...chat.message_sender import message_manager
+from ...chat.messagesender import message_manager
 from ...storage.storage import MessageStorage
 from ...chat.utils import is_mentioned_bot_in_message, get_recent_group_detailed_plain_text
 from ...chat.utils_image import image_path_to_base64
@@ -204,11 +204,19 @@ class ThinkFlowChat:
         if not buffer_result:
             await willing_manager.bombing_buffer_message_handle(message.message_info.message_id)
             willing_manager.delete(message.message_info.message_id)
-            if message.message_segment.type == "text":
+            F_type = "seglist"
+            if message.message_segment.type != "seglist":
+                F_type =message.message_segment.type
+            else:
+                if (isinstance(message.message_segment.data, list) 
+                and all(isinstance(x, Seg) for x in message.message_segment.data)
+                and len(message.message_segment.data) == 1):
+                    F_type = message.message_segment.data[0].type
+            if F_type == "text":
                 logger.info(f"触发缓冲，已炸飞消息：{message.processed_plain_text}")
-            elif message.message_segment.type == "image":
+            elif F_type == "image":
                 logger.info("触发缓冲，已炸飞表情包/图片")
-            elif message.message_segment.type == "seglist":
+            elif F_type == "seglist":
                 logger.info("触发缓冲，已炸飞消息列")
             return
 
@@ -235,7 +243,6 @@ class ThinkFlowChat:
         do_reply = False
         if random() < reply_probability:
             try:
-                
                 do_reply = True
 
                 # 回复前处理
@@ -397,12 +404,11 @@ class ThinkFlowChat:
 
                 # 回复后处理
                 await willing_manager.after_generate_reply_handle(message.message_info.message_id)
-                
+
                 # 处理认识关系
                 try:
                     is_known = await relationship_manager.is_known_some_one(
-                        message.message_info.platform, 
-                        message.message_info.user_info.user_id
+                        message.message_info.platform, message.message_info.user_info.user_id
                     )
                     if not is_known:
                         logger.info(f"首次认识用户: {message.message_info.user_info.user_nickname}")
@@ -410,22 +416,23 @@ class ThinkFlowChat:
                             message.message_info.platform,
                             message.message_info.user_info.user_id,
                             message.message_info.user_info.user_nickname,
-                            message.message_info.user_info.user_cardname or message.message_info.user_info.user_nickname,
-                            ""
+                            message.message_info.user_info.user_cardname
+                            or message.message_info.user_info.user_nickname,
+                            "",
                         )
                     else:
                         logger.debug(f"已认识用户: {message.message_info.user_info.user_nickname}")
                         if not await relationship_manager.is_qved_name(
-                            message.message_info.platform, 
-                            message.message_info.user_info.user_id
+                            message.message_info.platform, message.message_info.user_info.user_id
                         ):
                             logger.info(f"更新已认识但未取名的用户: {message.message_info.user_info.user_nickname}")
                             await relationship_manager.first_knowing_some_one(
                                 message.message_info.platform,
                                 message.message_info.user_info.user_id,
                                 message.message_info.user_info.user_nickname,
-                                message.message_info.user_info.user_cardname or message.message_info.user_info.user_nickname,
-                                ""
+                                message.message_info.user_info.user_cardname
+                                or message.message_info.user_info.user_nickname,
+                                "",
                             )
                 except Exception as e:
                     logger.error(f"处理认识关系失败: {e}")

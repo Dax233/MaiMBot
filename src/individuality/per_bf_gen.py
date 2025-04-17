@@ -19,7 +19,7 @@ with open(config_path, "r", encoding="utf-8") as f:
 # 现在可以导入src模块
 from src.individuality.scene import get_scene_by_factor, PERSONALITY_SCENES  # noqa E402
 from src.individuality.questionnaire import FACTOR_DESCRIPTIONS  # noqa E402
-from src.individuality.offline_llm import LLM_request_off  # noqa E402
+from src.individuality.offline_llm import LLMRequestOff  # noqa E402
 
 # 加载环境变量
 env_path = os.path.join(root_path, ".env")
@@ -65,7 +65,7 @@ def adapt_scene(scene: str) -> str:
 现在，请你给出改编后的场景描述
 """
 
-        llm = LLM_request_off(model_name=config["model"]["llm_normal"]["name"])
+        llm = LLMRequestOff(model_name=config["model"]["llm_normal"]["name"])
         adapted_scene, _ = llm.generate_response(prompt)
 
         # 检查返回的场景是否为空或错误信息
@@ -79,7 +79,7 @@ def adapt_scene(scene: str) -> str:
         return scene
 
 
-class PersonalityEvaluator_direct:
+class PersonalityEvaluatorDirect:
     def __init__(self):
         self.personality_traits = {"开放性": 0, "严谨性": 0, "外向性": 0, "宜人性": 0, "神经质": 0}
         self.scenarios = []
@@ -110,7 +110,7 @@ class PersonalityEvaluator_direct:
                     {"场景": scene["scenario"], "评估维度": [trait, secondary_trait], "场景编号": scene_key}
                 )
 
-        self.llm = LLM_request_off()
+        self.llm = LLMRequestOff()
 
     def evaluate_response(self, scenario: str, response: str, dimensions: List[str]) -> Dict[str, float]:
         """
@@ -269,7 +269,7 @@ class PersonalityEvaluator_direct:
 
 
 def main():
-    evaluator = PersonalityEvaluator_direct()
+    evaluator = PersonalityEvaluatorDirect()
     result = evaluator.run_evaluation()
 
     # 准备简化的结果数据

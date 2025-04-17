@@ -75,8 +75,3 @@ class ClassicalWillingManager(BaseWillingManager):
     async def not_reply_handle(self, message_id):
         return await super().not_reply_handle(message_id)
 
-    async def get_variable_parameters(self):
-        return await super().get_variable_parameters()
-
-    async def set_variable_parameters(self, parameters):
-        return await super().set_variable_parameters(parameters)

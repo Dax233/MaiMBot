@@ -1,6 +1,6 @@
 from src.common.logger import LogConfig, WILLING_STYLE_CONFIG, LoguruLogger, get_module_logger
 from dataclasses import dataclass
-from ..config.config import global_config, BotConfig
+from ...config.config import global_config, BotConfig
 from ..chat.chat_stream import ChatStream, GroupInfo
 from ..chat.message import MessageRecv
 from ..person_info.person_info import person_info_manager, PersonInfoManager
@@ -18,8 +18,8 @@ after_generate_reply_handle 确定要回复后，在生成回复后的处理
 not_reply_handle 确定不回复后的处理
 get_reply_probability 获取回复概率
 bombing_buffer_message_handle 缓冲器炸飞消息后的处理
-get_variable_parameters 获取可变参数组，返回一个字典，key为参数名称，value为参数描述（此方法是为拆分全局设置准备）
-set_variable_parameters 设置可变参数组，你需要传入一个字典，key为参数名称，value为参数值（此方法是为拆分全局设置准备）
+get_variable_parameters 暂不确定
+set_variable_parameters 暂不确定
 以下2个方法根据你的实现可以做调整：
 get_willing 获取某聊天流意愿
 set_willing 设置某聊天流意愿
@@ -152,15 +152,15 @@ class BaseWillingManager(ABC):
         async with self.lock:
             self.chat_reply_willing[chat_id] = willing
 
-    @abstractmethod
-    async def get_variable_parameters(self) -> Dict[str, str]:
-        """抽象方法：获取可变参数"""
-        pass
+    # @abstractmethod
+    # async def get_variable_parameters(self) -> Dict[str, str]:
+    #     """抽象方法：获取可变参数"""
+    #     pass
 
-    @abstractmethod
-    async def set_variable_parameters(self, parameters: Dict[str, any]):
-        """抽象方法：设置可变参数"""
-        pass
+    # @abstractmethod
+    # async def set_variable_parameters(self, parameters: Dict[str, any]):
+    #     """抽象方法：设置可变参数"""
+    #     pass
 
 
 def init_willing_manager() -> BaseWillingManager:

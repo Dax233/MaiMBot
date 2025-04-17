@@ -233,7 +233,8 @@ class MessageServer(BaseMessageHandler):
     async def send_message(self, message: MessageBase):
         await self.broadcast_to_platform(message.message_info.platform, message.to_dict())
 
-    async def send_message_REST(self, url: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    @staticmethod
+    async def send_message_rest(url: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """发送消息到指定端点"""
         async with aiohttp.ClientSession() as session:
             try:

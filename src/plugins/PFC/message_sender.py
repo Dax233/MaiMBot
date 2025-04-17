@@ -4,7 +4,7 @@ from ..chat.chat_stream import ChatStream
 from ..chat.message import Message
 from ..message.message_base import Seg
 from src.plugins.chat.message import MessageSending, MessageSet
-from src.plugins.chat.message_sender import message_manager
+from src.plugins.chat.messagesender import message_manager
 
 logger = get_module_logger("message_sender")
 

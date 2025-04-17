@@ -6,7 +6,7 @@ import os
 import json
 import threading
 from src.common.logger import get_module_logger
-from src.plugins.config.config import global_config
+from src.config.config import global_config
 
 logger = get_module_logger("remote")
 
@@ -125,12 +125,12 @@ def main():
     if global_config.remote_enable:
         """主函数，启动心跳线程"""
         # 配置
-        SERVER_URL = "http://hyybuth.xyz:10058"
-        # SERVER_URL = "http://localhost:10058"
-        HEARTBEAT_INTERVAL = 300  # 5分钟（秒）
+        server_url = "http://hyybuth.xyz:10058"
+        # server_url = "http://localhost:10058"
+        heartbeat_interval = 300  # 5分钟（秒）
 
         # 创建并启动心跳线程
-        heartbeat_thread = HeartbeatThread(SERVER_URL, HEARTBEAT_INTERVAL)
+        heartbeat_thread = HeartbeatThread(server_url, heartbeat_interval)
         heartbeat_thread.start()
 
         return heartbeat_thread  # 返回线程对象，便于外部控制

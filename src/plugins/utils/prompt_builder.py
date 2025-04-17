@@ -119,7 +119,7 @@ class Prompt(str):
 
         # 解析模板
         template_args = []
-        result = re.findall(r"\{(.*?)\}", processed_fstr)
+        result = re.findall(r"\{(.*?)}", processed_fstr)
         for expr in result:
             if expr and expr not in template_args:
                 template_args.append(expr)
@@ -164,7 +164,7 @@ class Prompt(str):
         processed_template = cls._process_escaped_braces(template)
 
         template_args = []
-        result = re.findall(r"\{(.*?)\}", processed_template)
+        result = re.findall(r"\{(.*?)}", processed_template)
         for expr in result:
             if expr and expr not in template_args:
                 template_args.append(expr)
