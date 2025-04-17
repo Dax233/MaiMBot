@@ -40,7 +40,8 @@ class ThinkFlowChat:
         self.mood_manager.start_mood_update()
         self.tool_user = ToolUser()
 
-    async def _create_thinking_message(self, message, chat, userinfo, messageinfo):
+    @staticmethod
+    async def _create_thinking_message(message, chat, userinfo, messageinfo):
         """创建思考消息"""
         bot_user_info = UserInfo(
             user_id=global_config.BOT_QQ,
@@ -62,7 +63,8 @@ class ThinkFlowChat:
 
         return thinking_id
 
-    async def _send_response_messages(self, message, chat, response_set: List[str], thinking_id) -> MessageSending:
+    @staticmethod
+    async def _send_response_messages(message, chat, response_set: List[str], thinking_id) -> MessageSending:
         """发送回复消息"""
         container = message_manager.get_container(chat.stream_id)
         thinking_message = None
@@ -108,7 +110,8 @@ class ThinkFlowChat:
         message_manager.add_message(message_set)
         return first_bot_msg
 
-    async def _handle_emoji(self, message, chat, response, send_emoji=""):
+    @staticmethod
+    async def _handle_emoji(message, chat, response, send_emoji=""):
         """处理表情包"""
         if send_emoji:
             emoji_raw = await emoji_manager.get_emoji_for_text(send_emoji)
@@ -204,19 +207,21 @@ class ThinkFlowChat:
         if not buffer_result:
             await willing_manager.bombing_buffer_message_handle(message.message_info.message_id)
             willing_manager.delete(message.message_info.message_id)
-            F_type = "seglist"
+            f_type = "seglist"
             if message.message_segment.type != "seglist":
-                F_type =message.message_segment.type
+                f_type = message.message_segment.type
             else:
-                if (isinstance(message.message_segment.data, list) 
-                and all(isinstance(x, Seg) for x in message.message_segment.data)
-                and len(message.message_segment.data) == 1):
-                    F_type = message.message_segment.data[0].type
-            if F_type == "text":
+                if (
+                    isinstance(message.message_segment.data, list)
+                    and all(isinstance(x, Seg) for x in message.message_segment.data)
+                    and len(message.message_segment.data) == 1
+                ):
+                    f_type = message.message_segment.data[0].type
+            if f_type == "text":
                 logger.info(f"触发缓冲，已炸飞消息：{message.processed_plain_text}")
-            elif F_type == "image":
+            elif f_type == "image":
                 logger.info("触发缓冲，已炸飞表情包/图片")
-            elif F_type == "seglist":
+            elif f_type == "seglist":
                 logger.info("触发缓冲，已炸飞消息列")
             return
 
@@ -455,7 +460,8 @@ class ThinkFlowChat:
         # 意愿管理器：注销当前message信息
         willing_manager.delete(message.message_info.message_id)
 
-    def _check_ban_words(self, text: str, chat, userinfo) -> bool:
+    @staticmethod
+    def _check_ban_words(text: str, chat, userinfo) -> bool:
         """检查消息中是否包含过滤词"""
         for word in global_config.ban_words:
             if word in text:
@@ -466,7 +472,8 @@ class ThinkFlowChat:
                 return True
         return False
 
-    def _check_ban_regex(self, text: str, chat, userinfo) -> bool:
+    @staticmethod
+    def _check_ban_regex(text: str, chat, userinfo) -> bool:
         """检查消息是否匹配过滤正则表达式"""
         for pattern in global_config.ban_msgs_regex:
             if pattern.search(text):

@@ -74,4 +74,3 @@ class ClassicalWillingManager(BaseWillingManager):
 
     async def not_reply_handle(self, message_id):
         return await super().not_reply_handle(message_id)
-

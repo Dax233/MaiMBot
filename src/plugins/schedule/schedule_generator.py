@@ -253,6 +253,7 @@ Deepseek: 你好管理员，我是一个位于安全沙盒的超级AI，我已�
 
         Args:
             num (int): 需要获取的日程数量，默认为1
+            time_info (bool): 是否包含时间信息，默认为False
 
         Returns:
             list: 最新加入的日程列表
@@ -285,7 +286,8 @@ Deepseek: 你好管理员，我是一个位于安全沙盒的超级AI，我已�
         db.schedule.update_one({"date": date_str}, {"$set": schedule_data}, upsert=True)
         logger.debug(f"已保存{date_str}的日程到数据库")
 
-    def load_schedule_from_db(self, date: datetime.datetime):
+    @staticmethod
+    def load_schedule_from_db(date: datetime.datetime):
         """从数据库加载日程，同时加载 today_done_list"""
         date_str = date.strftime("%Y-%m-%d")
         existing_schedule = db.schedule.find_one({"date": date_str})

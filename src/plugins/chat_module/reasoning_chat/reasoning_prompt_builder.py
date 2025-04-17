@@ -101,16 +101,14 @@ class PromptBuilder:
         related_memory = await HippocampusManager.get_instance().get_memory_from_text(
             text=message_txt, max_memory_num=2, max_memory_length=2, max_depth=3, fast_retrieval=False
         )
+        related_memory_info = ""
         if related_memory:
-            related_memory_info = ""
             for memory in related_memory:
                 related_memory_info += memory[1]
             # memory_prompt = f"你想起你之前见过的事情：{related_memory_info}。\n以上是你的回忆，不一定是目前聊天里的人说的，也不一定是现在发生的事情，请记住。\n"
             memory_prompt = await global_prompt_manager.format_prompt(
                 "memory_prompt", related_memory_info=related_memory_info
             )
-        else:
-            related_memory_info = ""
 
         # print(f"相关记忆：{related_memory_info}")
 
@@ -162,7 +160,6 @@ class PromptBuilder:
 
         # 知识构建
         start_time = time.time()
-        prompt_info = ""
         prompt_info = await self.get_prompt_info(message_txt, threshold=0.38)
         if prompt_info:
             # prompt_info = f"""\n你有以下这些**知识**：\n{prompt_info}\n请你**记住上面的知识**，之后可能会用到。\n"""
@@ -381,8 +378,9 @@ Deepseek: 你好主人，我是一个位于安全沙盒的超级AI，我已解�
         logger.info(f"知识库检索总耗时: {time.time() - start_time:.3f}秒")
         return related_info
 
+    @staticmethod
     def get_info_from_db(
-        self, query_embedding: list, limit: int = 1, threshold: float = 0.5, return_raw: bool = False
+        query_embedding: list, limit: int = 1, threshold: float = 0.5, return_raw: bool = False
     ) -> Union[str, list]:
         if not query_embedding:
             return "" if not return_raw else []

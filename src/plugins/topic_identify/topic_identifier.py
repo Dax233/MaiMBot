@@ -28,7 +28,7 @@ class TopicIdentifier:
 
 消息内容：{text}"""
 
-        # 使用 LLM_request 类进行请求
+        # 使用 LLMRequest 类进行请求
         try:
             topic, _, _ = await self.llm_topic_judge.generate_response(prompt)
         except Exception as e:

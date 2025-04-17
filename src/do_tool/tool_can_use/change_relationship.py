@@ -1,4 +1,6 @@
 # from src.plugins.person_info.relationship_manager import relationship_manager
+from typing import Dict, Any
+
 from src.common.logger import get_module_logger
 from src.do_tool.tool_can_use.base_tool import BaseTool
 # from src.plugins.chat_module.think_flow_chat.think_flow_generator import ResponseGenerator
@@ -20,22 +22,20 @@ class RelationshipTool(BaseTool):
         "required": ["text", "changed_value", "reason"],
     }
 
-    async def execute(self, args: dict, message_txt: str) -> dict:
+    async def execute(self, function_args: Dict[str, Any], message_txt: str = "") -> dict:
         """执行工具功能
 
         Args:
-            args: 包含工具参数的字典
-            text: 原始消息文本
-            changed_value: 变更值
-            reason: 变更原因
+            function_args: 包含工具参数的字典
+            message_txt: 原始消息文本
 
         Returns:
             dict: 包含执行结果的字典
         """
         try:
-            text = args.get("text")
-            changed_value = args.get("changed_value")
-            reason = args.get("reason")
+            text = function_args.get("text")
+            changed_value = function_args.get("changed_value")
+            reason = function_args.get("reason")
 
             return {"content": f"因为你刚刚因为{reason}，所以你和发[{text}]这条消息的人的关系值变化为{changed_value}"}
 

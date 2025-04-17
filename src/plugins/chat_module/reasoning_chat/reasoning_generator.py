@@ -69,8 +69,6 @@ class ResponseGenerator:
             return None
 
     async def _generate_response_with_model(self, message: MessageThinking, model: LLMRequest, thinking_id: str):
-        sender_name = ""
-
         info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
 
         if message.chat_stream.user_info.user_cardname and message.chat_stream.user_info.user_nickname:
@@ -188,7 +186,8 @@ class ResponseGenerator:
             logger.debug(f"获取情感标签时出错: {e}")
             return "中立", "平静"  # 出错时返回默认值
 
-    async def _process_response(self, content: str) -> Tuple[List[str], List[str]]:
+    @staticmethod
+    async def _process_response(content: str) -> Tuple[List[str], List[str]]:
         """处理响应内容，返回处理后的内容和情感标签"""
         if not content:
             return None, []

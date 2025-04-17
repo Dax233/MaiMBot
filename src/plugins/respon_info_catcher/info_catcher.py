@@ -100,7 +100,8 @@ class InfoCatcher:
             self.trigger_response_message, first_bot_msg
         )
 
-    def get_message_from_db_between_msgs(self, message_start: Message, message_end: Message):
+    @staticmethod
+    def get_message_from_db_between_msgs(message_start: Message, message_end: Message):
         try:
             # 从数据库中获取消息的时间戳
             time_start = message_start.message_info.time
@@ -155,7 +156,8 @@ class InfoCatcher:
 
         return result
 
-    def message_to_dict(self, message):
+    @staticmethod
+    def message_to_dict(message):
         if not message:
             return None
         if isinstance(message, dict):

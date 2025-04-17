@@ -236,7 +236,8 @@ class ResponseGenerator:
             logger.debug(f"获取情感标签时出错: {e}")
             return "中立", "平静"  # 出错时返回默认值
 
-    async def _process_response(self, content: str) -> List[str]:
+    @staticmethod
+    async def _process_response(content: str) -> List[str]:
         """处理响应内容，返回处理后的内容和情感标签"""
         if not content:
             return None

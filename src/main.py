@@ -131,14 +131,16 @@ class MainSystem:
             ]
             await asyncio.gather(*tasks)
 
-    async def build_memory_task(self):
+    @staticmethod
+    async def build_memory_task():
         """记忆构建任务"""
         while True:
             await asyncio.sleep(global_config.build_memory_interval)
             logger.info("正在进行记忆构建")
             await HippocampusManager.get_instance().build_memory()
 
-    async def forget_memory_task(self):
+    @staticmethod
+    async def forget_memory_task():
         """记忆遗忘任务"""
         while True:
             await asyncio.sleep(global_config.forget_memory_interval)
@@ -152,7 +154,8 @@ class MainSystem:
             self.mood_manager.print_mood_status()
             await asyncio.sleep(30)
 
-    async def remove_recalled_message_task(self):
+    @staticmethod
+    async def remove_recalled_message_task():
         """删除撤回消息任务"""
         while True:
             try:

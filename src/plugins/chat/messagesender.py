@@ -35,7 +35,8 @@ class MessageSender:
         """设置当前bot实例"""
         pass
 
-    def get_recalled_messages(self, stream_id: str) -> list:
+    @staticmethod
+    def get_recalled_messages(stream_id: str) -> list:
         """获取所有撤回的消息"""
         recalled_messages = []
 
@@ -43,7 +44,8 @@ class MessageSender:
         # 按thinking_start_time排序，时间早的在前面
         return recalled_messages
 
-    async def send_via_ws(self, message: MessageSending) -> None:
+    @staticmethod
+    async def send_via_ws(message: MessageSending) -> None:
         try:
             await global_api.send_message(message)
         except Exception as e:

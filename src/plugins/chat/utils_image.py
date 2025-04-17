@@ -38,7 +38,8 @@ class ImageManager:
         """确保图像存储目录存在"""
         os.makedirs(self.IMAGE_DIR, exist_ok=True)
 
-    def _ensure_image_collection(self):
+    @staticmethod
+    def _ensure_image_collection():
         """确保images集合存在并创建索引"""
         if "images" not in db.list_collection_names():
             db.create_collection("images")
@@ -50,7 +51,8 @@ class ImageManager:
         db.images.create_index([("url", 1)])
         db.images.create_index([("path", 1)])
 
-    def _ensure_description_collection(self):
+    @staticmethod
+    def _ensure_description_collection():
         """确保image_descriptions集合存在并创建索引"""
         if "image_descriptions" not in db.list_collection_names():
             db.create_collection("image_descriptions")
@@ -60,7 +62,8 @@ class ImageManager:
         # 创建新的复合索引
         db.image_descriptions.create_index([("hash", 1), ("type", 1)], unique=True)
 
-    def _get_description_from_db(self, image_hash: str, description_type: str) -> Optional[str]:
+    @staticmethod
+    def _get_description_from_db(image_hash: str, description_type: str) -> Optional[str]:
         """从数据库获取图片描述
 
         Args:
@@ -73,7 +76,8 @@ class ImageManager:
         result = db.image_descriptions.find_one({"hash": image_hash, "type": description_type})
         return result["description"] if result else None
 
-    def _save_description_to_db(self, image_hash: str, description: str, description_type: str) -> None:
+    @staticmethod
+    def _save_description_to_db(image_hash: str, description: str, description_type: str) -> None:
         """保存图片描述到数据库
 
         Args:
@@ -226,7 +230,8 @@ class ImageManager:
             logger.error(f"获取图片描述失败: {str(e)}")
             return "[图片]"
 
-    def transform_gif(self, gif_base64: str) -> str:
+    @staticmethod
+    def transform_gif(gif_base64: str) -> str:
         """将GIF转换为水平拼接的静态图像
 
         Args:

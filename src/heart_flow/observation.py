@@ -161,7 +161,8 @@ class ChattingObservation(Observation):
         # print(f"prompt：{prompt}")
         # print(f"self.observe_info：{self.observe_info}")
 
-    def translate_message_list_to_str(self, talking_message):
+    @staticmethod
+    def translate_message_list_to_str(talking_message):
         talking_message_str = ""
         for message in talking_message:
             talking_message_str += message["detailed_plain_text"]

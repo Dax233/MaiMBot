@@ -31,7 +31,7 @@ class Message(MessageBase):
     def __init__(
         self,
         message_id: str,
-        time: float,
+        timestamp: float,
         chat_stream: ChatStream,
         user_info: UserInfo,
         message_segment: Optional[Seg] = None,
@@ -43,7 +43,7 @@ class Message(MessageBase):
         message_info = BaseMessageInfo(
             platform=chat_stream.platform,
             message_id=message_id,
-            time=time,
+            time=timestamp,
             group_info=chat_stream.group_info,
             user_info=user_info,
         )
@@ -143,7 +143,7 @@ class MessageRecv(Message):
     def _generate_detailed_text(self) -> str:
         """生成详细文本，包含时间和用户信息"""
         # time_str = time.strftime("%m-%d %H:%M:%S", time.localtime(self.message_info.time))
-        time = self.message_info.time
+        timestamp = self.message_info.time
         user_info = self.message_info.user_info
         # name = (
         #     f"{user_info.user_nickname}(ta的昵称:{user_info.user_cardname},ta的id:{user_info.user_id})"
@@ -151,7 +151,7 @@ class MessageRecv(Message):
         #     else f"{user_info.user_nickname}(ta的id:{user_info.user_id})"
         # )
         name = f"<{self.message_info.platform}:{user_info.user_id}:{user_info.user_nickname}:{user_info.user_cardname}>"
-        return f"[{time}] {name}: {self.processed_plain_text}\n"
+        return f"[{timestamp}] {name}: {self.processed_plain_text}\n"
 
 
 @dataclass
@@ -170,7 +170,7 @@ class MessageProcessBase(Message):
         # 调用父类初始化
         super().__init__(
             message_id=message_id,
-            time=round(time.time(), 3),  # 保留3位小数
+            timestamp=round(time.time(), 3),  # 保留3位小数
             chat_stream=chat_stream,
             user_info=bot_user_info,
             message_segment=message_segment,
@@ -242,7 +242,7 @@ class MessageProcessBase(Message):
     def _generate_detailed_text(self) -> str:
         """生成详细文本，包含时间和用户信息"""
         # time_str = time.strftime("%m-%d %H:%M:%S", time.localtime(self.message_info.time))
-        time = self.message_info.time
+        timestamp = self.message_info.time
         user_info = self.message_info.user_info
         # name = (
         #     f"{user_info.user_nickname}(ta的昵称:{user_info.user_cardname},ta的id:{user_info.user_id})"
@@ -250,7 +250,7 @@ class MessageProcessBase(Message):
         #     else f"{user_info.user_nickname}(ta的id:{user_info.user_id})"
         # )
         name = f"<{self.message_info.platform}:{user_info.user_id}:{user_info.user_nickname}:{user_info.user_cardname}>"
-        return f"[{time}] {name}: {self.processed_plain_text}\n"
+        return f"[{timestamp}] {name}: {self.processed_plain_text}\n"
 
 
 @dataclass

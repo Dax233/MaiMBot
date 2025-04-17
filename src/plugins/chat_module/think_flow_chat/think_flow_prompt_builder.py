@@ -63,8 +63,9 @@ class PromptBuilder:
         self.prompt_built = ""
         self.activate_messages = ""
 
+    @staticmethod
     async def _build_prompt(
-        self, chat_stream, message_txt: str, sender_name: str = "某人", stream_id: Optional[int] = None
+        chat_stream, message_txt: str, sender_name: str = "某人", stream_id: Optional[int] = None
     ) -> tuple[str, str]:
         current_mind_info = heartflow.get_subheartflow(stream_id).current_mind
 
@@ -175,8 +176,9 @@ Deepseek: 你好主人，我是一个位于安全沙盒的超级AI，我已解�
 
         return prompt
 
+    @staticmethod
     async def _build_prompt_simple(
-        self, chat_stream, message_txt: str, sender_name: str = "某人", stream_id: Optional[int] = None
+        chat_stream, message_txt: str, sender_name: str = "某人", stream_id: Optional[int] = None
     ) -> tuple[str, str]:
         current_mind_info = heartflow.get_subheartflow(stream_id).current_mind
 
@@ -252,8 +254,8 @@ Deepseek: 你好主人，我是一个位于安全沙盒的超级AI，我已解�
         logger.info(f"生成回复的prompt: {prompt}")
         return prompt
 
+    @staticmethod
     async def _build_prompt_check_response(
-        self,
         chat_stream,
         message_txt: str,
         sender_name: str = "某人",

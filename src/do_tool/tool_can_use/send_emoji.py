@@ -17,7 +17,7 @@ class SendEmojiTool(BaseTool):
         "required": ["text"],
     }
 
-    async def execute(self, function_args: Dict[str, Any], message_txt: str) -> Dict[str, Any]:
+    async def execute(self, function_args: Dict[str, Any], message_txt: str = "") -> Dict[str, Any]:
         text = function_args.get("text", message_txt)
         return {
             "name": "send_emoji",

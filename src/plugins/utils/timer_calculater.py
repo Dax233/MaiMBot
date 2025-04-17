@@ -90,7 +90,8 @@ class Timer:
         self.auto_unit = auto_unit
         self.start = None
 
-    def _validate_types(self, name, storage):
+    @staticmethod
+    def _validate_types(name, storage):
         """类型检查"""
         if name is not None and not isinstance(name, str):
             raise TimerTypeError("name", "Optional[str]", type(name))

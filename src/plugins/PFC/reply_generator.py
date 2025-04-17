@@ -30,11 +30,8 @@ class ReplyGenerator:
         """生成回复
 
         Args:
-            goal: 对话目标
-            chat_history: 聊天历史
-            knowledge_cache: 知识缓存
-            previous_reply: 上一次生成的回复（如果有）
-            retry_count: 当前重试次数
+            observation_info: 观察信息
+            conversation_info: 对话信息
 
         Returns:
             str: 生成的回复

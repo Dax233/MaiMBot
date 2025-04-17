@@ -62,7 +62,7 @@ class RelationshipManager:
     def mood_feedback(self, value):
         """情绪反馈"""
         mood_manager = self.mood_manager
-        mood_gain = (mood_manager.get_current_mood().valence) ** 2 * math.copysign(
+        mood_gain = mood_manager.get_current_mood().valence ** 2 * math.copysign(
             1, value * mood_manager.get_current_mood().valence
         )
         value += value * mood_gain
@@ -77,24 +77,27 @@ class RelationshipManager:
         else:
             return mood_value / coefficient
 
-    async def is_known_some_one(self, platform, user_id):
+    @staticmethod
+    async def is_known_some_one(platform, user_id):
         """判断是否认识某人"""
         is_known = person_info_manager.is_person_known(platform, user_id)
         return is_known
 
-    async def is_qved_name(self, platform, user_id):
+    @staticmethod
+    async def is_qved_name(platform, user_id):
         """判断是否认识某人"""
         person_id = person_info_manager.get_person_id(platform, user_id)
         is_qved = await person_info_manager.has_one_field(person_id, "person_name")
         old_name = await person_info_manager.get_value(person_id, "person_name")
         print(f"old_name: {old_name}")
         print(f"is_qved: {is_qved}")
-        if is_qved and old_name != None:
+        if is_qved and old_name is not None:
             return True
         else:
             return False
 
-    async def first_knowing_some_one(self, platform, user_id, user_nickname, user_cardname, user_avatar):
+    @staticmethod
+    async def first_knowing_some_one(platform, user_id, user_nickname, user_cardname, user_avatar):
         """判断是否认识某人"""
         person_id = person_info_manager.get_person_id(platform, user_id)
         await person_info_manager.update_one_field(person_id, "nickname", user_nickname)
@@ -102,7 +105,8 @@ class RelationshipManager:
         # await person_info_manager.update_one_field(person_id, "user_avatar", user_avatar)
         await person_info_manager.qv_person_name(person_id, user_nickname, user_cardname, user_avatar)
 
-    async def convert_all_person_sign_to_person_name(self, input_text: str):
+    @staticmethod
+    async def convert_all_person_sign_to_person_name(input_text: str):
         """将所有人的<platform:user_id:nickname:cardname>格式转换为person_name"""
         try:
             # 使用正则表达式匹配<platform:user_id:nickname:cardname>格式
@@ -119,7 +123,7 @@ class RelationshipManager:
                 person_name = nickname.strip() if nickname.strip() else cardname.strip()
 
                 if person_id in all_person:
-                    if all_person[person_id] != None:
+                    if all_person[person_id] is not None:
                         person_name = all_person[person_id]
 
                     print(f"将<{platform}:{user_id}:{nickname}:{cardname}>替换为{person_name}")
@@ -326,7 +330,8 @@ class RelationshipManager:
             f"回复态度为{relation_prompt2_list[level_num]}，关系等级为{level_num}。"
         )
 
-    def calculate_level_num(self, relationship_value) -> int:
+    @staticmethod
+    def calculate_level_num(relationship_value) -> int:
         """关系等级计算"""
         if -1000 <= relationship_value < -227:
             level_num = 0
@@ -344,7 +349,8 @@ class RelationshipManager:
             level_num = 5 if relationship_value > 1000 else 0
         return level_num
 
-    def ensure_float(self, value, person_id):
+    @staticmethod
+    def ensure_float(value, person_id):
         """确保返回浮点数，转换失败返回0.0"""
         if isinstance(value, float):
             return value

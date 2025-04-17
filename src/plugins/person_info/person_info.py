@@ -72,7 +72,8 @@ class PersonInfoManager:
                 self.person_name_list[doc["person_id"]] = doc["person_name"]
         logger.debug(f"已加载 {len(self.person_name_list)} 个用户名称")
 
-    def get_person_id(self, platform: str, user_id: int):
+    @staticmethod
+    def get_person_id(platform: str, user_id: int):
         """获取唯一id"""
         # 如果platform中存在-，就截取-后面的部分
         if "-" in platform:
@@ -91,7 +92,8 @@ class PersonInfoManager:
         else:
             return False
 
-    async def create_person_info(self, person_id: str, data: dict = None):
+    @staticmethod
+    async def create_person_info(person_id: str, data: dict = None):
         """创建一个项"""
         if not person_id:
             logger.debug("创建失败，personid不存在")
@@ -131,7 +133,8 @@ class PersonInfoManager:
         else:
             return False
 
-    def _extract_json_from_text(self, text: str) -> dict:
+    @staticmethod
+    def _extract_json_from_text(text: str) -> dict:
         """从文本中提取JSON数据的高容错方法"""
         try:
             # 尝试直接解析
@@ -225,7 +228,8 @@ class PersonInfoManager:
         logger.error(f"在{max_retries}次尝试后仍未能生成唯一昵称")
         return None
 
-    async def del_one_document(self, person_id: str):
+    @staticmethod
+    async def del_one_document(person_id: str):
         """删除指定 person_id 的文档"""
         if not person_id:
             logger.debug("删除失败：person_id 不能为空")
@@ -237,7 +241,8 @@ class PersonInfoManager:
         else:
             logger.debug(f"删除失败：未找到 person_id={person_id}")
 
-    async def get_value(self, person_id: str, field_name: str):
+    @staticmethod
+    async def get_value(person_id: str, field_name: str):
         """获取指定person_id文档的字段值，若不存在该字段，则返回该字段的全局默认值"""
         if not person_id:
             logger.debug("get_value获取失败：person_id不能为空")
@@ -256,7 +261,8 @@ class PersonInfoManager:
             logger.trace(f"获取{person_id}的{field_name}失败，已返回默认值{default_value}")
             return default_value
 
-    async def get_values(self, person_id: str, field_names: list) -> dict:
+    @staticmethod
+    async def get_values(person_id: str, field_names: list) -> dict:
         """获取指定person_id文档的多个字段值，若不存在该字段，则返回该字段的全局默认值"""
         if not person_id:
             logger.debug("get_values获取失败：person_id不能为空")
@@ -281,7 +287,8 @@ class PersonInfoManager:
 
         return result
 
-    async def del_all_undefined_field(self):
+    @staticmethod
+    async def del_all_undefined_field():
         """删除所有项里的未定义字段"""
         # 获取所有已定义的字段名
         defined_fields = set(person_info_default.keys())
@@ -307,8 +314,8 @@ class PersonInfoManager:
             logger.error(f"清理未定义字段时出错: {e}")
             return
 
+    @staticmethod
     async def get_specific_value_list(
-        self,
         field_name: str,
         way: Callable[[Any], bool],  # 接受任意类型值
     ) -> Dict[str, Any]:
@@ -354,7 +361,7 @@ class PersonInfoManager:
         """启动个人信息推断，每天根据一定条件推断一次"""
         try:
             while 1:
-                await asyncio.sleep(60)
+                await asyncio.sleep(600)
                 current_time = datetime.datetime.now()
                 logger.info(f"个人信息推断启动: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
 

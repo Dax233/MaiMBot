@@ -35,12 +35,14 @@ class KnowledgeLibrary:
         """确保必要的目录存在"""
         os.makedirs(self.raw_info_dir, exist_ok=True)
 
-    def read_file(self, file_path: str) -> str:
+    @staticmethod
+    def read_file(file_path: str) -> str:
         """读取文件内容"""
         with open(file_path, "r", encoding="utf-8") as f:
             return f.read()
 
-    def split_content(self, content: str, max_length: int = 512) -> list:
+    @staticmethod
+    def split_content(content: str, max_length: int = 512) -> list:
         """将内容分割成适当大小的块，按空行分割
 
         Args:
@@ -146,7 +148,8 @@ class KnowledgeLibrary:
 
         return result
 
-    def _update_stats(self, total_stats, result, filename):
+    @staticmethod
+    def _update_stats(total_stats, result, filename):
         """更新总体统计信息"""
         if result["status"] == "success":
             total_stats["processed_files"] += 1
@@ -181,7 +184,8 @@ class KnowledgeLibrary:
             for filename in stats["skipped_files"]:
                 self.console.print(f"[yellow]- {filename}[/yellow]")
 
-    def calculate_file_hash(self, file_path):
+    @staticmethod
+    def calculate_file_hash(file_path):
         """计算文件的MD5哈希值"""
         hash_md5 = hashlib.md5()
         with open(file_path, "rb") as f:

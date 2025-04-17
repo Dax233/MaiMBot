@@ -103,7 +103,8 @@ class ChatManager:
             except Exception as e:
                 logger.error(f"聊天流自动保存失败: {str(e)}")
 
-    def _ensure_collection(self):
+    @staticmethod
+    def _ensure_collection():
         """确保数据库集合存在并创建索引"""
         if "chat_streams" not in db.list_collection_names():
             db.create_collection("chat_streams")
@@ -111,7 +112,8 @@ class ChatManager:
             db.chat_streams.create_index([("stream_id", 1)], unique=True)
             db.chat_streams.create_index([("platform", 1), ("user_info.user_id", 1), ("group_info.group_id", 1)])
 
-    def _generate_stream_id(self, platform: str, user_info: UserInfo, group_info: Optional[GroupInfo] = None) -> str:
+    @staticmethod
+    def _generate_stream_id(platform: str, user_info: UserInfo, group_info: Optional[GroupInfo] = None) -> str:
         """生成聊天流唯一ID"""
         if group_info:
             # 组合关键信息
@@ -188,7 +190,8 @@ class ChatManager:
         stream_id = self._generate_stream_id(platform, user_info, group_info)
         return self.streams.get(stream_id)
 
-    async def _save_stream(self, stream: ChatStream):
+    @staticmethod
+    async def _save_stream(stream: ChatStream):
         """保存聊天流到数据库"""
         if not stream.saved:
             db.chat_streams.update_one({"stream_id": stream.stream_id}, {"$set": stream.to_dict()}, upsert=True)

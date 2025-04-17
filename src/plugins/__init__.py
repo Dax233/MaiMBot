@@ -17,6 +17,5 @@ __all__ = [
     "relationship_manager",
     "MoodManager",
     "willing_manager",
-    "hippocampus",
     "bot_schedule",
 ]

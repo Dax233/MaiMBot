@@ -23,13 +23,12 @@ class ChangeMoodTool(BaseTool):
         "required": ["text", "response_set"],
     }
 
-    async def execute(self, function_args: Dict[str, Any], message_txt: str) -> Dict[str, Any]:
+    async def execute(self, function_args: Dict[str, Any], message_txt: str = "") -> Dict[str, Any]:
         """执行心情改变
 
         Args:
             function_args: 工具参数
-            message_processed_plain_text: 原始消息文本
-            response_set: 原始消息文本
+            message_txt: 原始消息文本
 
         Returns:
             Dict: 工具执行结果

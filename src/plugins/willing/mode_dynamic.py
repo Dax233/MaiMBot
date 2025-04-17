@@ -234,4 +234,3 @@ class DynamicWillingManager(BaseWillingManager):
 
     async def after_generate_reply_handle(self, message_id):
         return await super().after_generate_reply_handle(message_id)
-

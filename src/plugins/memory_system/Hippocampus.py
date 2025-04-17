@@ -4,6 +4,8 @@ import math
 import random
 import time
 import re
+from itertools import combinations
+
 import jieba
 import networkx as nx
 import numpy as np
@@ -250,7 +252,8 @@ class Hippocampus:
         """获取记忆图中所有节点的名字列表"""
         return list(self.memory_graph.G.nodes())
 
-    def calculate_node_hash(self, concept, memory_items) -> int:
+    @staticmethod
+    def calculate_node_hash(concept, memory_items) -> int:
         """计算节点的特征值"""
         if not isinstance(memory_items, list):
             memory_items = [memory_items] if memory_items else []
@@ -258,12 +261,14 @@ class Hippocampus:
         content = f"{concept}:{'|'.join(sorted_items)}"
         return hash(content)
 
-    def calculate_edge_hash(self, source, target) -> int:
+    @staticmethod
+    def calculate_edge_hash(source, target) -> int:
         """计算边的特征值"""
         nodes = sorted([source, target])
         return hash(f"{nodes[0]}:{nodes[1]}")
 
-    def find_topic_llm(self, text, topic_num):
+    @staticmethod
+    def find_topic_llm(text, topic_num):
         prompt = (
             f"这是一段文字：{text}。请你从这段话中总结出最多{topic_num}个关键的概念，可以是名词，动词，或者特定人物，帮我列出来，"
             f"将主题用逗号隔开，并加上<>,例如<主题1>,<主题2>......尽可能精简。只需要列举最多{topic_num}个话题就好，不要有序号，不要告诉我其他内容。"
@@ -271,14 +276,16 @@ class Hippocampus:
         )
         return prompt
 
-    def topic_what(self, text, topic, time_info):
+    @staticmethod
+    def topic_what(text, topic, time_info):
         prompt = (
             f'这是一段文字，{time_info}：{text}。我想让你基于这段文字来概括"{topic}"这个概念，帮我总结成一句自然的话，'
             f"可以包含时间和人物，以及具体的观点。只输出这句话就好"
         )
         return prompt
 
-    def calculate_topic_num(self, text, compress_rate):
+    @staticmethod
+    def calculate_topic_num(text, compress_rate):
         """计算文本的话题数量"""
         information_content = calculate_information_content(text)
         topic_by_length = text.count("\n") * compress_rate
@@ -693,7 +700,8 @@ class EntorhinalCortex:
 
         return chat_samples
 
-    def random_get_msg_snippet(self, target_timestamp: float, chat_size: int, max_memorized_time_per_msg: int) -> list:
+    @staticmethod
+    def random_get_msg_snippet(target_timestamp: float, chat_size: int, max_memorized_time_per_msg: int) -> list:
         """从数据库中随机获取指定时间戳附近的消息片段"""
         try_count = 0
         while try_count < 3:
@@ -958,7 +966,8 @@ class Hippocampus:
         """获取记忆图中所有节点的名字列表"""
         return list(self.memory_graph.G.nodes())
 
-    def calculate_node_hash(self, concept, memory_items) -> int:
+    @staticmethod
+    def calculate_node_hash(concept, memory_items) -> int:
         """计算节点的特征值"""
         if not isinstance(memory_items, list):
             memory_items = [memory_items] if memory_items else []
@@ -966,12 +975,14 @@ class Hippocampus:
         content = f"{concept}:{'|'.join(sorted_items)}"
         return hash(content)
 
-    def calculate_edge_hash(self, source, target) -> int:
+    @staticmethod
+    def calculate_edge_hash(source, target) -> int:
         """计算边的特征值"""
         nodes = sorted([source, target])
         return hash(f"{nodes[0]}:{nodes[1]}")
 
-    def find_topic_llm(self, text, topic_num):
+    @staticmethod
+    def find_topic_llm(text, topic_num):
         prompt = (
             f"这是一段文字：{text}。请你从这段话中总结出最多{topic_num}个关键的概念，可以是名词，动词，或者特定人物，帮我列出来，"
             f"将主题用逗号隔开，并加上<>,例如<主题1>,<主题2>......尽可能精简。只需要列举最多{topic_num}个话题就好，不要有序号，不要告诉我其他内容。"
@@ -979,14 +990,16 @@ class Hippocampus:
         )
         return prompt
 
-    def topic_what(self, text, topic, time_info):
+    @staticmethod
+    def topic_what(text, topic, time_info):
         prompt = (
             f'这是一段文字，{time_info}：{text}。我想让你基于这段文字来概括"{topic}"这个概念，帮我总结成一句自然的话，'
             f"可以包含时间和人物，以及具体的观点。只输出这句话就好"
         )
         return prompt
 
-    def calculate_topic_num(self, text, compress_rate):
+    @staticmethod
+    def calculate_topic_num(text, compress_rate):
         """计算文本的话题数量"""
         information_content = calculate_information_content(text)
         topic_by_length = text.count("\n") * compress_rate
@@ -1542,11 +1555,10 @@ class ParahippocampalGyrus:
                                 last_modified=current_time,
                             )
 
-            for i in range(len(all_topics)):
-                for j in range(i + 1, len(all_topics)):
-                    logger.debug(f"连接同批次节点: {all_topics[i]} 和 {all_topics[j]}")
-                    all_added_edges.append(f"{all_topics[i]}-{all_topics[j]}")
-                    self.memory_graph.connect_dot(all_topics[i], all_topics[j])
+            for topic1, topic2 in combinations(all_topics, 2):
+                logger.debug(f"连接同批次节点: {topic1} 和 {topic2}")
+                all_added_edges.append(f"{topic1}-{topic2}")
+                self.memory_graph.connect_dot(topic1, topic2)
 
         logger.success(f"更新记忆: {', '.join(all_added_nodes)}")
         logger.debug(f"强化连接: {', '.join(all_added_edges)}")

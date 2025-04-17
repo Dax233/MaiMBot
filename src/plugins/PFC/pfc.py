@@ -160,16 +160,16 @@ class GoalAnalyzer:
                 # 返回第一个目标作为当前主要目标（如果有）
                 if result:
                     first_goal = result[0]
-                    return (first_goal.get("goal", ""), "", first_goal.get("reasoning", ""))
+                    return first_goal.get("goal", ""), "", first_goal.get("reasoning", "")
             else:
                 # 单个目标的情况
                 goal = result.get("goal", "")
                 reasoning = result.get("reasoning", "")
                 conversation_info.goal_list.append((goal, reasoning))
-                return (goal, "", reasoning)
+                return goal, "", reasoning
 
         # 如果解析失败，返回默认值
-        return ("", "", "")
+        return "", "", ""
 
     async def _update_goals(self, new_goal: str, method: str, reasoning: str):
         """更新目标列表
@@ -195,7 +195,8 @@ class GoalAnalyzer:
         if len(self.goals) > self.max_goals:
             self.goals.pop()  # 移除最老的目标
 
-    def _calculate_similarity(self, goal1: str, goal2: str) -> float:
+    @staticmethod
+    def _calculate_similarity(goal1: str, goal2: str) -> float:
         """简单计算两个目标之间的相似度
 
         这里使用一个简单的实现，实际可以使用更复杂的文本相似度算法
@@ -299,7 +300,8 @@ class DirectMessageSender:
         self.logger = get_module_logger("direct_sender")
         self.storage = MessageStorage()
 
-    async def send_via_ws(self, message: MessageSending) -> None:
+    @staticmethod
+    async def send_via_ws(message: MessageSending) -> None:
         try:
             await global_api.send_message(message)
         except Exception as e:

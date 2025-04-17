@@ -77,7 +77,8 @@ class ChineseTypoGenerator:
 
         return normalized_freq
 
-    def _create_pinyin_dict(self):
+    @staticmethod
+    def _create_pinyin_dict():
         """
         创建拼音到汉字的映射字典
         """
@@ -95,7 +96,8 @@ class ChineseTypoGenerator:
 
         return pinyin_dict
 
-    def _is_chinese_char(self, char):
+    @staticmethod
+    def _is_chinese_char(char):
         """
         判断是否为汉字
         """
@@ -124,7 +126,8 @@ class ChineseTypoGenerator:
 
         return result
 
-    def _get_similar_tone_pinyin(self, py):
+    @staticmethod
+    def _get_similar_tone_pinyin(py):
         """
         获取相似声调的拼音
         """
@@ -211,13 +214,15 @@ class ChineseTypoGenerator:
         # 返回概率最高的几个字
         return [char for char, _ in candidates_with_prob[:num_candidates]]
 
-    def _get_word_pinyin(self, word):
+    @staticmethod
+    def _get_word_pinyin(word):
         """
         获取词语的拼音列表
         """
         return [py[0] for py in pinyin(word, style=Style.TONE3)]
 
-    def _segment_sentence(self, sentence):
+    @staticmethod
+    def _segment_sentence(sentence):
         """
         使用jieba分词，返回词语列表
         """
@@ -392,7 +397,8 @@ class ChineseTypoGenerator:
 
         return "".join(result), correction_suggestion
 
-    def format_typo_info(self, typo_info):
+    @staticmethod
+    def format_typo_info(typo_info):
         """
         格式化错别字信息
 

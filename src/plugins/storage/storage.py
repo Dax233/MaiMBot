@@ -10,7 +10,8 @@ logger = get_module_logger("message_storage")
 
 
 class MessageStorage:
-    async def store_message(self, message: Union[MessageSending, MessageRecv], chat_stream: ChatStream) -> None:
+    @staticmethod
+    async def store_message(message: Union[MessageSending, MessageRecv], chat_stream: ChatStream) -> None:
         """存储消息到数据库"""
         try:
             # 莫越权 救世啊
@@ -43,7 +44,8 @@ class MessageStorage:
         except Exception:
             logger.exception("存储消息失败")
 
-    async def store_recalled_message(self, message_id: str, time: str, chat_stream: ChatStream) -> None:
+    @staticmethod
+    async def store_recalled_message(message_id: str, time: str, chat_stream: ChatStream) -> None:
         """存储撤回消息到数据库"""
         if "recalled_messages" not in db.list_collection_names():
             db.create_collection("recalled_messages")
@@ -58,7 +60,8 @@ class MessageStorage:
             except Exception:
                 logger.exception("存储撤回消息失败")
 
-    async def remove_recalled_message(self, time: str) -> None:
+    @staticmethod
+    async def remove_recalled_message(time: str) -> None:
         """删除撤回消息"""
         try:
             db.recalled_messages.delete_many({"time": {"$lt": time - 300}})

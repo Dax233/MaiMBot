@@ -105,7 +105,8 @@ class Heartflow:
         # 启动子心流更新任务
         asyncio.create_task(self._sub_heartflow_update())
 
-    async def _update_current_state(self):
+    @staticmethod
+    async def _update_current_state():
         print("TODO")
 
     async def do_a_thinking(self):

@@ -10,13 +10,16 @@ llmcheck 模式：
 目前的使用方式是拓展到其他意愿管理模式
 
 """
+
 import time
 from loguru import logger
-from ..models.utils_model import LLM_request
+from ..models.utils_model import LLMRequest
 from ...config.config import global_config
-from ..chat.chat_stream import ChatStream
+
+# from ..chat.chat_stream import ChatStream
 from ..chat.utils import get_recent_group_detailed_plain_text
-from .willing_manager import BaseWillingManager
+
+# from .willing_manager import BaseWillingManager
 from .mode_mxp import MxpWillingManager
 import re
 from functools import wraps
@@ -28,17 +31,16 @@ def is_continuous_chat(self, message_id: str):
     chat_id = willing_info.chat_id
     group_info = willing_info.group_info
     config = self.global_config
-    length = 5 
+    length = 5
     if chat_id:
-        chat_talking_text = get_recent_group_detailed_plain_text(
-            chat_id, limit=length, combine=True
-        )
+        chat_talking_text = get_recent_group_detailed_plain_text(chat_id, limit=length, combine=True)
         if group_info:
             if str(config.BOT_QQ) in chat_talking_text:
                 return True
             else:
                 return False
     return False
+
 
 def llmcheck_decorator(trigger_condition_func):
     def decorator(func):
@@ -50,17 +52,16 @@ def llmcheck_decorator(trigger_condition_func):
             else:
                 # 不满足条件，走默认流程
                 return func(self, message_id)
+
         return wrapper
+
     return decorator
 
 
 class LlmcheckWillingManager(MxpWillingManager):
-
     def __init__(self):
         super().__init__()
-        self.model_v3 = LLM_request(model=global_config.llm_normal, temperature=0.3)
-
-
+        self.model_v3 = LLMRequest(model=global_config.llm_normal, temperature=0.3)
 
     async def get_llmreply_probability(self, message_id: str):
         message_info = self.ongoing_messages[message_id]
@@ -77,9 +78,7 @@ class LlmcheckWillingManager(MxpWillingManager):
         current_time = time.strftime("%H:%M:%S", time.localtime())
         chat_talking_prompt = ""
         if chat_id:
-            chat_talking_prompt = get_recent_group_detailed_plain_text(
-                chat_id, limit=length, combine=True
-            )
+            chat_talking_prompt = get_recent_group_detailed_plain_text(chat_id, limit=length, combine=True)
         else:
             return 0
 
@@ -100,7 +99,7 @@ class LlmcheckWillingManager(MxpWillingManager):
         logger.info(f"{content_check} {reasoning_check}")
         probability = self.extract_marked_probability(content_check)
         # 兴趣系数修正 无关激活效率太高，暂时停用，待新记忆系统上线后调整
-        probability += (message_info.interested_rate * 0.25)
+        probability += message_info.interested_rate * 0.25
         probability = min(1.0, probability)
         if probability <= 0.1:
             probability = min(0.03, probability)
@@ -117,24 +116,24 @@ class LlmcheckWillingManager(MxpWillingManager):
     def extract_marked_probability(text):
         """提取带标记的概率值 该方法主要用于测试微调prompt阶段"""
         text = text.strip()
-        pattern = r'##PROBABILITY_START##(.*?)##PROBABILITY_END##'
+        pattern = r"##PROBABILITY_START##(.*?)##PROBABILITY_END##"
         match = re.search(pattern, text, re.DOTALL)
         if match:
             prob_str = match.group(1).strip()
             # 处理百分比（65% → 0.65）
-            if '%' in prob_str:
-                return float(prob_str.replace('%', '')) / 100
+            if "%" in prob_str:
+                return float(prob_str.replace("%", "")) / 100
             # 处理分数（2/3 → 0.666...）
-            elif '/' in prob_str:
-                numerator, denominator = map(float, prob_str.split('/'))
+            elif "/" in prob_str:
+                numerator, denominator = map(float, prob_str.split("/"))
                 return numerator / denominator
             # 直接处理小数
             else:
                 return float(prob_str)
 
-        percent_match = re.search(r'(\d{1,3})%', text)  # 65%
-        decimal_match = re.search(r'(0\.\d+|1\.0+)', text)  # 0.65
-        fraction_match = re.search(r'(\d+)/(\d+)', text)  # 2/3
+        percent_match = re.search(r"(\d{1,3})%", text)  # 65%
+        decimal_match = re.search(r"(0\.\d+|1\.0+)", text)  # 0.65
+        fraction_match = re.search(r"(\d+)/(\d+)", text)  # 2/3
         try:
             if percent_match:
                 prob = float(percent_match.group(1)) / 100
@@ -155,6 +154,4 @@ class LlmcheckWillingManager(MxpWillingManager):
 
     @llmcheck_decorator(is_continuous_chat)
     def get_reply_probability(self, message_id):
-        return super().get_reply_probability(
-            message_id
-        )
+        return super().get_reply_probability(message_id)

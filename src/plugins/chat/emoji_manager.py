@@ -82,7 +82,8 @@ class EmojiManager:
         if not self._initialized:
             raise RuntimeError("EmojiManager not initialized")
 
-    def _ensure_emoji_collection(self):
+    @staticmethod
+    def _ensure_emoji_collection():
         """确保emoji集合存在并创建索引
 
         这个函数用于确保MongoDB数据库中存在emoji集合,并创建必要的索引。
@@ -193,7 +194,8 @@ class EmojiManager:
             logger.error(f"[错误] 获取表情包失败: {str(e)}")
             return None
 
-    async def _get_emoji_description(self, image_base64: str) -> str:
+    @staticmethod
+    async def _get_emoji_description(image_base64: str) -> str:
         """获取表情包的标签，使用image_manager的描述生成功能"""
 
         try:
@@ -554,7 +556,8 @@ class EmojiManager:
                     self.check_emoji_file_full()
             await asyncio.sleep(global_config.EMOJI_CHECK_INTERVAL * 60)
 
-    async def delete_all_images(self):
+    @staticmethod
+    async def delete_all_images():
         """删除 data/image 目录下的所有文件"""
         try:
             image_dir = os.path.join("data", "image")

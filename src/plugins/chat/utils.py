@@ -135,7 +135,7 @@ async def get_recent_group_messages(chat_id: str, limit: int = 12) -> list:
             msg = Message(
                 message_id=msg_data["message_id"],
                 chat_stream=chat_stream,
-                time=msg_data["time"],
+                timestamp=msg_data["time"],
                 user_info=user_info,
                 processed_plain_text=msg_data.get("processed_text", ""),
                 detailed_plain_text=msg_data.get("detailed_plain_text", ""),
@@ -352,13 +352,13 @@ def process_llm_response(text: str) -> List[str]:
     # 提取被 () 或 [] 包裹的内容
     pattern = re.compile(r"[\(\[\（].*?[\)\]\）]")
     # _extracted_contents = pattern.findall(text)
-    _extracted_contents = pattern.findall(protected_text) # 在保护后的文本上查找
+    _extracted_contents = pattern.findall(protected_text)  # 在保护后的文本上查找
 
     # 去除 () 和 [] 及其包裹的内容
     # cleaned_text = pattern.sub("", text)
     cleaned_text = pattern.sub("", protected_text)
-    
-    if cleaned_text == '':
+
+    if cleaned_text == "":
         return ["呃呃"]
 
     logger.debug(f"{text}去除括号处理后的文本: {cleaned_text}")
@@ -736,19 +736,19 @@ def parse_text_timestamps(text: str, mode: str = "normal") -> str:
     # normal模式: 直接转换所有时间戳
     if mode == "normal":
         result_text = text
-        
+
         # 将时间戳转换为可读格式并记录相同格式的时间戳
         timestamp_readable_map = {}
         readable_time_used = set()
-        
+
         for match in matches:
             timestamp = float(match.group(1))
             readable_time = translate_timestamp_to_human_readable(timestamp, "normal")
             timestamp_readable_map[match.group(0)] = (timestamp, readable_time)
-        
+
         # 按时间戳排序
         sorted_timestamps = sorted(timestamp_readable_map.items(), key=lambda x: x[1][0])
-        
+
         # 执行替换，相同格式的只保留最早的
         for ts_str, (_, readable) in sorted_timestamps:
             pattern_instance = re.escape(ts_str)
@@ -759,7 +759,7 @@ def parse_text_timestamps(text: str, mode: str = "normal") -> str:
                 # 否则替换为可读时间并记录
                 result_text = re.sub(pattern_instance, readable, result_text, count=1)
                 readable_time_used.add(readable)
-        
+
         return result_text
     else:
         # lite模式: 按5秒间隔划分并选择性转换
@@ -820,21 +820,21 @@ def parse_text_timestamps(text: str, mode: str = "normal") -> str:
 
         # 按照时间戳升序排序
         to_convert.sort(key=lambda x: x[0])
-        
+
         # 将时间戳转换为可读时间并记录哪些可读时间已经使用过
         converted_timestamps = []
         readable_time_used = set()
-        
+
         for ts, match in to_convert:
             readable_time = translate_timestamp_to_human_readable(ts, "relative")
             converted_timestamps.append((ts, match, readable_time))
-        
+
         # 按照时间戳原始顺序排序，避免替换时位置错误
         converted_timestamps.sort(key=lambda x: x[1].start())
-        
+
         # 从后向前替换，避免位置改变
         converted_timestamps.reverse()
-        for ts, match, readable_time in converted_timestamps:
+        for match, readable_time in converted_timestamps:
             pattern_instance = re.escape(match.group(0))
             if readable_time in readable_time_used:
                 # 如果相同格式的时间已存在，替换为空字符串

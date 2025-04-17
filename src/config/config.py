@@ -130,9 +130,6 @@ def update_config():
     logger.info("配置文件更新完成")
 
 
-logger = get_module_logger("config")
-
-
 @dataclass
 class BotConfig:
     """机器人配置类"""
@@ -283,21 +280,6 @@ class BotConfig:
     llm_observation: Dict[str, str] = field(default_factory=lambda: {})
     llm_sub_heartflow: Dict[str, str] = field(default_factory=lambda: {})
     llm_heartflow: Dict[str, str] = field(default_factory=lambda: {})
-
-    build_memory_interval: int = 600  # 记忆构建间隔（秒）
-
-    forget_memory_interval: int = 600  # 记忆遗忘间隔（秒）
-    memory_forget_time: int = 24  # 记忆遗忘时间（小时）
-    memory_forget_percentage: float = 0.01  # 记忆遗忘比例
-    memory_compress_rate: float = 0.1  # 记忆压缩率
-    build_memory_sample_num: int = 10  # 记忆构建采样数量
-    build_memory_sample_length: int = 20  # 记忆构建采样长度
-    memory_build_distribution: list = field(
-        default_factory=lambda: [4, 2, 0.6, 24, 8, 0.4]
-    )  # 记忆构建分布，参数：分布1均值，标准差，权重，分布2均值，标准差，权重
-    memory_ban_words: list = field(
-        default_factory=lambda: ["表情包", "图片", "回复", "聊天记录"]
-    )  # 添加新的配置项默认值
 
     api_urls: Dict[str, str] = field(default_factory=lambda: {})
 

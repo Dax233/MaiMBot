@@ -13,7 +13,8 @@ class MessageProcessor:
     def __init__(self):
         self.storage = MessageStorage()
 
-    def _check_ban_words(self, text: str, chat, userinfo) -> bool:
+    @staticmethod
+    def _check_ban_words(text: str, chat, userinfo) -> bool:
         """检查消息中是否包含过滤词"""
         for word in global_config.ban_words:
             if word in text:
@@ -24,7 +25,8 @@ class MessageProcessor:
                 return True
         return False
 
-    def _check_ban_regex(self, text: str, chat, userinfo) -> bool:
+    @staticmethod
+    def _check_ban_regex(text: str, chat, userinfo) -> bool:
         """检查消息是否匹配过滤正则表达式"""
         for pattern in global_config.ban_msgs_regex:
             if pattern.search(text):
