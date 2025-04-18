@@ -834,7 +834,8 @@ def parse_text_timestamps(text: str, mode: str = "normal") -> str:
 
         # 从后向前替换，避免位置改变
         converted_timestamps.reverse()
-        for ts, match, readable_time in converted_timestamps:
+        converted_timestamps = np.delete(converted_timestamps,0,1)
+        for match, readable_time in converted_timestamps:
             pattern_instance = re.escape(match.group(0))
             if readable_time in readable_time_used:
                 # 如果相同格式的时间已存在，替换为空字符串
