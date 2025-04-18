@@ -10,7 +10,7 @@ from .think_flow_generator import ResponseGenerator
 from ...chat.message import MessageSending, MessageRecv, MessageThinking, MessageSet
 from ...chat.messagesender import message_manager
 from ...storage.storage import MessageStorage
-from ...chat.utils import is_mentioned_bot_in_message, get_recent_group_detailed_plain_text
+from ...chat.utils import is_mentioned_bot_in_message
 from ...chat.utils_image import image_path_to_base64
 from ...willing.willing_manager import willing_manager
 from ...message import UserInfo, Seg
@@ -391,21 +391,21 @@ class ThinkFlowChat:
                     logger.error(f"心流处理表情包失败: {e}")
 
                 # 思考后脑内状态更新
-                try:
-                    with Timer("思考后脑内状态更新", timing_results):
-                        stream_id = message.chat_stream.stream_id
-                        chat_talking_prompt = ""
-                        if stream_id:
-                            chat_talking_prompt = get_recent_group_detailed_plain_text(
-                                stream_id, limit=global_config.MAX_CONTEXT_SIZE, combine=True
-                            )
+                # try:
+                #     with Timer("思考后脑内状态更新", timing_results):
+                #         stream_id = message.chat_stream.stream_id
+                #         chat_talking_prompt = ""
+                #         if stream_id:
+                #             chat_talking_prompt = get_recent_group_detailed_plain_text(
+                #                 stream_id, limit=global_config.MAX_CONTEXT_SIZE, combine=True
+                #             )
 
-                        await heartflow.get_subheartflow(stream_id).do_thinking_after_reply(
-                            response_set, chat_talking_prompt, tool_result_info
-                        )
-                except Exception as e:
-                    logger.error(f"心流思考后脑内状态更新失败: {e}")
-                    logger.error(traceback.format_exc())
+                #         await heartflow.get_subheartflow(stream_id).do_thinking_after_reply(
+                #             response_set, chat_talking_prompt, tool_result_info
+                #         )
+                # except Exception as e:
+                #     logger.error(f"心流思考后脑内状态更新失败: {e}")
+                #     logger.error(traceback.format_exc())
 
                 # 回复后处理
                 await willing_manager.after_generate_reply_handle(message.message_info.message_id)

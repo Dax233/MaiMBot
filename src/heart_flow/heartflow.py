@@ -263,6 +263,10 @@ class Heartflow:
         """获取指定ID的SubHeartflow实例"""
         return self._subheartflows.get(observe_chat_id)
 
+    def get_all_subheartflows_streams_ids(self) -> list[Any]:
+        """获取当前所有活跃的子心流的 ID 列表"""
+        return list(self._subheartflows.keys())
+
 
 init_prompt()
 # 创建一个全局的管理器实例

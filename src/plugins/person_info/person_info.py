@@ -373,6 +373,7 @@ class PersonInfoManager:
                     "msg_interval_list", lambda x: isinstance(x, list) and len(x) >= 100
                 )
                 for person_id, msg_interval_list_ in msg_interval_lists.items():
+                    await asyncio.sleep(0.3)
                     try:
                         time_interval = []
                         for t1, t2 in zip(msg_interval_list_, msg_interval_list_[1:]):
