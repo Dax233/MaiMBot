@@ -85,7 +85,7 @@ class LlmcheckWillingManager(MxpWillingManager):
         # if is_mentioned_bot:
         #     return 1.0
         prompt = f"""
-        假设你正在查看一个群聊，你在这个群聊里的网名叫{global_config.BOT_NICKNAME}，你还有很多别名: {"/".join(global_config.BOT_ALIAS_NAMES)}，
+        假设你正在查看一个群聊，你在这个群聊里的名字叫{global_config.BOT_NICKNAME}，你还有很多别名: {"/".join(global_config.BOT_ALIAS_NAMES)}，
         现在群里聊天的内容是{chat_talking_prompt}，
         今天是{current_date}，现在是{current_time}。
         综合群内的氛围和你自己之前的发言，给出你认为**最新的消息**需要你回复的概率，数值在0到1之间。请注意，群聊内容杂乱，很多时候对话连续，但很可能不是在和你说话。
