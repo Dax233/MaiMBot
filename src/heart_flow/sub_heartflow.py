@@ -310,7 +310,7 @@ class SubHeartflow:
         # mood_info = "你很生气，很愤怒"
         observation = self.observations[0]
         if obs_id:
-            print(f"11111111111有id,开始获取观察信息{obs_id}")
+            # print(f"11111111111有id,开始获取观察信息{obs_id}")
             chat_observe_info = observation.get_observe_info(obs_id)
         else:
             chat_observe_info = observation.get_observe_info()
