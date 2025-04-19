@@ -713,7 +713,7 @@ class PFChatting:
 
     def _build_planner_prompt(self, observed_messages: List[dict], current_mind: Optional[str]) -> str:
         """构建 Planner LLM 的提示词 (现在包含 current_mind)"""
-        prompt = f"你的名字是 {global_config.BOT_NICKNAME}。是一个女大二学生，正在QQ聊天，正在决定是否以及如何回应当前的聊天。\n"
+        prompt = f"你的名字是 {global_config.BOT_NICKNAME}。正在QQ聊天，正在决定是否以及如何回应当前的聊天。\n"
 
         # Add current mind state if available
         if current_mind:
