@@ -4,7 +4,7 @@ from typing import List, Optional
 from ...models.utils_model import LLMRequest
 from ....config.config import global_config
 from ...chat.message import MessageRecv
-from .heartFC__prompt_builder import prompt_builder
+from .heartFC_prompt_builder import prompt_builder
 from ...chat.utils import process_llm_response
 from src.common.logger import get_module_logger, LogConfig, LLM_STYLE_CONFIG
 from src.plugins.respon_info_catcher.info_catcher import info_catcher_manager
@@ -74,16 +74,6 @@ class ResponseGenerator:
         sender_name = ""
 
         info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
-
-        # if message.chat_stream.user_info.user_cardname and message.chat_stream.user_info.user_nickname:
-        #     sender_name = (
-        #         f"[({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}]"
-        #         f"{message.chat_stream.user_info.user_cardname}"
-        #     )
-        # elif message.chat_stream.user_info.user_nickname:
-        #     sender_name = f"({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}"
-        # else:
-        #     sender_name = f"用户({message.chat_stream.user_info.user_id})"
 
         sender_name = f"<{message.chat_stream.user_info.platform}:{message.chat_stream.user_info.user_id}:{message.chat_stream.user_info.user_nickname}:{message.chat_stream.user_info.user_cardname}>"
 

@@ -6,6 +6,7 @@ from src.config.config import global_config
 from src.common.database import db
 from src.common.logger import get_module_logger
 import traceback
+import asyncio
 
 logger = get_module_logger("observation")
 
@@ -265,6 +266,19 @@ response_language = "Recommand Chinese"
         logger.trace(
             f"Chat {self.chat_id} - 压缩早期记忆：{self.mid_memory_info}\n现在聊天内容：{self.now_message_info}"
         )
+
+    async def has_new_messages_since(self, timestamp: float) -> bool:
+        """检查指定时间戳之后是否有新消息"""
+        try:
+            # 只需检查是否存在，不需要获取内容，使用 {"_id": 1} 提高效率
+            new_message = await asyncio.to_thread(
+                db.messages.find_one, {"chat_id": self.chat_id, "time": {"$gt": timestamp}}, {"_id": 1}
+            )
+            # new_message = db.messages.find_one({"chat_id": self.chat_id, "time": {"$gt": timestamp}}, {"_id": 1}) # find_one 不是异步的
+            return new_message is not None
+        except Exception as e:
+            logger.error(f"检查新消息时出错 for chat {self.chat_id} since {timestamp}: {e}")
+            return False
 
     @staticmethod
     def translate_message_list_to_str(talking_message):

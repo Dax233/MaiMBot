@@ -1,5 +1,5 @@
 [inner]
-version = "1.3.0"
+version = "1.3.1"
 
 
 #以下是给开发人员阅读的，一般用户不需要阅读
@@ -68,9 +68,8 @@ nonebot-qq="http://127.0.0.1:18002/api/message"
 
 [response] #群聊的回复策略
 #reasoning：推理模式，麦麦会根据上下文进行推理，并给出回复
-#heart_flow：心流模式，麦麦会根据上下文产生想法，并给出回复（不推荐）
-#heart_FC：结合了PFC模式和心流模式，麦麦会进行主动的观察和回复，并给出回复
-response_mode = "heart_FC" # 回复策略，可选值：heart_flow（心流），reasoning（推理），heart_FC（心流FC）
+#heart_flow：结合了PFC模式和心流模式，麦麦会进行主动的观察和回复，并给出回复
+response_mode = "heart_flow" # 回复策略，可选值：heart_flow（心流），reasoning（推理)
 
 #推理回复参数
 model_r1_probability = 0.7 # 麦麦回答时选择主要回复模型1 模型的概率

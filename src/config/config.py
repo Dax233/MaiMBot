@@ -138,7 +138,7 @@ class BotConfig:
     MAI_VERSION: str = mai_version  # 硬编码的版本信息
 
     # bot
-    BOT_QQ: Optional[int] = 114514
+    BOT_QQ: Optional[str] = "114514"
     BOT_NICKNAME: Optional[str] = None
     BOT_ALIAS_NAMES: List[str] = field(default_factory=list)  # 别名，可以通过这个叫它
 
@@ -395,7 +395,7 @@ class BotConfig:
             # 机器人基础配置
             bot_config = parent["bot"]
             bot_qq = bot_config.get("qq")
-            config.BOT_QQ = int(bot_qq)
+            config.BOT_QQ = str(bot_qq)
             config.BOT_NICKNAME = bot_config.get("nickname", config.BOT_NICKNAME)
             config.BOT_ALIAS_NAMES = bot_config.get("alias_names", config.BOT_ALIAS_NAMES)
 
@@ -624,9 +624,14 @@ class BotConfig:
 
         def groups(parent: dict):
             groups_config = parent["groups"]
-            config.talk_allowed_groups = set(groups_config.get("talk_allowed", []))
-            config.talk_frequency_down_groups = set(groups_config.get("talk_frequency_down", []))
-            config.ban_user_id = set(groups_config.get("ban_user_id", []))
+            # config.talk_allowed_groups = set(groups_config.get("talk_allowed", []))
+            config.talk_allowed_groups = set(str(group) for group in groups_config.get("talk_allowed", []))
+            # config.talk_frequency_down_groups = set(groups_config.get("talk_frequency_down", []))
+            config.talk_frequency_down_groups = set(
+                str(group) for group in groups_config.get("talk_frequency_down", [])
+            )
+            # config.ban_user_id = set(groups_config.get("ban_user_id", []))
+            config.ban_user_id = set(str(user) for user in groups_config.get("ban_user_id", []))
 
         def platforms(parent: dict):
             platforms_config = parent["platforms"]

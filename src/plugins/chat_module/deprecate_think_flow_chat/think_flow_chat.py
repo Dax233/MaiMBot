@@ -375,17 +375,21 @@ class ThinkFlowChat:
                 info_catcher.done_catch()
 
                 # 处理表情包
-                try:
-                    with Timer("处理表情包", timing_results):
-                        if global_config.emoji_chance == 1:
-                            if send_emoji:
-                                logger.info(f"麦麦决定发送表情包{send_emoji}")
-                                await self._handle_emoji(message, chat, response_set, send_emoji)
-                        else:
-                            if random() < global_config.emoji_chance:
-                                await self._handle_emoji(message, chat, response_set)
-                except Exception as e:
-                    logger.error(f"心流处理表情包失败: {e}")
+                if (
+                    message.message_info.format_info.accept_format is not None
+                    and "emoji" in message.message_info.format_info.accept_format
+                ):
+                    try:
+                        with Timer("处理表情包", timing_results):
+                            if global_config.emoji_chance == 1:
+                                if send_emoji:
+                                    logger.info(f"麦麦决定发送表情包{send_emoji}")
+                                    await self._handle_emoji(message, chat, response_set, send_emoji)
+                            else:
+                                if random() < global_config.emoji_chance:
+                                    await self._handle_emoji(message, chat, response_set)
+                    except Exception as e:
+                        logger.error(f"心流处理表情包失败: {e}")
 
                 # 思考后脑内状态更新
                 # try:

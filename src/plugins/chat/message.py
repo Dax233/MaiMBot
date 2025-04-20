@@ -244,13 +244,9 @@ class MessageProcessBase(Message):
         # time_str = time.strftime("%m-%d %H:%M:%S", time.localtime(self.message_info.time))
         timestamp = self.message_info.time
         user_info = self.message_info.user_info
-        # name = (
-        #     f"{user_info.user_nickname}(ta的昵称:{user_info.user_cardname},ta的id:{user_info.user_id})"
-        #     if user_info.user_cardname != None
-        #     else f"{user_info.user_nickname}(ta的id:{user_info.user_id})"
-        # )
+
         name = f"<{self.message_info.platform}:{user_info.user_id}:{user_info.user_nickname}:{user_info.user_cardname}>"
-        return f"[{timestamp}] {name}: {self.processed_plain_text}\n"
+        return f"[{timestamp}]，{name} 说：{self.processed_plain_text}\n"
 
 
 @dataclass
@@ -313,17 +309,21 @@ class MessageSending(MessageProcessBase):
 
     def set_reply(self, reply: Optional["MessageRecv"] = None) -> None:
         """设置回复消息"""
-        if reply:
-            self.reply = reply
-        if self.reply:
-            self.reply_to_message_id = self.reply.message_info.message_id
-            self.message_segment = Seg(
-                type="seglist",
-                data=[
-                    Seg(type="reply", data=self.reply.message_info.message_id),
-                    self.message_segment,
-                ],
-            )
+        if (
+            self.message_info.format_info.accept_format is not None
+            and "reply" in self.message_info.format_info.accept_format
+        ):
+            if reply:
+                self.reply = reply
+            if self.reply:
+                self.reply_to_message_id = self.reply.message_info.message_id
+                self.message_segment = Seg(
+                    type="seglist",
+                    data=[
+                        Seg(type="reply", data=self.reply.message_info.message_id),
+                        self.message_segment,
+                    ],
+                )
         return self
 
     async def process(self) -> None:

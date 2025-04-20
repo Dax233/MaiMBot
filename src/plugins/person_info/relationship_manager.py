@@ -126,7 +126,7 @@ class RelationshipManager:
                     if all_person[person_id] is not None:
                         person_name = all_person[person_id]
 
-                    print(f"将<{platform}:{user_id}:{nickname}:{cardname}>替换为{person_name}")
+                    # print(f"将<{platform}:{user_id}:{nickname}:{cardname}>替换为{person_name}")
 
                 result_text = result_text.replace(f"<{platform}:{user_id}:{nickname}:{cardname}>", person_name)
 

@@ -91,9 +91,9 @@
 - 项目处于活跃开发阶段，功能和API可能随时调整
 
 ### 💬交流群（开发和建议相关讨论）不一定有空回复，会优先写文档和代码
+- [一群](https://qm.qq.com/q/VQ3XZrWgMs) 766798517 
+- [二群](https://qm.qq.com/q/RzmCiRtHEW) 571780722
 - [五群](https://qm.qq.com/q/JxvHZnxyec) 1022489779
-- [一群](https://qm.qq.com/q/VQ3XZrWgMs) 766798517 【已满】
-- [二群](https://qm.qq.com/q/RzmCiRtHEW) 571780722【已满】
 - [三群](https://qm.qq.com/q/wlH5eT8OmQ) 1035228475【已满】
 - [四群](https://qm.qq.com/q/wlH5eT8OmQ) 729957033【已满】
 

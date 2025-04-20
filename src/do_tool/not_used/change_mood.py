@@ -2,7 +2,6 @@ from src.do_tool.tool_can_use.base_tool import BaseTool
 from src.config.config import global_config
 from src.common.logger import get_module_logger
 from src.plugins.moods.moods import MoodManager
-from src.plugins.chat_module.think_flow_chat.think_flow_generator import ResponseGenerator
 
 from typing import Dict, Any
 
@@ -35,16 +34,17 @@ class ChangeMoodTool(BaseTool):
         """
         try:
             response_set = function_args.get("response_set")
-            message_processed_plain_text = function_args.get("text")
+            _message_processed_plain_text = function_args.get("text")
 
             mood_manager = MoodManager.get_instance()
-            gpt = ResponseGenerator()
+            # gpt = ResponseGenerator()
 
             if response_set is None:
                 response_set = ["你还没有回复"]
 
-            ori_response = ",".join(response_set)
-            _stance, emotion = await gpt._get_emotion_tags(ori_response, message_processed_plain_text)
+            _ori_response = ",".join(response_set)
+            # _stance, emotion = await gpt._get_emotion_tags(ori_response, message_processed_plain_text)
+            emotion = "平静"
             mood_manager.update_mood_from_emotion(emotion, global_config.mood_intensity_factor)
             return {"name": "change_mood", "content": f"你的心情刚刚变化了，现在的心情是: {emotion}"}
         except Exception as e:

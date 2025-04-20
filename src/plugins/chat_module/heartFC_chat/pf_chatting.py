@@ -3,18 +3,16 @@ import time
 import traceback
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
 import json
-
-from ....config.config import global_config
-from ...chat.message import MessageRecv, BaseMessageInfo, MessageThinking, MessageSending
-from ...chat.chat_stream import ChatStream
-from ...message import UserInfo
+from src.plugins.chat.message import MessageRecv, BaseMessageInfo, MessageThinking, MessageSending
+from src.plugins.chat.message import MessageSet, Seg  # Local import needed after move
+from src.plugins.chat.chat_stream import ChatStream
+from src.plugins.chat.message import UserInfo
 from src.heart_flow.heartflow import heartflow, SubHeartflow
 from src.plugins.chat.chat_stream import chat_manager
-from .messagesender import MessageManager
 from src.common.logger import get_module_logger, LogConfig, DEFAULT_CONFIG  # 引入 DEFAULT_CONFIG
 from src.plugins.models.utils_model import LLMRequest
 from src.plugins.chat.utils import parse_text_timestamps
-from src.plugins.person_info.relationship_manager import relationship_manager
+from src.plugins.chat.utils_image import image_path_to_base64  # Local import needed after move
 
 # 定义日志配置 (使用 loguru 格式)
 interest_log_config = LogConfig(
@@ -26,7 +24,7 @@ logger = get_module_logger("PFChattingLoop", config=interest_log_config)  # Logg
 
 # Forward declaration for type hinting
 if TYPE_CHECKING:
-    from .heartFC_chat import HeartFC_Chat
+    from .heartFC_controler import HeartFC_Controller
 
 PLANNER_TOOL_DEFINITION = [
     {
@@ -57,20 +55,20 @@ PLANNER_TOOL_DEFINITION = [
 
 class PFChatting:
     """
-    Manages a continuous Plan-Filter-Check (now Plan-Replier-Sender) loop
-    for generating replies within a specific chat stream, controlled by a timer.
-    The loop runs as long as the timer > 0.
+    管理一个连续的Plan-Filter-Check (现在改为Plan-Replier-Sender)循环
+    用于在特定聊天流中生成回复，由计时器控制。
+    只要计时器>0，循环就会继续。
     """
 
-    def __init__(self, chat_id: str, heartfc_chat_instance: "HeartFC_Chat"):
+    def __init__(self, chat_id: str, heartfc_controller_instance: "HeartFC_Controller"):
         """
         初始化PFChatting实例。
 
         Args:
             chat_id: The identifier for the chat stream (e.g., stream_id).
-            heartfc_chat_instance: 访问共享资源和方法的主HeartFC_Chat实例。
+            heartfc_controller_instance: 访问共享资源和方法的主HeartFC_Controller实例。
         """
-        self.heartfc_chat = heartfc_chat_instance  # 访问logger, gpt, tool_user, _send_response_messages等。
+        self.heartfc_controller = heartfc_controller_instance  # Store the controller instance
         self.stream_id: str = chat_id
         self.chat_stream: Optional[ChatStream] = None
         self.sub_hf: Optional[SubHeartflow] = None
@@ -79,9 +77,10 @@ class PFChatting:
         self._processing_lock = asyncio.Lock()  # 确保只有一个 Plan-Replier-Sender 周期在运行
         self._timer_lock = asyncio.Lock()  # 用于安全更新计时器
 
+        # Access LLM config through the controller
         self.planner_llm = LLMRequest(
-            model=global_config.llm_normal,
-            temperature=global_config.llm_normal["temp"],
+            model=self.heartfc_controller.global_config.llm_normal,
+            temperature=self.heartfc_controller.global_config.llm_normal["temp"],
             max_tokens=1000,
             request_type="action_planning",
         )
@@ -91,11 +90,8 @@ class PFChatting:
         self._loop_active: bool = False  # Is the loop currently running?
         self._loop_task: Optional[asyncio.Task] = None  # Stores the main loop task
         self._trigger_count_this_activation: int = 0  # Counts triggers within an active period
-        self._initial_duration: float = 30.0  # 首次触发增加的时间
+        self._initial_duration: float = 60.0  # 首次触发增加的时间
         self._last_added_duration: float = self._initial_duration  # <--- 新增：存储上次增加的时间
-
-        # Removed pending_replies as processing is now serial within the loop
-        # self.pending_replies: Dict[str, PendingReply] = {}
 
     def _get_log_prefix(self) -> str:
         """获取日志前缀，包含可读的流名称"""
@@ -118,12 +114,9 @@ class PFChatting:
                     logger.error(f"{log_prefix} 获取ChatStream失败。")
                     return False
 
-                # 子心流(SubHeartflow)可能初始不存在但后续会被创建
-                # 在需要它的方法中应优雅处理其可能缺失的情况
                 self.sub_hf = heartflow.get_subheartflow(self.stream_id)
                 if not self.sub_hf:
                     logger.warning(f"{log_prefix} 获取SubHeartflow失败。一些功能可能受限。")
-                    # 决定是否继续初始化。目前允许初始化。
 
                 self._initialized = True
                 logger.info(f"麦麦感觉到了，激发了PFChatting{log_prefix} 初始化成功。")
@@ -156,24 +149,24 @@ class PFChatting:
             else:  # Loop is already active, apply 50% reduction
                 self._trigger_count_this_activation += 1
                 duration_to_add = self._last_added_duration * 0.5
-                if duration_to_add < 0.5:
-                    duration_to_add = 0.5
-                    self._last_added_duration = duration_to_add  # 更新上次增加的值
-                else:
-                    self._last_added_duration = duration_to_add  # 更新上次增加的值
-                    logger.info(
-                        f"{log_prefix} 麦麦兴趣增加！ #{self._trigger_count_this_activation}. 想继续聊： {duration_to_add:.2f}s,麦麦还能聊： {self._loop_timer:.1f}s."
-                    )
+                if duration_to_add < 1.5:
+                    duration_to_add = 1.5
+                # Update _last_added_duration only if it's >= 0.5 to prevent it from becoming too small
+                self._last_added_duration = duration_to_add
+                logger.info(
+                    f"{log_prefix} 麦麦兴趣增加！ #{self._trigger_count_this_activation}. 想继续聊： {duration_to_add:.2f}s, 麦麦还能聊： {self._loop_timer:.1f}s."
+                )
 
             # 添加计算出的时间
             new_timer_value = self._loop_timer + duration_to_add
+            # Add max timer duration limit? e.g., max(0, min(new_timer_value, 300))
             self._loop_timer = max(0, new_timer_value)
-            if self._loop_timer % 5 == 0:
-                logger.info(f"{log_prefix} 麦麦现在想聊{self._loop_timer:.1f}秒")
+            # Log less frequently, e.g., every 10 seconds or significant change?
+            # if self._trigger_count_this_activation % 5 == 0:
+            # logger.info(f"{log_prefix} 麦麦现在想聊{self._loop_timer:.1f}秒")
 
             # Start the loop if it wasn't active and timer is positive
             if not self._loop_active and self._loop_timer > 0:
-                # logger.info(f"{log_prefix} 麦麦有兴趣！开始聊天")
                 self._loop_active = True
                 if self._loop_task and not self._loop_task.done():
                     logger.warning(f"{log_prefix} 发现意外的循环任务正在进行。取消它。")
@@ -188,219 +181,269 @@ class PFChatting:
         """当 _run_pf_loop 任务完成时执行的回调。"""
         log_prefix = self._get_log_prefix()
         try:
-            # Check if the task raised an exception
             exception = task.exception()
             if exception:
-                logger.error(f"{log_prefix} PFChatting: 麦麦脱离了聊天(异常)")
-                logger.error(traceback.format_exc())
+                logger.error(f"{log_prefix} PFChatting: 麦麦脱离了聊天(异常): {exception}")
+                logger.error(traceback.format_exc())  # Log full traceback for exceptions
             else:
-                logger.debug(f"{log_prefix} PFChatting: 麦麦脱离了聊天")
+                logger.debug(f"{log_prefix} PFChatting: 麦麦脱离了聊天 (正常完成)")
         except asyncio.CancelledError:
-            logger.info(f"{log_prefix} PFChatting: 麦麦脱离了聊天(异常取消)")
+            logger.info(f"{log_prefix} PFChatting: 麦麦脱离了聊天(任务取消)")
         finally:
-            # Reset state regardless of how the task finished
             self._loop_active = False
             self._loop_task = None
-            self._last_added_duration = self._initial_duration  # <--- 重置下次首次触发的增加时间
-            self._trigger_count_this_activation = 0  # 重置计数器
-            # Ensure lock is released if the loop somehow exited while holding it
+            self._last_added_duration = self._initial_duration
+            self._trigger_count_this_activation = 0
             if self._processing_lock.locked():
-                logger.warning(f"{log_prefix} PFChatting: 锁没有正常释放")
+                logger.warning(f"{log_prefix} PFChatting: 处理锁在循环结束时仍被锁定，强制释放。")
                 self._processing_lock.release()
+            # Remove instance from controller's dict? Only if it's truly done.
+            # Consider if loop can be restarted vs instance destroyed.
+            # asyncio.create_task(self.heartfc_controller._remove_pf_chatting_instance(self.stream_id)) # Example cleanup
 
     async def _run_pf_loop(self):
         """
         主循环，当计时器>0时持续进行计划并可能回复消息
         管理每个循环周期的处理锁
         """
-        logger.info(f"{self._get_log_prefix()} PFChatting: 麦麦打算好好聊聊")
+        log_prefix = self._get_log_prefix()
+        logger.info(f"{log_prefix} PFChatting: 麦麦打算好好聊聊 (定时器: {self._loop_timer:.1f}s)")
         try:
+            thinking_id = ""
             while True:
-                # 使用计时器锁安全地检查当前计时器值
+                if self.heartfc_controller.MessageManager().check_if_sending_message_exist(self.stream_id, thinking_id):
+                    logger.info(f"{log_prefix} PFChatting: 11111111111111111111111111111111麦麦还在发消息，等会再规划")
+                    await asyncio.sleep(1)
+                    continue
+                else:
+                    logger.info(f"{log_prefix} PFChatting: 11111111111111111111111111111111麦麦不发消息了，开始规划")
+
                 async with self._timer_lock:
                     current_timer = self._loop_timer
                     if current_timer <= 0:
                         logger.info(
-                            f"{self._get_log_prefix()} PFChatting: 聊太久了，麦麦打算休息一下(已经聊了{current_timer:.1f}秒)，退出PFChatting"
+                            f"{log_prefix} PFChatting: 聊太久了，麦麦打算休息一下 (计时器为 {current_timer:.1f}s)。退出PFChatting。"
                         )
-                        break  # 退出条件：计时器到期
+                        break
 
-                # 记录循环开始时间
+                # 记录循环周期开始时间，用于计时和休眠计算
                 loop_cycle_start_time = time.monotonic()
-                # 标记本周期是否执行了操作
                 action_taken_this_cycle = False
-
-                # 获取处理锁，确保每个计划-回复-发送周期独占执行
                 acquired_lock = False
+                planner_start_db_time = 0.0  # 初始化
+
                 try:
+                    # Use try_acquire pattern or timeout?
                     await self._processing_lock.acquire()
                     acquired_lock = True
-                    # logger.debug(f"{self._get_log_prefix()} PFChatting: 循环获取到处理锁")
+                    logger.debug(f"{log_prefix} PFChatting: 循环获取到处理锁")
 
-                    # --- Planner ---
-                    # Planner decides action, reasoning, emoji_query, etc.
-                    planner_result = await self._planner()  # Modify planner to return decision dict
+                    # 在规划前记录数据库时间戳
+                    planner_start_db_time = time.time()
+
+                    # --- Planner --- #
+                    planner_result = await self._planner()
                     action = planner_result.get("action", "error")
                     reasoning = planner_result.get("reasoning", "Planner did not provide reasoning.")
                     emoji_query = planner_result.get("emoji_query", "")
-                    current_mind = planner_result.get("current_mind", "[Mind unavailable]")
-                    send_emoji_from_tools = planner_result.get("send_emoji_from_tools", "")
-                    observed_messages = planner_result.get("observed_messages", [])  # Planner needs to return this
+                    # current_mind = planner_result.get("current_mind", "[Mind unavailable]")
+                    # send_emoji_from_tools = planner_result.get("send_emoji_from_tools", "") # Emoji from tools
+                    observed_messages = planner_result.get("observed_messages", [])
+                    llm_error = planner_result.get("llm_error", False)
 
-                    if action == "text_reply":
-                        logger.info(f"{self._get_log_prefix()} PFChatting: 麦麦决定回复文本.")
+                    if llm_error:
+                        logger.error(f"{log_prefix} Planner LLM 失败，跳过本周期回复尝试。理由: {reasoning}")
+                        # Optionally add a longer sleep?
+                        action_taken_this_cycle = False  # Ensure no action is counted
+                        # Continue to timer decrement and sleep
+
+                    elif action == "text_reply":
+                        logger.info(f"{log_prefix} PFChatting: 麦麦决定回复文本. 理由: {reasoning}")
                         action_taken_this_cycle = True
-                        # --- 回复器 ---
                         anchor_message = await self._get_anchor_message(observed_messages)
                         if not anchor_message:
-                            logger.error(f"{self._get_log_prefix()} 循环: 无法获取锚点消息用于回复. 跳过周期.")
+                            logger.error(f"{log_prefix} 循环: 无法获取锚点消息用于回复. 跳过周期.")
                         else:
-                            thinking_id = await self.heartfc_chat._create_thinking_message(anchor_message)
+                            # --- Create Thinking Message (Moved) ---
+                            thinking_id = await self._create_thinking_message(anchor_message)
                             if not thinking_id:
-                                logger.error(f"{self._get_log_prefix()} 循环: 无法创建思考ID. 跳过周期.")
+                                logger.error(f"{log_prefix} 循环: 无法创建思考ID. 跳过周期.")
                             else:
                                 replier_result = None
                                 try:
-                                    # 直接 await 回复器工作
+                                    # --- Replier Work --- #
                                     replier_result = await self._replier_work(
-                                        observed_messages=observed_messages,
                                         anchor_message=anchor_message,
                                         thinking_id=thinking_id,
-                                        current_mind=current_mind,
-                                        send_emoji=send_emoji_from_tools,
                                     )
                                 except Exception as e_replier:
-                                    logger.error(f"{self._get_log_prefix()} 循环: 回复器工作失败: {e_replier}")
-                                    self._cleanup_thinking_message(thinking_id)  # 清理思考消息
-                                    # 继续循环, 视为非操作周期
+                                    logger.error(f"{log_prefix} 循环: 回复器工作失败: {e_replier}")
+                                    self._cleanup_thinking_message(thinking_id)
 
                                 if replier_result:
-                                    # --- Sender ---
+                                    # --- Sender Work --- #
                                     try:
-                                        await self._sender(thinking_id, anchor_message, replier_result)
-                                        logger.info(f"{self._get_log_prefix()} 循环: 发送器完成成功.")
+                                        await self._sender(
+                                            thinking_id=thinking_id,
+                                            anchor_message=anchor_message,
+                                            response_set=replier_result,
+                                            send_emoji=emoji_query,
+                                        )
+                                        # logger.info(f"{log_prefix} 循环: 发送器完成成功.")
                                     except Exception as e_sender:
-                                        logger.error(f"{self._get_log_prefix()} 循环: 发送器失败: {e_sender}")
-                                        self._cleanup_thinking_message(thinking_id)  # 确保发送失败时清理
-                                        # 继续循环, 视为非操作周期
+                                        logger.error(f"{log_prefix} 循环: 发送器失败: {e_sender}")
+                                        # _sender should handle cleanup, but double check
+                                        # self._cleanup_thinking_message(thinking_id)
                                 else:
-                                    # Replier failed to produce result
-                                    logger.warning(f"{self._get_log_prefix()} 循环: 回复器未产生结果. 跳过发送.")
-                                    self._cleanup_thinking_message(thinking_id)  # 清理思考消息
-
+                                    logger.warning(f"{log_prefix} 循环: 回复器未产生结果. 跳过发送.")
+                                    self._cleanup_thinking_message(thinking_id)
                     elif action == "emoji_reply":
-                        logger.info(f"{self._get_log_prefix()} PFChatting: 麦麦决定回复表情 ('{emoji_query}').")
+                        logger.info(f"{log_prefix} PFChatting: 麦麦决定回复表情 ('{emoji_query}'). 理由: {reasoning}")
                         action_taken_this_cycle = True
                         anchor = await self._get_anchor_message(observed_messages)
                         if anchor:
                             try:
-                                await self.heartfc_chat._handle_emoji(anchor, [], emoji_query)
+                                # --- Handle Emoji (Moved) --- #
+                                await self._handle_emoji(anchor, [], emoji_query)
                             except Exception as e_emoji:
-                                logger.error(f"{self._get_log_prefix()} 循环: 发送表情失败: {e_emoji}")
+                                logger.error(f"{log_prefix} 循环: 发送表情失败: {e_emoji}")
                         else:
-                            logger.warning(f"{self._get_log_prefix()} 循环: 无法发送表情, 无法获取锚点.")
+                            logger.warning(f"{log_prefix} 循环: 无法发送表情, 无法获取锚点.")
+                        action_taken_this_cycle = True  # 即使发送失败，Planner 也决策了动作
 
                     elif action == "no_reply":
-                        logger.info(f"{self._get_log_prefix()} PFChatting: 麦麦决定不回复. 原因: {reasoning}")
-                        # Do nothing else, action_taken_this_cycle remains False
+                        logger.info(f"{log_prefix} PFChatting: 麦麦决定不回复. 原因: {reasoning}")
+                        action_taken_this_cycle = False  # 标记为未执行动作
+                        # --- 新增：等待新消息 ---
+                        logger.debug(f"{log_prefix} PFChatting: 开始等待新消息 (自 {planner_start_db_time})...")
+                        observation = None
+                        if self.sub_hf:
+                            observation = self.sub_hf._get_primary_observation()
 
-                    elif action == "error":
-                        logger.error(f"{self._get_log_prefix()} PFChatting: 麦麦回复出错. 原因: {reasoning}")
-                        # 视为非操作周期
+                        if observation:
+                            wait_start_time = time.monotonic()
+                            while True:
+                                # 检查计时器是否耗尽
+                                async with self._timer_lock:
+                                    if self._loop_timer <= 0:
+                                        logger.info(f"{log_prefix} PFChatting: 等待新消息时计时器耗尽。")
+                                        break  # 计时器耗尽，退出等待
 
-                    else:  # Unknown action
-                        logger.warning(f"{self._get_log_prefix()} PFChatting: 麦麦做了奇怪的事情. 原因: {reasoning}")
-                        # 视为非操作周期
+                                # 检查是否有新消息
+                                has_new = await observation.has_new_messages_since(planner_start_db_time)
+                                if has_new:
+                                    logger.info(f"{log_prefix} PFChatting: 检测到新消息，结束等待。")
+                                    break  # 收到新消息，退出等待
+
+                                # 检查等待是否超时（例如，防止无限等待）
+                                if time.monotonic() - wait_start_time > 60:  # 等待60秒示例
+                                    logger.warning(f"{log_prefix} PFChatting: 等待新消息超时（60秒）。")
+                                    break  # 超时退出
+
+                                # 等待一段时间再检查
+                                try:
+                                    await asyncio.sleep(1.5)  # 检查间隔
+                                except asyncio.CancelledError:
+                                    logger.info(f"{log_prefix} 等待新消息的 sleep 被中断。")
+                                    raise  # 重新抛出取消错误，以便外层循环处理
+
+                        else:
+                            logger.warning(f"{log_prefix} PFChatting: 无法获取 Observation 实例，无法等待新消息。")
+                        # --- 等待结束 ---
+
+                    elif action == "error":  # Action specifically set to error by planner
+                        logger.error(f"{log_prefix} PFChatting: Planner返回错误状态. 原因: {reasoning}")
+                        action_taken_this_cycle = False
+
+                    else:  # Unknown action from planner
+                        logger.warning(f"{log_prefix} PFChatting: Planner返回未知动作 '{action}'. 原因: {reasoning}")
+                        action_taken_this_cycle = False
 
                 except Exception as e_cycle:
-                    # Catch errors occurring within the locked section (e.g., planner crash)
-                    logger.error(f"{self._get_log_prefix()} 循环周期执行时发生错误: {e_cycle}")
+                    logger.error(f"{log_prefix} 循环周期执行时发生错误: {e_cycle}")
                     logger.error(traceback.format_exc())
-                    # Ensure lock is released if an error occurs before the finally block
                     if acquired_lock and self._processing_lock.locked():
                         self._processing_lock.release()
-                        acquired_lock = False  # 防止在 finally 块中重复释放
-                        logger.warning(f"{self._get_log_prefix()} 由于循环周期中的错误释放了处理锁.")
+                        acquired_lock = False
+                        logger.warning(f"{log_prefix} 由于循环周期中的错误释放了处理锁.")
 
                 finally:
-                    # Ensure the lock is always released after a cycle
                     if acquired_lock:
                         self._processing_lock.release()
-                        logger.debug(f"{self._get_log_prefix()} 循环释放了处理锁.")
+                        logger.debug(f"{log_prefix} 循环释放了处理锁.")
 
-                # --- Timer Decrement ---
+                # --- Timer Decrement --- #
                 cycle_duration = time.monotonic() - loop_cycle_start_time
                 async with self._timer_lock:
                     self._loop_timer -= cycle_duration
-                    logger.debug(
-                        f"{self._get_log_prefix()} PFChatting: 麦麦聊了{cycle_duration:.2f}秒. 还能聊: {self._loop_timer:.1f}s."
-                    )
+                    # Log timer decrement less aggressively
+                    if cycle_duration > 0.1 or not action_taken_this_cycle:
+                        logger.debug(
+                            f"{log_prefix} PFChatting: 周期耗时 {cycle_duration:.2f}s. 剩余时间: {self._loop_timer:.1f}s."
+                        )
 
-                # --- Delay ---
-                # Add a small delay, especially if no action was taken, to prevent busy-waiting
+                # --- Delay --- #
                 try:
+                    sleep_duration = 0.0
                     if not action_taken_this_cycle and cycle_duration < 1.5:
-                        # If nothing happened and cycle was fast, wait a bit longer
-                        await asyncio.sleep(1.5 - cycle_duration)
-                    elif cycle_duration < 0.2:  # Minimum delay even if action was taken
-                        await asyncio.sleep(0.2)
+                        sleep_duration = 1.5 - cycle_duration
+                    elif cycle_duration < 0.2:
+                        sleep_duration = 0.2
+
+                    if sleep_duration > 0:
+                        # logger.debug(f"{log_prefix} Sleeping for {sleep_duration:.2f}s")
+                        await asyncio.sleep(sleep_duration)
+
                 except asyncio.CancelledError:
-                    logger.info(f"{self._get_log_prefix()} Sleep interrupted, likely loop cancellation.")
-                    break  # Exit loop if cancelled during sleep
+                    logger.info(f"{log_prefix} Sleep interrupted, loop likely cancelling.")
+                    break
 
         except asyncio.CancelledError:
-            logger.info(f"{self._get_log_prefix()} PFChatting: 麦麦的聊天被取消了")
+            logger.info(f"{log_prefix} PFChatting: 麦麦的聊天主循环被取消了")
         except Exception as e_loop_outer:
-            # Catch errors outside the main cycle lock (should be rare)
-            logger.error(f"{self._get_log_prefix()} PFChatting: 麦麦的聊天出错了: {e_loop_outer}")
+            logger.error(f"{log_prefix} PFChatting: 麦麦的聊天主循环意外出错: {e_loop_outer}")
             logger.error(traceback.format_exc())
         finally:
-            # Reset trigger count when loop finishes
-            async with self._timer_lock:
-                self._trigger_count_this_activation = 0
-                logger.debug(f"{self._get_log_prefix()} Trigger count reset to 0 as loop finishes.")
-            logger.info(f"{self._get_log_prefix()} PFChatting: 麦麦的聊天结束了")
-            # State reset (_loop_active, _loop_task) is handled by _handle_loop_completion callback
+            # State reset is primarily handled by _handle_loop_completion callback
+            logger.info(f"{log_prefix} PFChatting: 麦麦的聊天主循环结束。")
 
     async def _planner(self) -> Dict[str, Any]:
         """
         规划器 (Planner): 使用LLM根据上下文决定是否和如何回复。
-
-        返回:
-            dict: 包含决策和上下文的字典，结构如下:
-                {
-                    'action': str,               # 执行动作 (不回复/文字回复/表情包)
-                    'reasoning': str,            # 决策理由
-                    'emoji_query': str,          # 表情包查询词
-                    'current_mind': str,         # 当前心理状态
-                    'send_emoji_from_tools': str, # 工具推荐的表情包
-                    'observed_messages': List[dict] # 观察到的消息列表
-                }
         """
         log_prefix = self._get_log_prefix()
         observed_messages: List[dict] = []
         tool_result_info = {}
         get_mid_memory_id = []
-        send_emoji_from_tools = ""  # Renamed for clarity
+        # send_emoji_from_tools = "" # Emoji suggested by tools
         current_mind: Optional[str] = None
+        llm_error = False  # Flag for LLM failure
 
-        # --- 获取最新的观察信息 ---
+        # --- 获取最新的观察信息 --- #
+        if not self.sub_hf:
+            logger.warning(f"{log_prefix}[Planner] SubHeartflow 不可用，无法获取观察信息或执行思考。返回 no_reply。")
+            return {
+                "action": "no_reply",
+                "reasoning": "SubHeartflow not available",
+                "emoji_query": "",
+                "current_mind": None,
+                # "send_emoji_from_tools": "",
+                "observed_messages": [],
+                "llm_error": True,
+            }
         try:
-            observation = self.sub_hf._get_primary_observation()  # Call only once
-
-            if observation:  # Now check if the result is truthy
-                # logger.debug(f"{log_prefix}[Planner] 调用 observation.observe()...")
-                await observation.observe()  # 主动观察以获取最新消息
-                observed_messages = observation.talking_message  # 获取更新后的消息列表
-                logger.debug(f"{log_prefix}[Planner] 观察获取到 {len(observed_messages)} 条消息。")
+            observation = self.sub_hf._get_primary_observation()
+            if observation:
+                await observation.observe()
+                observed_messages = observation.talking_message
+                # logger.debug(f"{log_prefix}[Planner] 观察获取到 {len(observed_messages)} 条消息。")
             else:
                 logger.warning(f"{log_prefix}[Planner] 无法获取 Observation。")
         except Exception as e:
             logger.error(f"{log_prefix}[Planner] 获取观察信息时出错: {e}")
-            logger.error(traceback.format_exc())
-        # --- 结束获取观察信息 ---
+        # --- 结束获取观察信息 --- #
 
-        # --- (Moved from _replier_work) 1. 思考前使用工具 ---
+        # --- (Moved from _replier_work) 1. 思考前使用工具 --- #
         try:
             observation_context_text = ""
             if observed_messages:
@@ -408,56 +451,62 @@ class PFChatting:
                     msg.get("detailed_plain_text", "") for msg in observed_messages if msg.get("detailed_plain_text")
                 ]
                 observation_context_text = " ".join(context_texts)
-                # logger.debug(f"{log_prefix}[Planner] Context for tools: {observation_context_text[:100]}...")
 
-            tool_result = await self.heartfc_chat.tool_user.use_tool(
+            # Access tool_user via controller
+            tool_result = await self.heartfc_controller.tool_user.use_tool(
                 message_txt=observation_context_text, chat_stream=self.chat_stream, sub_heartflow=self.sub_hf
             )
             if tool_result.get("used_tools", False):
                 tool_result_info = tool_result.get("structured_info", {})
                 logger.debug(f"{log_prefix}[Planner] 规划前工具结果: {tool_result_info}")
-                if "mid_chat_mem" in tool_result_info:
-                    get_mid_memory_id = [mem["content"] for mem in tool_result_info["mid_chat_mem"] if "content" in mem]
+                # Extract memory IDs and potential emoji query from tools
+                get_mid_memory_id = [
+                    mem["content"] for mem in tool_result_info.get("mid_chat_mem", []) if "content" in mem
+                ]
+                # send_emoji_from_tools = next((item["content"] for item in tool_result_info.get("send_emoji", []) if "content" in item), "")
+                # if send_emoji_from_tools:
+                # logger.info(f"{log_prefix}[Planner] 工具建议表情: '{send_emoji_from_tools}'")
 
         except Exception as e_tool:
             logger.error(f"{log_prefix}[Planner] 规划前工具使用失败: {e_tool}")
-        # --- 结束工具使用 ---
+        # --- 结束工具使用 --- #
 
-        current_mind, _past_mind = await self.sub_hf.do_thinking_before_reply(
-            chat_stream=self.chat_stream,
-            extra_info=tool_result_info,
-            obs_id=get_mid_memory_id,
-        )
+        # --- (Moved from _replier_work) 2. SubHeartflow 思考 --- #
+        try:
+            current_mind, _past_mind = await self.sub_hf.do_thinking_before_reply(
+                chat_stream=self.chat_stream,
+                extra_info=tool_result_info,
+                obs_id=get_mid_memory_id,
+            )
+            # logger.debug(f"{log_prefix}[Planner] SubHF Mind: {current_mind}")
+        except Exception as e_subhf:
+            logger.error(f"{log_prefix}[Planner] SubHeartflow 思考失败: {e_subhf}")
+            current_mind = "[思考时出错]"
+        # --- 结束 SubHeartflow 思考 --- #
 
-        # --- 使用 LLM 进行决策 ---
+        # --- 使用 LLM 进行决策 --- #
         action = "no_reply"  # Default action
-        emoji_query = ""
+        emoji_query = ""  # Default emoji query (used if action is emoji_reply or text_reply with emoji)
         reasoning = "默认决策或获取决策失败"
-        llm_error = False  # Flag for LLM failure
 
         try:
-            # 构建提示 (Now includes current_mind)
             prompt = await self._build_planner_prompt(observed_messages, current_mind)
-            logger.debug(f"{log_prefix}[Planner] 规划器 Prompt: {prompt}")
+            # logger.debug(f"{log_prefix}[Planner] 规划器 Prompt: {prompt}")
 
-            # 准备 LLM 请求 Payload
             payload = {
                 "model": self.planner_llm.model_name,
                 "messages": [{"role": "user", "content": prompt}],
                 "tools": PLANNER_TOOL_DEFINITION,
-                "tool_choice": {"type": "function", "function": {"name": "decide_reply_action"}},  # 强制调用此工具
+                "tool_choice": {"type": "function", "function": {"name": "decide_reply_action"}},
             }
 
-            # 调用 LLM
             response = await self.planner_llm._execute_request(
                 endpoint="/chat/completions", payload=payload, prompt=prompt
             )
 
-            # 解析 LLM 响应
-            if len(response) == 3:  # 期望返回 content, reasoning_content, tool_calls
+            if len(response) == 3:
                 _, _, tool_calls = response
                 if tool_calls and isinstance(tool_calls, list) and len(tool_calls) > 0:
-                    # 通常强制调用后只会有一个 tool_call
                     tool_call = tool_calls[0]
                     if (
                         tool_call.get("type") == "function"
@@ -467,17 +516,14 @@ class PFChatting:
                             arguments = json.loads(tool_call["function"]["arguments"])
                             action = arguments.get("action", "no_reply")
                             reasoning = arguments.get("reasoning", "未提供理由")
-                            if action == "emoji_reply":
-                                # Planner's decision overrides tool's emoji if action is emoji_reply
-                                emoji_query = arguments.get(
-                                    "emoji_query", send_emoji_from_tools
-                                )  # Use tool emoji as default if planner asks for emoji
-                            logger.info(
+                            # Planner explicitly provides emoji query if action is emoji_reply or text_reply wants emoji
+                            emoji_query = arguments.get("emoji_query", "")
+                            logger.debug(
                                 f"{log_prefix}[Planner] LLM 决策: {action}, 理由: {reasoning}, EmojiQuery: '{emoji_query}'"
                             )
                         except json.JSONDecodeError as json_e:
                             logger.error(
-                                f"{log_prefix}[Planner] 解析工具参数失败: {json_e}. Arguments: {tool_call['function'].get('arguments')}"
+                                f"{log_prefix}[Planner] 解析工具参数失败: {json_e}. Args: {tool_call['function'].get('arguments')}"
                             )
                             action = "error"
                             reasoning = "工具参数解析失败"
@@ -507,21 +553,20 @@ class PFChatting:
 
         except Exception as llm_e:
             logger.error(f"{log_prefix}[Planner] Planner LLM 调用失败: {llm_e}")
-            logger.error(traceback.format_exc())
+            # logger.error(traceback.format_exc()) # Maybe too verbose for loop?
             action = "error"
             reasoning = f"LLM 调用失败: {llm_e}"
             llm_error = True
+        # --- 结束 LLM 决策 --- #
 
-        # --- 返回决策结果 ---
-        # Note: Lock release is handled by the loop now
         return {
             "action": action,
             "reasoning": reasoning,
-            "emoji_query": emoji_query,  # Specific query if action is emoji_reply
+            "emoji_query": emoji_query,  # Explicit query from Planner/LLM
             "current_mind": current_mind,
-            "send_emoji_from_tools": send_emoji_from_tools,  # Emoji suggested by pre-thinking tools
+            # "send_emoji_from_tools": send_emoji_from_tools, # Emoji suggested by tools (used as fallback)
             "observed_messages": observed_messages,
-            "llm_error": llm_error,  # Indicate if LLM decision process failed
+            "llm_error": llm_error,
         }
 
     async def _get_anchor_message(self, observed_messages: List[dict]) -> Optional[MessageRecv]:
@@ -529,9 +574,6 @@ class PFChatting:
         重构观察到的最后一条消息作为回复的锚点，
         如果重构失败或观察为空，则创建一个占位符。
         """
-        if not self.chat_stream:
-            logger.error(f"{self._get_log_prefix()} 无法获取锚点消息: ChatStream 不可用.")
-            return None
 
         try:
             last_msg_dict = None
@@ -540,9 +582,9 @@ class PFChatting:
 
             if last_msg_dict:
                 try:
-                    # Attempt reconstruction from the last observed message dictionary
-                    anchor_message = MessageRecv(last_msg_dict, chat_stream=self.chat_stream)
-                    # Basic validation
+                    # anchor_message = MessageRecv(last_msg_dict, chat_stream=self.chat_stream)
+                    anchor_message = MessageRecv(last_msg_dict)  # 移除 chat_stream 参数
+                    anchor_message.update_chat_stream(self.chat_stream)  # 添加 update_chat_stream 调用
                     if not (
                         anchor_message
                         and anchor_message.message_info
@@ -550,18 +592,16 @@ class PFChatting:
                         and anchor_message.message_info.user_info
                     ):
                         raise ValueError("重构的 MessageRecv 缺少必要信息.")
-                    logger.debug(
-                        f"{self._get_log_prefix()} 重构的锚点消息: ID={anchor_message.message_info.message_id}"
-                    )
+                    # logger.debug(f"{self._get_log_prefix()} 重构的锚点消息: ID={anchor_message.message_info.message_id}")
                     return anchor_message
                 except Exception as e_reconstruct:
                     logger.warning(
                         f"{self._get_log_prefix()} 从观察到的消息重构 MessageRecv 失败: {e_reconstruct}. 创建占位符."
                     )
-            else:
-                logger.warning(f"{self._get_log_prefix()} observed_messages 为空. 创建占位符锚点消息.")
+            # else:
+            # logger.warning(f"{self._get_log_prefix()} observed_messages 为空. 创建占位符锚点消息.")
 
-            # --- Create Placeholder ---
+            # --- Create Placeholder --- #
             placeholder_id = f"mid_pf_{int(time.time() * 1000)}"
             placeholder_user = UserInfo(
                 user_id="system_trigger", user_nickname="System Trigger", platform=self.chat_stream.platform
@@ -575,12 +615,12 @@ class PFChatting:
             )
             placeholder_msg_dict = {
                 "message_info": placeholder_msg_info.to_dict(),
-                "processed_plain_text": "[System Trigger Context]",  # Placeholder text
+                "processed_plain_text": "[System Trigger Context]",
                 "raw_message": "",
                 "time": placeholder_msg_info.time,
             }
             anchor_message = MessageRecv(placeholder_msg_dict)
-            anchor_message.update_chat_stream(self.chat_stream)  # Associate with the stream
+            anchor_message.update_chat_stream(self.chat_stream)
             logger.info(
                 f"{self._get_log_prefix()} Created placeholder anchor message: ID={anchor_message.message_info.message_id}"
             )
@@ -593,199 +633,304 @@ class PFChatting:
 
     def _cleanup_thinking_message(self, thinking_id: str):
         """Safely removes the thinking message."""
+        log_prefix = self._get_log_prefix()
         try:
-            container = MessageManager().get_container(self.stream_id)
+            # Access MessageManager via controller
+            container = self.heartfc_controller.MessageManager().get_container(self.stream_id)
             container.remove_message(thinking_id, msg_type=MessageThinking)
-            logger.debug(f"{self._get_log_prefix()} Cleaned up thinking message {thinking_id}.")
+            logger.debug(f"{log_prefix} Cleaned up thinking message {thinking_id}.")
         except Exception as e:
-            logger.error(f"{self._get_log_prefix()} Error cleaning up thinking message {thinking_id}: {e}")
+            logger.error(f"{log_prefix} Error cleaning up thinking message {thinking_id}: {e}")
 
-    async def _sender(self, thinking_id: str, anchor_message: MessageRecv, replier_result: Dict[str, Any]):
+    # --- 发送器 (Sender) --- #
+    async def _sender(
+        self,
+        thinking_id: str,
+        anchor_message: MessageRecv,
+        response_set: List[str],
+        send_emoji: str,  # Emoji query decided by planner or tools
+    ):
         """
-        发送器 (Sender): 使用HeartFC_Chat的方法发送生成的回复。
-        被 _run_pf_loop 直接调用和 await。
-        也处理相关的操作，如发送表情和更新关系。
-        Raises exception on failure to signal the loop.
+        发送器 (Sender): 使用本类的方法发送生成的回复。
+        处理相关的操作，如发送表情和更新关系。
         """
-        # replier_result should contain 'response_set' and 'send_emoji'
-        response_set = replier_result.get("response_set")
-        send_emoji = replier_result.get("send_emoji", "")  # Emoji determined by tools, passed via replier
-
-        if not response_set:
-            logger.error(f"{self._get_log_prefix()}[Sender-{thinking_id}] Called with empty response_set.")
-            # Clean up thinking message before raising error
-            self._cleanup_thinking_message(thinking_id)
-            raise ValueError("Sender called with no response_set")  # Signal failure to loop
+        log_prefix = self._get_log_prefix()
 
         first_bot_msg: Optional[MessageSending] = None
-        send_success = False
-        try:
-            # --- Send the main text response ---
-            logger.debug(f"{self._get_log_prefix()}[Sender-{thinking_id}] Sending response messages...")
-            # This call implicitly handles replacing the MessageThinking with MessageSending/MessageSet
-            first_bot_msg = await self.heartfc_chat._send_response_messages(anchor_message, response_set, thinking_id)
+        # 尝试发送回复消息
+        first_bot_msg = await self._send_response_messages(anchor_message, response_set, thinking_id)
+        if first_bot_msg:
+            # --- 处理关联表情(如果指定) --- #
+            if send_emoji:
+                logger.info(f"{log_prefix}[Sender-{thinking_id}] 正在发送关联表情: '{send_emoji}'")
+                # 优先使用first_bot_msg作为锚点，否则回退到原始锚点
+                emoji_anchor = first_bot_msg if first_bot_msg else anchor_message
+                await self._handle_emoji(emoji_anchor, response_set, send_emoji)
 
-            if first_bot_msg:
-                send_success = True  # Mark success
-                logger.info(f"{self._get_log_prefix()}[Sender-{thinking_id}] Successfully sent reply.")
+            # --- 更新关系状态 --- #
+            await self._update_relationship(anchor_message, response_set)
 
-                # --- Handle associated emoji (if determined by tools) ---
-                if send_emoji:
-                    logger.info(
-                        f"{self._get_log_prefix()}[Sender-{thinking_id}] Sending associated emoji: {send_emoji}"
-                    )
-                    try:
-                        # Use first_bot_msg as anchor if available, otherwise fallback to original anchor
-                        emoji_anchor = first_bot_msg if first_bot_msg else anchor_message
-                        await self.heartfc_chat._handle_emoji(emoji_anchor, response_set, send_emoji)
-                    except Exception as e_emoji:
-                        logger.error(
-                            f"{self._get_log_prefix()}[Sender-{thinking_id}] Failed to send associated emoji: {e_emoji}"
-                        )
-                        # Log error but don't fail the whole send process for emoji failure
-
-                # --- Update relationship ---
-                try:
-                    await self.heartfc_chat._update_relationship(anchor_message, response_set)
-                    logger.debug(f"{self._get_log_prefix()}[Sender-{thinking_id}] Updated relationship.")
-                except Exception as e_rel:
-                    logger.error(
-                        f"{self._get_log_prefix()}[Sender-{thinking_id}] Failed to update relationship: {e_rel}"
-                    )
-                    # Log error but don't fail the whole send process for relationship update failure
-
-            else:
-                # Sending failed (e.g., _send_response_messages found thinking message already gone)
-                send_success = False
-                logger.warning(
-                    f"{self._get_log_prefix()}[Sender-{thinking_id}] Failed to send reply (maybe thinking message expired or was removed?)."
-                )
-                # No need to clean up thinking message here, _send_response_messages implies it's gone or handled
-                raise RuntimeError("Sending reply failed, _send_response_messages returned None.")  # Signal failure
-
-        except Exception as e:
-            # Catch potential errors during sending or post-send actions
-            logger.error(f"{self._get_log_prefix()}[Sender-{thinking_id}] Error during sending process: {e}")
-            logger.error(traceback.format_exc())
-            # Ensure thinking message is cleaned up if send failed mid-way and wasn't handled
-            if not send_success:
-                self._cleanup_thinking_message(thinking_id)
-            raise  # Re-raise the exception to signal failure to the loop
-
-        # No finally block needed for lock management
+        else:
+            # logger.warning(f"{log_prefix}[Sender-{thinking_id}] 发送回复失败(_send_response_messages返回None)。思考消息{thinking_id}可能已被移除。")
+            # 无需清理，因为_send_response_messages返回None意味着已处理/已删除
+            raise RuntimeError("发送回复失败，_send_response_messages返回None")
 
     async def shutdown(self):
         """
         Gracefully shuts down the PFChatting instance by cancelling the active loop task.
         """
-        logger.info(f"{self._get_log_prefix()} Shutting down PFChatting...")
+        log_prefix = self._get_log_prefix()
+        logger.info(f"{log_prefix} Shutting down PFChatting...")
         if self._loop_task and not self._loop_task.done():
-            logger.info(f"{self._get_log_prefix()} Cancelling active PF loop task.")
+            logger.info(f"{log_prefix} Cancelling active PF loop task.")
             self._loop_task.cancel()
             try:
-                # Wait briefly for the task to acknowledge cancellation
-                await asyncio.wait_for(self._loop_task, timeout=5.0)
+                await asyncio.wait_for(self._loop_task, timeout=1.0)  # Shorter timeout?
             except asyncio.CancelledError:
-                logger.info(f"{self._get_log_prefix()} PF loop task cancelled successfully.")
+                logger.info(f"{log_prefix} PF loop task cancelled successfully.")
             except asyncio.TimeoutError:
-                logger.warning(f"{self._get_log_prefix()} Timeout waiting for PF loop task cancellation.")
+                logger.warning(f"{log_prefix} Timeout waiting for PF loop task cancellation.")
             except Exception as e:
-                logger.error(f"{self._get_log_prefix()} Error during loop task cancellation: {e}")
+                logger.error(f"{log_prefix} Error during loop task cancellation: {e}")
         else:
-            logger.info(f"{self._get_log_prefix()} No active PF loop task found to cancel.")
+            logger.info(f"{log_prefix} No active PF loop task found to cancel.")
 
-        # Ensure loop state is reset even if task wasn't running or cancellation failed
         self._loop_active = False
         self._loop_task = None
-
-        # Double-check lock state (should be released by loop completion/cancellation handler)
         if self._processing_lock.locked():
-            logger.warning(f"{self._get_log_prefix()} Releasing processing lock during shutdown.")
+            logger.warning(f"{log_prefix} Releasing processing lock during shutdown.")
             self._processing_lock.release()
-
-        logger.info(f"{self._get_log_prefix()} PFChatting shutdown complete.")
+        logger.info(f"{log_prefix} PFChatting shutdown complete.")
 
     async def _build_planner_prompt(self, observed_messages: List[dict], current_mind: Optional[str]) -> str:
-        """构建 Planner LLM 的提示词 (现在包含 current_mind)"""
-        prompt = f"你的名字是 {global_config.BOT_NICKNAME}。正在QQ聊天，正在决定是否以及如何回应当前的聊天。\n"
+        """构建 Planner LLM 的提示词"""
+        # Access global_config and relationship_manager via controller
+        config = self.heartfc_controller.global_config
+        rel_manager = self.heartfc_controller.relationship_manager
 
-        # Add current mind state if available
+        prompt = (
+            f"你的名字是 {config.BOT_NICKNAME}。是一个女大二学生，正在QQ聊天，正在决定是否以及如何回应当前的聊天。\n"
+        )
 
         if observed_messages:
-            context_text = " ".join(
-                [msg.get("detailed_plain_text", "") for msg in observed_messages if msg.get("detailed_plain_text")]
-            )
-            prompt += "观察到的最新聊天内容如下：\n---\n"
-            prompt += context_text[:1500]  # Limit context length
-            prompt += "\n---\n"
+            context_texts = []
+            for msg in observed_messages:
+                sender = msg.get("message_info", {}).get("user_info", {}).get("user_nickname", "未知用户")
+                text = msg.get("detailed_plain_text", "")
+                timestamp = msg.get("time", 0)
+                time_str = time.strftime("%H:%M:%S", time.localtime(timestamp)) if timestamp else ""
+                context_texts.append(f"{sender} ({time_str}): {text}")
+            context_text = "\n".join(context_texts)
+            prompt += "观察到的最新聊天内容如下 (最近的消息在最后)：\n---\n"
+            prompt += context_text
+            prompt += "\n---"
         else:
             prompt += "当前没有观察到新的聊天内容。\n"
 
-        prompt += "\n看了这些内容，你的想法是："
-
+        prompt += "\n你的内心想法是："
         if current_mind:
             prompt += f"\n---\n{current_mind}\n---\n\n"
+        else:
+            prompt += " [没有特别的想法] \n\n"
 
         prompt += (
-            "\n请结合你的内部想法和观察到的聊天内容，分析情况并使用 'decide_reply_action' 工具来决定你的最终行动。\n"
+            "请结合你的内心想法和观察到的聊天内容，分析情况并使用 'decide_reply_action' 工具来决定你的最终行动。\n"
+            "决策依据：\n"
+            "1. 如果聊天内容无聊、与你无关、或者你的内心想法认为不适合回复（例如在讨论你不懂或不感兴趣的话题），选择 'no_reply'。\n"
+            "2. 如果聊天内容值得回应，且适合用文字表达（参考你的内心想法），选择 'text_reply'。如果想在文字后追加一个表达情绪的表情，请同时提供 'emoji_query' (例如：'开心的'、'惊讶的')。\n"
+            "3. 如果聊天内容或你的内心想法适合用一个表情来回应（例如表示赞同、惊讶、无语等），选择 'emoji_reply' 并提供表情主题 'emoji_query'。\n"
+            "4. 如果最后一条消息是你自己发的，并且之后没有人回复你，通常选择 'no_reply'，除非有特殊原因需要追问。\n"
+            "5. 除非大家都在这么做，或者有特殊理由，否则不要重复别人刚刚说过的话或简单附和。\n"
+            "6. 表情包是用来表达情绪的，不要直接回复或评价别人的表情包，而是根据对话内容和情绪选择是否用表情回应。\n"
+            "7. 如果观察到的内容只有你自己的发言，选择 'no_reply'。\n"
+            "必须调用 'decide_reply_action' 工具并提供 'action' 和 'reasoning'。如果选择了 'emoji_reply' 或者选择了 'text_reply' 并想追加表情，则必须提供 'emoji_query'。"
         )
-        prompt += "决策依据：\n"
-        prompt += "1. 如果聊天内容无聊、与你无关、或者你的内部想法认为不适合回复，选择 'no_reply'。\n"
-        prompt += "2. 如果聊天内容值得回应，且适合用文字表达（参考你的内部想法），选择 'text_reply'。如果想在文字后追加一个表情，请同时提供 'emoji_query'。\n"
-        prompt += (
-            "3. 如果聊天内容或你的内部想法适合用一个表情来回应，选择 'emoji_reply' 并提供表情主题 'emoji_query'。\n"
-        )
-        prompt += "4. 如果你已经回复过消息，也没有人又回复你，选择'no_reply'。\n"
-        prompt += "5. 除非大家都在这么做，否则不要重复聊相同的内容。\n"
-        prompt += "6. 表情包是用来表示情绪的，不要直接回复或者评价别人的表情包。\n"
-        prompt += "必须调用 'decide_reply_action' 工具并提供 'action' 和 'reasoning'。如果选择了 'emoji_reply' 或者选择了 'text_reply' 并想追加表情，则必须提供 'emoji_query'。"
 
-        prompt = await relationship_manager.convert_all_person_sign_to_person_name(prompt)
-        prompt = parse_text_timestamps(prompt, mode="lite")
+        prompt = await rel_manager.convert_all_person_sign_to_person_name(prompt)
+        prompt = parse_text_timestamps(prompt, mode="remove")  # Remove timestamps before sending to LLM
 
         return prompt
 
     # --- 回复器 (Replier) 的定义 --- #
     async def _replier_work(
         self,
-        observed_messages: List[dict],
         anchor_message: MessageRecv,
         thinking_id: str,
-        current_mind: Optional[str],
-        send_emoji: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[List[str]]:
         """
         回复器 (Replier): 核心逻辑用于生成回复。
-        被 _run_pf_loop 直接调用和 await。
-        Returns dict with 'response_set' and 'send_emoji' or None on failure.
         """
         log_prefix = self._get_log_prefix()
         response_set: Optional[List[str]] = None
         try:
-            # --- Tool Use and SubHF Thinking are now in _planner ---
+            # --- Generate Response with LLM --- #
+            # Access gpt instance via controller
+            gpt_instance = self.heartfc_controller.gpt
+            logger.debug(f"{log_prefix}[Replier-{thinking_id}] Calling LLM to generate response...")
 
-            # --- Generate Response with LLM ---
-            # logger.debug(f"{log_prefix}[Replier-{thinking_id}] Calling LLM to generate response...")
-            # 注意：实际的生成调用是在 self.heartfc_chat.gpt.generate_response 中
-            response_set = await self.heartfc_chat.gpt.generate_response(
-                anchor_message,
-                thinking_id,
-                # current_mind 不再直接传递给 gpt.generate_response，
-                # 因为 generate_response 内部会通过 thinking_id 或其他方式获取所需上下文
+            # Ensure generate_response has access to current_mind if it's crucial context
+            response_set = await gpt_instance.generate_response(
+                anchor_message,  # Pass anchor_message positionally (matches 'message' parameter)
+                thinking_id,  # Pass thinking_id positionally
             )
 
             if not response_set:
                 logger.warning(f"{log_prefix}[Replier-{thinking_id}] LLM生成了一个空回复集。")
-                return None  # Indicate failure
+                return None
 
-            # --- 准备并返回结果 ---
-            logger.info(f"{log_prefix}[Replier-{thinking_id}] 成功生成了回复集: {' '.join(response_set)[:100]}...")
-            return {
-                "response_set": response_set,
-                "send_emoji": send_emoji,  # Pass through the emoji determined earlier (usually by tools)
-            }
+            # --- 准备并返回结果 --- #
+            logger.info(f"{log_prefix}[Replier-{thinking_id}] 成功生成了回复集: {' '.join(response_set)[:50]}...")
+            return response_set
 
         except Exception as e:
             logger.error(f"{log_prefix}[Replier-{thinking_id}] Unexpected error in replier_work: {e}")
             logger.error(traceback.format_exc())
-            return None  # Indicate failure
+            return None
+
+    # --- Methods moved from HeartFC_Controller start ---
+    async def _create_thinking_message(self, anchor_message: Optional[MessageRecv]) -> Optional[str]:
+        """创建思考消息 (尝试锚定到 anchor_message)"""
+        if not anchor_message or not anchor_message.chat_stream:
+            logger.error(f"{self._get_log_prefix()} 无法创建思考消息，缺少有效的锚点消息或聊天流。")
+            return None
+
+        chat = anchor_message.chat_stream
+        messageinfo = anchor_message.message_info
+        # Access global_config via controller
+        bot_user_info = UserInfo(
+            user_id=self.heartfc_controller.global_config.BOT_QQ,
+            user_nickname=self.heartfc_controller.global_config.BOT_NICKNAME,
+            platform=messageinfo.platform,
+        )
+
+        thinking_time_point = round(time.time(), 2)
+        thinking_id = "mt" + str(thinking_time_point)
+        thinking_message = MessageThinking(
+            message_id=thinking_id,
+            chat_stream=chat,
+            bot_user_info=bot_user_info,
+            reply=anchor_message,  # 回复的是锚点消息
+            thinking_start_time=thinking_time_point,
+        )
+        # Access MessageManager via controller
+        self.heartfc_controller.MessageManager().add_message(thinking_message)
+        return thinking_id
+
+    async def _send_response_messages(
+        self, anchor_message: Optional[MessageRecv], response_set: List[str], thinking_id: str
+    ) -> Optional[MessageSending]:
+        """发送回复消息 (尝试锚定到 anchor_message)"""
+        if not anchor_message or not anchor_message.chat_stream:
+            logger.error(f"{self._get_log_prefix()} 无法发送回复，缺少有效的锚点消息或聊天流。")
+            return None
+
+        chat = anchor_message.chat_stream
+        container = self.heartfc_controller.MessageManager().get_container(chat.stream_id)
+        thinking_message = None
+
+        # 移除思考消息
+        for msg in container.messages[:]:  # Iterate over a copy
+            if isinstance(msg, MessageThinking) and msg.message_info.message_id == thinking_id:
+                thinking_message = msg
+                container.messages.remove(msg)  # Remove the message directly here
+                logger.debug(f"{self._get_log_prefix()} Removed thinking message {thinking_id} via iteration.")
+                break
+
+        if not thinking_message:
+            stream_name = chat_manager.get_stream_name(chat.stream_id) or chat.stream_id  # 获取流名称
+            logger.warning(f"[{stream_name}] {thinking_id}，思考太久了，超时被移除")
+            return None
+
+        thinking_start_time = thinking_message.thinking_start_time
+        message_set = MessageSet(chat, thinking_id)
+        mark_head = False
+        first_bot_msg = None
+        # Access global_config via controller
+        bot_user_info = UserInfo(
+            user_id=self.heartfc_controller.global_config.BOT_QQ,
+            user_nickname=self.heartfc_controller.global_config.BOT_NICKNAME,
+            platform=anchor_message.message_info.platform,
+        )
+        for msg_text in response_set:
+            message_segment = Seg(type="text", data=msg_text)
+            bot_message = MessageSending(
+                message_id=thinking_id,  # 使用 thinking_id 作为批次标识
+                chat_stream=chat,
+                bot_user_info=bot_user_info,
+                sender_info=anchor_message.message_info.user_info,  # 发送给锚点消息的用户
+                message_segment=message_segment,
+                reply=anchor_message,  # 回复锚点消息
+                is_head=not mark_head,
+                is_emoji=False,
+                thinking_start_time=thinking_start_time,
+            )
+            if not mark_head:
+                mark_head = True
+                first_bot_msg = bot_message
+            message_set.add_message(bot_message)
+
+        self.heartfc_controller.MessageManager().add_message(message_set)
+        return first_bot_msg
+
+    async def _handle_emoji(self, anchor_message: Optional[MessageRecv], response_set: List[str], send_emoji: str = ""):
+        """处理表情包 (尝试锚定到 anchor_message)"""
+
+        if not anchor_message or not anchor_message.chat_stream:
+            logger.error(f"{self._get_log_prefix()} 无法处理表情包，缺少有效的锚点消息或聊天流。")
+            return
+
+        chat = anchor_message.chat_stream
+        # Access emoji_manager via controller
+        emoji_manager_instance = self.heartfc_controller.emoji_manager
+        if send_emoji:
+            emoji_raw = await emoji_manager_instance.get_emoji_for_text(send_emoji)
+        else:
+            emoji_text_source = "".join(response_set) if response_set else ""
+            emoji_raw = await emoji_manager_instance.get_emoji_for_text(emoji_text_source)
+
+        if emoji_raw:
+            emoji_path, _description = emoji_raw
+            emoji_cq = image_path_to_base64(emoji_path)
+            thinking_time_point = round(time.time(), 2)
+            message_segment = Seg(type="emoji", data=emoji_cq)
+            # Access global_config via controller
+            bot_user_info = UserInfo(
+                user_id=self.heartfc_controller.global_config.BOT_QQ,
+                user_nickname=self.heartfc_controller.global_config.BOT_NICKNAME,
+                platform=anchor_message.message_info.platform,
+            )
+            bot_message = MessageSending(
+                message_id="me" + str(thinking_time_point),  # 使用不同的 ID 前缀?
+                chat_stream=chat,
+                bot_user_info=bot_user_info,
+                sender_info=anchor_message.message_info.user_info,
+                message_segment=message_segment,
+                reply=anchor_message,  # 回复锚点消息
+                is_head=False,
+                is_emoji=True,
+            )
+            # Access MessageManager via controller
+            self.heartfc_controller.MessageManager().add_message(bot_message)
+
+    async def _update_relationship(self, anchor_message: Optional[MessageRecv], response_set: List[str]):
+        """更新关系情绪 (尝试基于 anchor_message)"""
+        if not anchor_message or not anchor_message.chat_stream:
+            logger.error(f"{self._get_log_prefix()} 无法更新关系情绪，缺少有效的锚点消息或聊天流。")
+            return
+
+        # Access gpt and relationship_manager via controller
+        gpt_instance = self.heartfc_controller.gpt
+        relationship_manager_instance = self.heartfc_controller.relationship_manager
+        mood_manager_instance = self.heartfc_controller.mood_manager
+        config = self.heartfc_controller.global_config
+
+        ori_response = ",".join(response_set)
+        stance, emotion = await gpt_instance._get_emotion_tags(ori_response, anchor_message.processed_plain_text)
+        await relationship_manager_instance.calculate_update_relationship_value(
+            chat_stream=anchor_message.chat_stream,
+            label=emotion,
+            stance=stance,
+        )
+        mood_manager_instance.update_mood_from_emotion(emotion, config.mood_intensity_factor)
+
+    # --- Methods moved from HeartFC_Controller end ---

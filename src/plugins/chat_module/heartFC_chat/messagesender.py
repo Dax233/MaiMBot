@@ -55,35 +55,23 @@ class MessageSender:
     ) -> None:
         """发送消息"""
 
-        if isinstance(message, MessageSending):
-            typing_time = calculate_typing_time(
-                input_string=message.processed_plain_text,
-                thinking_start_time=message.thinking_start_time,
-                is_emoji=message.is_emoji,
-            )
-            logger.trace(f"{message.processed_plain_text},{typing_time},计算输入时间结束")
-            await asyncio.sleep(typing_time)
-            logger.trace(f"{message.processed_plain_text},{typing_time},等待输入时间结束")
+        message_json = message.to_dict()
 
-            message_json = message.to_dict()
-
-            message_preview = truncate_message(message.processed_plain_text)
-            try:
-                end_point = global_config.api_urls.get(message.message_info.platform, None)
-                if end_point:
-                    # logger.info(f"发送消息到{end_point}")
-                    # logger.info(message_json)
-                    try:
-                        await global_api.send_message_rest(end_point, message_json)
-                    except Exception as e:
-                        logger.error(f"REST方式发送失败，出现错误: {str(e)}")
-                        logger.info("尝试使用ws发送")
-                        await self.send_via_ws(message)
-                else:
+        message_preview = truncate_message(message.processed_plain_text)
+        try:
+            end_point = global_config.api_urls.get(message.message_info.platform, None)
+            if end_point:
+                try:
+                    await global_api.send_message_rest(end_point, message_json)
+                except Exception as e:
+                    logger.error(f"REST方式发送失败，出现错误: {str(e)}")
+                    logger.info("尝试使用ws发送")
                     await self.send_via_ws(message)
-                logger.success(f"发送消息   {message_preview}   成功")
-            except Exception as e:
-                logger.error(f"发送消息   {message_preview}   失败: {str(e)}")
+            else:
+                await self.send_via_ws(message)
+            logger.success(f"发送消息   {message_preview}   成功")
+        except Exception as e:
+            logger.error(f"发送消息   {message_preview}   失败: {str(e)}")
 
 
 class MessageContainer:
@@ -173,6 +161,21 @@ class MessageManager:
         container = self.get_container(chat_stream.stream_id)
         container.add_message(message)
 
+    def check_if_sending_message_exist(self, chat_id, thinking_id):
+        """检查指定聊天流的容器中是否存在具有特定 thinking_id 的 MessageSending 消息"""
+        container = self.get_container(chat_id)
+        if container.has_messages():
+            for message in container.get_all_messages():
+                # 首先确保是 MessageSending 类型
+                if isinstance(message, MessageSending):
+                    # 然后再访问 message_info.message_id
+                    # 检查 message_id 是否匹配 thinking_id 或以 "me" 开头
+                    if message.message_info.message_id == thinking_id or message.message_info.message_id[:2] == "me":
+                        print(f"检查到存在相同thinking_id的消息: {message.message_info.message_id}???{thinking_id}")
+
+                        return True
+        return False
+
     async def process_chat_messages(self, chat_id: str):
         """处理聊天流消息"""
         container = self.get_container(chat_id)
@@ -204,26 +207,22 @@ class MessageManager:
                 thinking_messages_count, thinking_messages_length = count_messages_between(
                     start_time=thinking_start_time, end_time=now_time, stream_id=message_earliest.chat_stream.stream_id
                 )
-                # print(thinking_time)
-                # print(thinking_messages_count)
-                # print(thinking_messages_length)
-
-                if (
-                    message_earliest.is_head
-                    and (thinking_messages_count > 3 or thinking_messages_length > 200)
-                    and not message_earliest.is_private_message()  # 避免在私聊时插入reply
-                ):
-                    logger.debug(f"距离原始消息太长，设置回复消息{message_earliest.processed_plain_text}")
-                    message_earliest.set_reply()
 
                 await message_earliest.process()
 
-                # print(f"message_earliest.thinking_start_tim22222e:{message_earliest.thinking_start_time}")
-
                 # 获取 MessageSender 的单例实例并发送消息
-                await MessageSender().send_message(message_earliest)
+                typing_time = calculate_typing_time(
+                    input_string=message_earliest.processed_plain_text,
+                    thinking_start_time=message_earliest.thinking_start_time,
+                    is_emoji=message_earliest.is_emoji,
+                )
+                logger.trace(f"\n{message_earliest.processed_plain_text},{typing_time},计算输入时间结束\n")
+                await asyncio.sleep(typing_time)
+                logger.debug(f"\n{message_earliest.processed_plain_text},{typing_time},等待输入时间结束\n")
 
                 await self.storage.store_message(message_earliest, message_earliest.chat_stream)
+
+                await MessageSender().send_message(message_earliest)
 
                 container.remove_message(message_earliest)
 

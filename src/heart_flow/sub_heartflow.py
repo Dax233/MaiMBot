@@ -37,19 +37,15 @@ def init_prompt():
     # prompt += "{prompt_schedule}\n"
     # prompt += "{relation_prompt_all}\n"
     prompt += "{prompt_personality}\n"
-    prompt += "刚刚你的想法是：\n{current_thinking_info}\n"
+    prompt += "刚刚你的想法是：\n我是{bot_name}，我想，{current_thinking_info}\n"
     prompt += "-----------------------------------\n"
     prompt += "现在是{time_now}，你正在上网，和qq群里的网友们聊天，群里正在聊的话题是：\n{chat_observe_info}\n"
     prompt += "你现在{mood_info}\n"
     # prompt += "你注意到{sender_name}刚刚说：{message_txt}\n"
-    prompt += "现在请你根据刚刚的想法继续思考，思考时可以想想如何对群聊内容进行回复，关注新话题，可以适当转换话题，大家正在说的话才是聊天的主题。\n"
-    prompt += (
-        "回复的要求是：平淡一些，简短一些，说中文，尽量不要说你说过的话。如果你要回复，最好只回复一个人的一个话题\n"
-    )
-    prompt += "请注意不要输出多余内容(包括前后缀，冒号和引号，括号， 表情，等)，不要带有括号和动作描写"
-    prompt += (
-        "现在请你继续生成你在这个聊天中的想法，不要分点输出,生成内心想法，文字不要浮夸，注意{bot_name}指的就是你。"
-    )
+    prompt += "现在请你根据刚刚的想法继续思考，思考时可以想想如何对群聊内容进行回复，要不要对群里的话题进行回复，关注新话题，可以适当转换话题，大家正在说的话才是聊天的主题。\n"
+    prompt += "回复的要求是：平淡一些，简短一些，说中文，如果你要回复，最好只回复一个人的一个话题\n"
+    prompt += "请注意不要输出多余内容(包括前后缀，冒号和引号，括号， 表情，等)，不要带有括号和动作描写。不要回复自己的发言，尽量不要说你说过的话。"
+    prompt += "现在请你继续生成你在这个聊天中的想法，不要分点输出,生成内心想法，文字不要浮夸"
 
     Prompt(prompt, "sub_heartflow_prompt_before")
 
@@ -318,13 +314,13 @@ response_language = "Recommand Chinese"
                 extra_info=extra_info_prompt,
                 # relation_prompt_all=relation_prompt_all,
                 prompt_personality=prompt_personality,
+                bot_name=self.bot_name,
                 current_thinking_info=current_thinking_info,
                 time_now=time_now,
                 chat_observe_info=chat_observe_info,
                 mood_info=mood_info,
                 # sender_name=sender_name_sign,
                 # message_txt=message_txt,
-                bot_name=self.bot_name,
             )
 
             prompt = await relationship_manager.convert_all_person_sign_to_person_name(prompt)
