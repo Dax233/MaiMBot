@@ -383,7 +383,7 @@ class ThinkFlowChat:
                         with Timer("处理表情包", timing_results):
                             if global_config.emoji_chance == 1:
                                 if send_emoji:
-                                    logger.info(f"麦麦决定发送表情包{send_emoji}")
+                                    logger.info(f"枫决定发送表情包{send_emoji}")
                                     await self._handle_emoji(message, chat, response_set, send_emoji)
                             else:
                                 if random() < global_config.emoji_chance:

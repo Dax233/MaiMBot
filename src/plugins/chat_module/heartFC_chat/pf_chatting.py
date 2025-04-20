@@ -119,7 +119,7 @@ class PFChatting:
                     logger.warning(f"{log_prefix} 获取SubHeartflow失败。一些功能可能受限。")
 
                 self._initialized = True
-                logger.info(f"麦麦感觉到了，激发了PFChatting{log_prefix} 初始化成功。")
+                logger.info(f"枫感觉到了，激发了PFChatting{log_prefix} 初始化成功。")
                 return True
             except Exception as e:
                 logger.error(f"{log_prefix} 初始化失败: {e}")
@@ -144,7 +144,7 @@ class PFChatting:
                 self._last_added_duration = duration_to_add  # 更新上次增加的值
                 self._trigger_count_this_activation = 1  # Start counting
                 logger.info(
-                    f"{log_prefix} 麦麦有兴趣！ #{self._trigger_count_this_activation}. 麦麦打算聊： {duration_to_add:.2f}s."
+                    f"{log_prefix} 枫有兴趣！ #{self._trigger_count_this_activation}. 枫打算聊： {duration_to_add:.2f}s."
                 )
             else:  # Loop is already active, apply 50% reduction
                 self._trigger_count_this_activation += 1
@@ -154,7 +154,7 @@ class PFChatting:
                 # Update _last_added_duration only if it's >= 0.5 to prevent it from becoming too small
                 self._last_added_duration = duration_to_add
                 logger.info(
-                    f"{log_prefix} 麦麦兴趣增加！ #{self._trigger_count_this_activation}. 想继续聊： {duration_to_add:.2f}s, 麦麦还能聊： {self._loop_timer:.1f}s."
+                    f"{log_prefix} 枫兴趣增加！ #{self._trigger_count_this_activation}. 想继续聊： {duration_to_add:.2f}s, 枫还能聊： {self._loop_timer:.1f}s."
                 )
 
             # 添加计算出的时间
@@ -183,12 +183,12 @@ class PFChatting:
         try:
             exception = task.exception()
             if exception:
-                logger.error(f"{log_prefix} PFChatting: 麦麦脱离了聊天(异常): {exception}")
+                logger.error(f"{log_prefix} PFChatting:枫脱离了聊天(异常): {exception}")
                 logger.error(traceback.format_exc())  # Log full traceback for exceptions
             else:
-                logger.debug(f"{log_prefix} PFChatting: 麦麦脱离了聊天 (正常完成)")
+                logger.debug(f"{log_prefix} PFChatting: 枫脱离了聊天 (正常完成)")
         except asyncio.CancelledError:
-            logger.info(f"{log_prefix} PFChatting: 麦麦脱离了聊天(任务取消)")
+            logger.info(f"{log_prefix} PFChatting: 枫脱离了聊天(任务取消)")
         finally:
             self._loop_active = False
             self._loop_task = None
@@ -207,22 +207,22 @@ class PFChatting:
         管理每个循环周期的处理锁
         """
         log_prefix = self._get_log_prefix()
-        logger.info(f"{log_prefix} PFChatting: 麦麦打算好好聊聊 (定时器: {self._loop_timer:.1f}s)")
+        logger.info(f"{log_prefix} PFChatting: 枫打算好好聊聊 (定时器: {self._loop_timer:.1f}s)")
         try:
             thinking_id = ""
             while True:
                 if self.heartfc_controller.MessageManager().check_if_sending_message_exist(self.stream_id, thinking_id):
-                    logger.info(f"{log_prefix} PFChatting: 11111111111111111111111111111111麦麦还在发消息，等会再规划")
+                    logger.info(f"{log_prefix} PFChatting: 11111111111111111111111111111111枫还在发消息，等会再规划")
                     await asyncio.sleep(1)
                     continue
                 else:
-                    logger.info(f"{log_prefix} PFChatting: 11111111111111111111111111111111麦麦不发消息了，开始规划")
+                    logger.info(f"{log_prefix} PFChatting: 11111111111111111111111111111111枫不发消息了，开始规划")
 
                 async with self._timer_lock:
                     current_timer = self._loop_timer
                     if current_timer <= 0:
                         logger.info(
-                            f"{log_prefix} PFChatting: 聊太久了，麦麦打算休息一下 (计时器为 {current_timer:.1f}s)。退出PFChatting。"
+                            f"{log_prefix} PFChatting: 聊太久了，枫打算休息一下 (计时器为 {current_timer:.1f}s)。退出PFChatting。"
                         )
                         break
 
@@ -258,7 +258,7 @@ class PFChatting:
                         # Continue to timer decrement and sleep
 
                     elif action == "text_reply":
-                        logger.info(f"{log_prefix} PFChatting: 麦麦决定回复文本. 理由: {reasoning}")
+                        logger.info(f"{log_prefix} PFChatting: 枫决定回复文本. 理由: {reasoning}")
                         action_taken_this_cycle = True
                         anchor_message = await self._get_anchor_message(observed_messages)
                         if not anchor_message:
@@ -298,7 +298,7 @@ class PFChatting:
                                     logger.warning(f"{log_prefix} 循环: 回复器未产生结果. 跳过发送.")
                                     self._cleanup_thinking_message(thinking_id)
                     elif action == "emoji_reply":
-                        logger.info(f"{log_prefix} PFChatting: 麦麦决定回复表情 ('{emoji_query}'). 理由: {reasoning}")
+                        logger.info(f"{log_prefix} PFChatting:枫决定回复表情 ('{emoji_query}'). 理由: {reasoning}")
                         action_taken_this_cycle = True
                         anchor = await self._get_anchor_message(observed_messages)
                         if anchor:
@@ -312,7 +312,7 @@ class PFChatting:
                         action_taken_this_cycle = True  # 即使发送失败，Planner 也决策了动作
 
                     elif action == "no_reply":
-                        logger.info(f"{log_prefix} PFChatting: 麦麦决定不回复. 原因: {reasoning}")
+                        logger.info(f"{log_prefix} PFChatting: 枫决定不回复. 原因: {reasoning}")
                         action_taken_this_cycle = False  # 标记为未执行动作
                         # --- 新增：等待新消息 ---
                         logger.debug(f"{log_prefix} PFChatting: 开始等待新消息 (自 {planner_start_db_time})...")
@@ -399,13 +399,13 @@ class PFChatting:
                     break
 
         except asyncio.CancelledError:
-            logger.info(f"{log_prefix} PFChatting: 麦麦的聊天主循环被取消了")
+            logger.info(f"{log_prefix} PFChatting: 枫的聊天主循环被取消了")
         except Exception as e_loop_outer:
-            logger.error(f"{log_prefix} PFChatting: 麦麦的聊天主循环意外出错: {e_loop_outer}")
+            logger.error(f"{log_prefix} PFChatting: 枫的聊天主循环意外出错: {e_loop_outer}")
             logger.error(traceback.format_exc())
         finally:
             # State reset is primarily handled by _handle_loop_completion callback
-            logger.info(f"{log_prefix} PFChatting: 麦麦的聊天主循环结束。")
+            logger.info(f"{log_prefix} PFChatting: 枫的聊天主循环结束。")
 
     async def _planner(self) -> Dict[str, Any]:
         """
