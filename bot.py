@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 import time
 import platform
+import traceback
 from dotenv import load_dotenv
 from src.common.logger import get_module_logger, LogConfig, CONFIRM_STYLE_CONFIG
 from src.common.crash_logger import install_crash_handler
@@ -236,7 +237,7 @@ if __name__ == "__main__":
             loop.close()
 
     except Exception as e:
-        logger.error(f"主程序异常: {str(e)}")
+        logger.error(f"主程序异常: {str(e)} {str(traceback.format_exc())}")
         if loop and not loop.is_closed():
             loop.run_until_complete(graceful_shutdown())
             loop.close()
