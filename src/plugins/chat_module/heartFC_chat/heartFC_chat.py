@@ -30,7 +30,7 @@ chat_config = LogConfig(
 
 logger = get_module_logger("heartFC_chat", config=chat_config)
 
-# 新增常量
+# 检测群聊兴趣的间隔时间
 INTEREST_MONITOR_INTERVAL_SECONDS = 1
 
 
@@ -42,7 +42,6 @@ class HeartFC_Chat:
         if HeartFC_Chat._instance is not None:
             # Prevent re-initialization if used as a singleton
             return
-        self.logger = logger  # Make logger accessible via self
         self.gpt = ResponseGenerator()
         self.mood_manager = MoodManager.get_instance()
         self.mood_manager.start_mood_update()
@@ -64,9 +63,8 @@ class HeartFC_Chat:
     # --- End Added Class Method ---
 
     async def start(self):
-        """启动异步任务,如兴趣监控器"""
-        logger.info("HeartFC_Chat 正在启动异步任务...")
-        await self.interest_manager.start_background_tasks()
+        """启动异步任务,如回复启动器"""
+        logger.debug("HeartFC_Chat 正在启动异步任务...")
         self._initialize_monitor_task()
         logger.info("HeartFC_Chat 异步任务启动完成")
 
@@ -76,7 +74,6 @@ class HeartFC_Chat:
             try:
                 loop = asyncio.get_running_loop()
                 self._interest_monitor_task = loop.create_task(self._interest_monitor_loop())
-                logger.info(f"兴趣监控任务已创建。监控间隔: {INTEREST_MONITOR_INTERVAL_SECONDS}秒。")
             except RuntimeError:
                 logger.error("创建兴趣监控任务失败：没有运行中的事件循环。")
                 raise
@@ -88,12 +85,12 @@ class HeartFC_Chat:
         """获取现有PFChatting实例或创建新实例。"""
         async with self._pf_chatting_lock:
             if stream_id not in self.pf_chatting_instances:
-                self.logger.info(f"为流 {stream_id} 创建新的PFChatting实例")
+                logger.info(f"为流 {stream_id} 创建新的PFChatting实例")
                 # 传递 self (HeartFC_Chat 实例) 进行依赖注入
                 instance = PFChatting(stream_id, self)
                 # 执行异步初始化
                 if not await instance._initialize():
-                    self.logger.error(f"为流 {stream_id} 初始化PFChatting失败")
+                    logger.error(f"为流 {stream_id} 初始化PFChatting失败")
                     return None
                 self.pf_chatting_instances[stream_id] = instance
             return self.pf_chatting_instances[stream_id]
@@ -106,9 +103,8 @@ class HeartFC_Chat:
         while True:
             await asyncio.sleep(INTEREST_MONITOR_INTERVAL_SECONDS)
             try:
+                # 从心流中获取活跃流
                 active_stream_ids = list(heartflow.get_all_subheartflows_streams_ids())
-                # logger.trace(f"检查 {len(active_stream_ids)} 个活跃流是否足以开启心流对话...") # 调试日志
-
                 for stream_id in active_stream_ids:
                     stream_name = chat_manager.get_stream_name(stream_id) or stream_id  # 获取流名称
                     sub_hf = heartflow.get_subheartflow(stream_id)
@@ -121,8 +117,6 @@ class HeartFC_Chat:
                         interest_chatting = self.interest_manager.get_interest_chatting(stream_id)
                         if interest_chatting:
                             should_trigger = interest_chatting.should_evaluate_reply()
-                            # if should_trigger:
-                            #     logger.info(f"[{stream_name}] 基于兴趣概率决定启动交流模式 (概率: {interest_chatting.current_reply_probability:.4f})。")
                         else:
                             logger.trace(
                                 f"[{stream_name}] 没有找到对应的 InterestChatting 实例，跳过基于兴趣的触发检查。"
@@ -132,9 +126,9 @@ class HeartFC_Chat:
                         logger.error(traceback.format_exc())
 
                     if should_trigger:
+                        # 启动一次麦麦聊天
                         pf_instance = await self._get_or_create_pf_chatting(stream_id)
                         if pf_instance:
-                            # logger.info(f"[{stream_name}] 触发条件满足, 委托给PFChatting.")
                             asyncio.create_task(pf_instance.add_time())
                         else:
                             logger.error(f"[{stream_name}] 无法获取或创建PFChatting实例。跳过触发。")
@@ -282,6 +276,7 @@ class HeartFC_Chat:
         )
         self.mood_manager.update_mood_from_emotion(emotion, global_config.mood_intensity_factor)
 
+    # 暂不使用
     async def trigger_reply_generation(self, stream_id: str, observed_messages: List[dict]):
         """根据 SubHeartflow 的触发信号生成回复 (基于观察)"""
         stream_name = chat_manager.get_stream_name(stream_id) or stream_id  # <--- 在开始时获取名称
@@ -428,10 +423,7 @@ class HeartFC_Chat:
                         text = msg_dict.get("detailed_plain_text", "")
                         if text:
                             context_texts.append(text)
-                    observation_context_text = "\n".join(context_texts)
-                    logger.debug(
-                        f"[{stream_name}] Context for tools:\n{observation_context_text[-200:]}..."
-                    )  # 打印部分上下文
+                    observation_context_text = " ".join(context_texts)
                 else:
                     logger.warning(f"[{stream_name}] observed_messages 列表为空，无法为工具提供上下文。")
 
@@ -540,10 +532,3 @@ class HeartFC_Chat:
         finally:
             # 可以在这里添加清理逻辑，如果有的话
             pass
-
-    # --- 结束重构 ---
-
-    # _create_thinking_message, _send_response_messages, _handle_emoji, _update_relationship
-    # 这几个辅助方法目前仍然依赖 MessageRecv 对象。
-    # 如果无法可靠地从 Observation 获取并重建最后一条消息的 MessageRecv，
-    # 或者希望回复不锚定具体消息，那么这些方法也需要进一步重构。

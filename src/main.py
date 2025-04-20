@@ -18,6 +18,7 @@ from .plugins.remote import heartbeat_thread  # noqa: F401
 from .individuality.individuality import Individuality
 from .common.server import global_server
 from .plugins.chat_module.heartFC_chat.interest import InterestManager
+from .plugins.chat_module.heartFC_chat.heartFC_chat import HeartFC_Chat
 
 logger = get_module_logger("main")
 
@@ -114,11 +115,16 @@ class MainSystem:
             # 启动 InterestManager 的后台任务
             interest_manager = InterestManager()  # 获取单例
             await interest_manager.start_background_tasks()
-            logger.success("InterestManager 后台任务启动成功")
+            logger.success("兴趣管理器后台任务启动成功")
 
-            # 启动 HeartFC_Chat 的后台任务（例如兴趣监控）
-            await chat_bot.heartFC_chat.start()
-            logger.success("HeartFC_Chat 模块启动成功")
+            # 初始化并独立启动 HeartFC_Chat
+            HeartFC_Chat()
+            heartfc_chat_instance = HeartFC_Chat.get_instance()
+            if heartfc_chat_instance:
+                await heartfc_chat_instance.start()
+                logger.success("HeartFC_Chat 模块独立启动成功")
+            else:
+                logger.error("获取 HeartFC_Chat 实例失败，无法启动。")
 
             init_time = int(1000 * (time.time() - init_start_time))
             logger.success(f"初始化完成，神经元放电{init_time}次")

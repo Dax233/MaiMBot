@@ -9,11 +9,11 @@ class GetMidMemoryTool(BaseTool):
     """从记忆系统中获取相关记忆的工具"""
 
     name = "mid_chat_mem"
-    description = "之前的聊天内容中获取具体信息，当最新消息提到，或者你需要回复的消息中提到，你可以使用这个工具"
+    description = "之前的聊天内容概述id中获取具体信息，如果没有聊天内容概述id，就不要使用"
     parameters = {
         "type": "object",
         "properties": {
-            "id": {"type": "integer", "description": "要查询的聊天记录id"},
+            "id": {"type": "integer", "description": "要查询的聊天记录概述id"},
         },
         "required": ["id"],
     }

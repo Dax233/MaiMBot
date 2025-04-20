@@ -21,11 +21,11 @@ logger = get_module_logger("InterestManager", config=interest_log_config)
 DEFAULT_DECAY_RATE_PER_SECOND = 0.98  # 每秒衰减率 (兴趣保留 99%)
 MAX_INTEREST = 15.0  # 最大兴趣值
 # MIN_INTEREST_THRESHOLD = 0.1      # 低于此值可能被清理 (可选)
-CLEANUP_INTERVAL_SECONDS = 3600  # 清理任务运行间隔 (例如：1小时)
-INACTIVE_THRESHOLD_SECONDS = 3600  # 不活跃时间阈值 (例如：1小时)
+CLEANUP_INTERVAL_SECONDS = 1200  # 清理任务运行间隔 (例如：20分钟)
+INACTIVE_THRESHOLD_SECONDS = 1200  # 不活跃时间阈值 (例如：20分钟)
 LOG_INTERVAL_SECONDS = 3  # 日志记录间隔 (例如：30秒)
 LOG_DIRECTORY = "logs/interest"  # 日志目录
-LOG_FILENAME = "interest_log.json"  # 快照日志文件名 (保留，以防其他地方用到)
+# LOG_FILENAME = "interest_log.json"  # 快照日志文件名 (保留，以防其他地方用到)
 HISTORY_LOG_FILENAME = "interest_history.log"  # 新的历史日志文件名
 # 移除阈值，将移至 HeartFC_Chat
 # INTEREST_INCREASE_THRESHOLD = 0.5
@@ -54,7 +54,6 @@ class InterestChatting:
         self.last_update_time: float = time.time()  # 同时作为兴趣和概率的更新时间基准
         self.decay_rate_per_second: float = decay_rate
         self.max_interest: float = max_interest
-        self.last_increase_amount: float = 0.0
         self.last_interaction_time: float = self.last_update_time  # 新增：最后交互时间
 
         # --- 新增：概率回复相关属性 ---
@@ -131,15 +130,7 @@ class InterestChatting:
             # 限制概率不超过最大值
             self.current_reply_probability = min(self.current_reply_probability, self.max_reply_probability)
 
-        else:  # 低于阈值
-            # if self.is_above_threshold:
-            #      # 刚低于阈值，开始衰减
-            #      logger.debug(f"兴趣低于阈值 ({self.trigger_threshold}). 概率衰减开始于 {self.current_reply_probability:.4f}")
-            # else: # 持续低于阈值，继续衰减
-            #     pass # 不需要特殊处理
-
-            # 指数衰减概率
-            # 检查 decay_factor 是否有效
+        else:
             if 0 < self.probability_decay_factor < 1:
                 decay_multiplier = math.pow(self.probability_decay_factor, time_delta)
                 # old_prob = self.current_reply_probability
@@ -167,8 +158,6 @@ class InterestChatting:
         # 先更新概率和计算衰减（基于上次更新时间）
         self._update_reply_probability(current_time)
         self._calculate_decay(current_time)
-        # 记录这次增加的具体数值，供外部判断是否触发
-        self.last_increase_amount = value
         # 应用增加
         self.interest_level += value
         self.interest_level = min(self.interest_level, self.max_interest)  # 不超过最大值
@@ -184,10 +173,6 @@ class InterestChatting:
         self.interest_level = max(self.interest_level, 0.0)  # 确保不低于0
         self.last_update_time = current_time  # 降低也更新时间戳
         self.last_interaction_time = current_time  # 更新最后交互时间
-
-    def reset_trigger_info(self):
-        """重置触发相关信息，在外部任务处理后调用"""
-        self.last_increase_amount = 0.0
 
     def get_interest(self) -> float:
         """获取当前兴趣值 (计算衰减后)"""
@@ -262,7 +247,7 @@ class InterestManager:
                     # key: stream_id (str), value: InterestChatting instance
                     self.interest_dict: dict[str, InterestChatting] = {}
                     # 保留旧的快照文件路径变量，尽管此任务不再写入
-                    self._snapshot_log_file_path = os.path.join(LOG_DIRECTORY, LOG_FILENAME)
+                    # self._snapshot_log_file_path = os.path.join(LOG_DIRECTORY, LOG_FILENAME)
                     # 定义新的历史日志文件路径
                     self._history_log_file_path = os.path.join(LOG_DIRECTORY, HISTORY_LOG_FILENAME)
                     self._ensure_log_directory()
@@ -412,13 +397,8 @@ class InterestManager:
 
     def _get_or_create_interest_chatting(self, stream_id: str) -> InterestChatting:
         """获取或创建指定流的 InterestChatting 实例 (线程安全)"""
-        # 由于字典操作本身在 CPython 中大部分是原子的，
-        # 且主要写入发生在 __init__ 和 cleanup (由单任务执行)，
-        # 读取和 get_or_create 主要在事件循环线程，简单场景下可能不需要锁。
-        # 但为保险起见或跨线程使用考虑，可加锁。
-        # with self._lock:
         if stream_id not in self.interest_dict:
-            logger.debug(f"Creating new InterestChatting for stream_id: {stream_id}")
+            logger.debug(f"创建兴趣流: {stream_id}")
             # --- 修改：创建时传入概率相关参数 (如果需要定制化，否则使用默认值) ---
             self.interest_dict[stream_id] = InterestChatting(
                 # decay_rate=..., max_interest=..., # 可以从配置读取

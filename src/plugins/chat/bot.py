@@ -8,7 +8,6 @@ from ..chat_module.only_process.only_message_process import MessageProcessor
 from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
 from ..chat_module.think_flow_chat.think_flow_chat import ThinkFlowChat
 from ..chat_module.reasoning_chat.reasoning_chat import ReasoningChat
-from ..chat_module.heartFC_chat.heartFC_chat import HeartFC_Chat
 from ..chat_module.heartFC_chat.heartFC_processor import HeartFC_Processor
 from ..utils.prompt_builder import Prompt, global_prompt_manager
 import traceback
@@ -32,11 +31,10 @@ class ChatBot:
         self.mood_manager.start_mood_update()  # 启动情绪更新
         self.think_flow_chat = ThinkFlowChat()
         self.reasoning_chat = ReasoningChat()
-        self.heartFC_chat = HeartFC_Chat()
-        self.heartFC_processor = HeartFC_Processor(self.heartFC_chat)
-        self.only_process_chat = MessageProcessor()
+        self.heartFC_processor = HeartFC_Processor()  # 新增
 
         # 创建初始化PFC管理器的任务，会在_ensure_started时执行
+        self.only_process_chat = MessageProcessor()
         self.pfc_manager = PFCManager.get_instance()
 
     async def _ensure_started(self):
@@ -120,7 +118,7 @@ class ChatBot:
                         else:
                             if groupinfo.group_id in global_config.talk_allowed_groups:
                                 # logger.debug(f"开始群聊模式{str(message_data)[:50]}...")
-                                if global_config.response_mode == "heart_flow":
+                                if global_config.response_mode == "heart_FC":
                                     # logger.info(f"启动最新最好的思维流FC模式{str(message_data)[:50]}...")
 
                                     await self.heartFC_processor.process_message(message_data)

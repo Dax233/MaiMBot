@@ -6,6 +6,8 @@ from src.common.logger import get_module_logger, TOOL_USE_STYLE_CONFIG, LogConfi
 from src.do_tool.tool_can_use import get_all_tool_definitions, get_tool_instance
 from src.heart_flow.sub_heartflow import SubHeartflow
 import traceback
+from src.plugins.person_info.relationship_manager import relationship_manager
+from src.plugins.chat.utils import parse_text_timestamps
 
 tool_use_config = LogConfig(
     # 使用消息发送专用样式
@@ -38,20 +40,6 @@ class ToolUser:
         else:
             mid_memory_info = ""
 
-        # stream_id = chat_stream.stream_id
-        # chat_talking_prompt = ""
-        # if stream_id:
-        #     chat_talking_prompt = get_recent_group_detailed_plain_text(
-        #         stream_id, limit=global_config.MAX_CONTEXT_SIZE, combine=True
-        #     )
-        # new_messages = list(
-        #     db.messages.find({"chat_id": chat_stream.stream_id, "time": {"$gt": time.time()}}).sort("time", 1).limit(15)
-        # )
-        # new_messages_str = ""
-        # for msg in new_messages:
-        #     if "detailed_plain_text" in msg:
-        #         new_messages_str += f"{msg['detailed_plain_text']}"
-
         # 这些信息应该从调用者传入，而不是从self获取
         bot_name = global_config.BOT_NICKNAME
         prompt = ""
@@ -62,6 +50,10 @@ class ToolUser:
         # prompt += f"你注意到{sender_name}刚刚说：{message_txt}\n"
         prompt += f"注意你就是{bot_name}，{bot_name}是你的名字。根据之前的聊天记录补充问题信息，搜索时避开你的名字。\n"
         prompt += "你现在需要对群里的聊天内容进行回复，现在选择工具来对消息和你的回复进行处理，你是否需要额外的信息，比如回忆或者搜寻已有的知识，改变关系和情感，或者了解你现在正在做什么。"
+
+        prompt = await relationship_manager.convert_all_person_sign_to_person_name(prompt)
+        prompt = parse_text_timestamps(prompt, mode="lite")
+
         return prompt
 
     @staticmethod
@@ -165,7 +157,7 @@ class ToolUser:
                 tool_calls_str = ""
                 for tool_call in tool_calls:
                     tool_calls_str += f"{tool_call['function']['name']}\n"
-                logger.info(f"根据:\n{prompt[0:100]}...\n模型请求调用{len(tool_calls)}个工具: {tool_calls_str}")
+                logger.info(f"根据:\n{prompt}\n模型请求调用{len(tool_calls)}个工具: {tool_calls_str}")
                 tool_results = []
                 structured_info = {}  # 动态生成键
 

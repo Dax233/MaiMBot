@@ -12,7 +12,6 @@ from ...chat.chat_stream import chat_manager
 from ...chat.message_buffer import message_buffer
 from ...utils.timer_calculater import Timer
 from .interest import InterestManager
-from .heartFC_chat import HeartFC_Chat  # 导入 HeartFC_Chat 以调用回复生成
 
 # 定义日志配置
 processor_config = LogConfig(
@@ -26,15 +25,35 @@ logger = get_module_logger("heartFC_processor", config=processor_config)
 
 
 class HeartFC_Processor:
-    def __init__(self, chat_instance: HeartFC_Chat):
+    def __init__(self):
         self.storage = MessageStorage()
-        self.interest_manager = (
-            InterestManager()
-        )  # TODO: 可能需要传递 chat_instance 给 InterestManager 或修改其方法签名
-        self.chat_instance = chat_instance  # 持有 HeartFC_Chat 实例
+        self.interest_manager = InterestManager()
+        # self.chat_instance = chat_instance  # 持有 HeartFC_Chat 实例
 
     async def process_message(self, message_data: str) -> None:
-        """处理接收到的消息，更新状态，并将回复决策委托给 InterestManager"""
+        """处理接收到的原始消息数据，完成消息解析、缓冲、过滤、存储、兴趣度计算与更新等核心流程。
+
+        此函数是消息处理的核心入口，负责接收原始字符串格式的消息数据，并将其转化为结构化的 `MessageRecv` 对象。
+        主要执行步骤包括：
+        1. 解析 `message_data` 为 `MessageRecv` 对象，提取用户信息、群组信息等。
+        2. 将消息加入 `message_buffer` 进行缓冲处理，以应对消息轰炸或者某些人一条消息分几次发等情况。
+        3. 获取或创建对应的 `chat_stream` 和 `subheartflow` 实例，用于管理会话状态和心流。
+        4. 对消息内容进行初步处理（如提取纯文本）。
+        5. 应用全局配置中的过滤词和正则表达式，过滤不符合规则的消息。
+        6. 查询消息缓冲结果，如果消息被缓冲器拦截（例如，判断为消息轰炸的一部分），则中止后续处理。
+        7. 对于通过缓冲的消息，将其存储到 `MessageStorage` 中。
+
+        8. 调用海马体（`HippocampusManager`）计算消息内容的记忆激活率。（这部分算法后续会进行优化）
+        9. 根据是否被提及（@）和记忆激活率，计算最终的兴趣度增量。(提及的额外兴趣增幅)
+        10. 使用计算出的增量更新 `InterestManager` 中对应会话的兴趣度。
+        11. 记录处理后的消息信息及当前的兴趣度到日志。
+
+        注意：此函数本身不负责生成和发送回复。回复的决策和生成逻辑被移至 `HeartFC_Chat` 类中的监控任务，
+        该任务会根据 `InterestManager` 中的兴趣度变化来决定何时触发回复。
+
+        Args:
+            message_data: str: 从消息源接收到的原始消息字符串。
+        """
         timing_results = {}  # 初始化 timing_results
         message = None
         try:
@@ -60,7 +79,6 @@ class HeartFC_Processor:
 
             message.update_chat_stream(chat)
 
-            # 创建心流与chat的观察 (在接收消息时创建，以便后续观察和思考)
             heartflow.create_subheartflow(chat.stream_id)
 
             await message.process()
