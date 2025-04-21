@@ -18,7 +18,7 @@ from .plugins.remote import heartbeat_thread  # noqa: F401
 from .individuality.individuality import Individuality
 from .common.server import global_server
 from .plugins.chat_module.heartFC_chat.interest import InterestManager
-from .plugins.chat_module.heartFC_chat.heartFC_controler import HeartFC_Controller
+from .plugins.chat_module.heartFC_chat.heartFC_controler import HeartFCController
 
 logger = get_module_logger("main")
 
@@ -117,9 +117,9 @@ class MainSystem:
             await interest_manager.start_background_tasks()
             logger.success("兴趣管理器后台任务启动成功")
 
-            # 初始化并独立启动 HeartFC_Chat
-            HeartFC_Controller()
-            heartfc_chat_instance = HeartFC_Controller.get_instance()
+            # 初始化并独立启动 HeartFCController
+            HeartFCController()
+            heartfc_chat_instance = HeartFCController.get_instance()
             if heartfc_chat_instance:
                 await heartfc_chat_instance.start()
                 logger.success("HeartFC_Chat 模块独立启动成功")

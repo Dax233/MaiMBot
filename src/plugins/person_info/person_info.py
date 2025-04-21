@@ -169,7 +169,7 @@ class PersonInfoManager:
         """给某个用户取名"""
         if not person_id:
             logger.debug("取名失败：person_id不能为空")
-            return
+            return None
 
         old_name = await self.get_value(person_id, "person_name")
         old_reason = await self.get_value(person_id, "name_reason")

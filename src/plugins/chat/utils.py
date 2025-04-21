@@ -2,7 +2,7 @@ import random
 import time
 import re
 from collections import Counter
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import jieba
 import numpy as np
@@ -693,7 +693,7 @@ def count_messages_between(start_time: float, end_time: float, stream_id: str) -
         return 0, 0
 
 
-def translate_timestamp_to_human_readable(timestamp: float, mode: str = "normal") -> str:
+def translate_timestamp_to_human_readable(timestamp: float, mode: str = "normal") -> Optional[str]:
     """将时间戳转换为人类可读的时间格式
 
     Args:
@@ -721,6 +721,7 @@ def translate_timestamp_to_human_readable(timestamp: float, mode: str = "normal"
             return f"{int(diff / 86400)}天前:\n"
         else:
             return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp)) + ":\n"
+    return None
 
 
 def parse_text_timestamps(text: str, mode: str = "normal") -> str:

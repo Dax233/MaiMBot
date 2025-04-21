@@ -220,9 +220,8 @@ class MessageManager:
                 await asyncio.sleep(typing_time)
                 logger.debug(f"\n{message_earliest.processed_plain_text},{typing_time},等待输入时间结束\n")
 
-                await self.storage.store_message(message_earliest, message_earliest.chat_stream)
-
                 await MessageSender().send_message(message_earliest)
+                await self.storage.store_message(message_earliest, message_earliest.chat_stream)
 
                 container.remove_message(message_earliest)
 

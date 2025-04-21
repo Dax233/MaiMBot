@@ -15,6 +15,9 @@ from src.config.config import global_config
 from src.plugins.chat.utils_image import image_path_to_base64  # Local import needed after move
 from src.plugins.utils.timer_calculater import Timer  # <--- Import Timer
 
+INITIAL_DURATION = 60.0
+
+
 # 定义日志配置 (使用 loguru 格式)
 interest_log_config = LogConfig(
     console_format=PFC_STYLE_CONFIG["console_format"],  # 使用默认控制台格式
@@ -25,7 +28,7 @@ logger = get_module_logger("PFCLoop", config=interest_log_config)  # Logger Name
 
 # Forward declaration for type hinting
 if TYPE_CHECKING:
-    from .heartFC_controler import HeartFC_Controller
+    from .heartFC_controler import HeartFCController
 
 PLANNER_TOOL_DEFINITION = [
     {
@@ -61,13 +64,13 @@ class PFChatting:
     只要计时器>0，循环就会继续。
     """
 
-    def __init__(self, chat_id: str, heartfc_controller_instance: "HeartFC_Controller"):
+    def __init__(self, chat_id: str, heartfc_controller_instance: "HeartFCController"):
         """
         初始化PFChatting实例。
 
         Args:
             chat_id: The identifier for the chat stream (e.g., stream_id).
-            heartfc_controller_instance: 访问共享资源和方法的主HeartFC_Controller实例。
+            heartfc_controller_instance: 访问共享资源和方法的主HeartFCController实例。
         """
         self.heartfc_controller = heartfc_controller_instance  # Store the controller instance
         self.stream_id: str = chat_id
@@ -91,7 +94,7 @@ class PFChatting:
         self._loop_active: bool = False  # Is the loop currently running?
         self._loop_task: Optional[asyncio.Task] = None  # Stores the main loop task
         self._trigger_count_this_activation: int = 0  # Counts triggers within an active period
-        self._initial_duration: float = 60.0  # 首次触发增加的时间
+        self._initial_duration: float = INITIAL_DURATION  # 首次触发增加的时间
         self._last_added_duration: float = self._initial_duration  # <--- 新增：存储上次增加的时间
 
     def _get_log_prefix(self) -> str:
@@ -372,6 +375,22 @@ class PFChatting:
                             )
                             action_taken_this_cycle = False
 
+                    # --- Print Timer Results --- #
+                    if cycle_timers:  # 先检查cycle_timers是否非空
+                        timer_strings = []
+                        for name, elapsed in cycle_timers.items():
+                            # 直接格式化存储在字典中的浮点数 elapsed
+                            formatted_time = f"{elapsed * 1000:.2f}毫秒" if elapsed < 1 else f"{elapsed:.2f}秒"
+                            timer_strings.append(f"{name}: {formatted_time}")
+
+                        if timer_strings:  # 如果有有效计时器数据才打印
+                            logger.debug(
+                                f"{log_prefix} test testtesttesttesttesttesttesttesttesttest Cycle Timers: {'; '.join(timer_strings)}"
+                            )
+
+                    # --- Timer Decrement --- #
+                    cycle_duration = time.monotonic() - loop_cycle_start_time
+
                 except Exception as e_cycle:
                     logger.error(f"{log_prefix} 循环周期执行时发生错误: {e_cycle}")
                     logger.error(traceback.format_exc())
@@ -385,21 +404,6 @@ class PFChatting:
                         self._processing_lock.release()
                         logger.trace(f"{log_prefix} 循环释放了处理锁.")
 
-                # --- Print Timer Results --- #
-                if cycle_timers:  # 先检查cycle_timers是否非空
-                    timer_strings = []
-                    for name, elapsed in cycle_timers.items():
-                        # 直接格式化存储在字典中的浮点数 elapsed
-                        formatted_time = f"{elapsed * 1000:.2f}毫秒" if elapsed < 1 else f"{elapsed:.2f}秒"
-                        timer_strings.append(f"{name}: {formatted_time}")
-
-                    if timer_strings:  # 如果有有效计时器数据才打印
-                        logger.debug(
-                            f"{log_prefix} test testtesttesttesttesttesttesttesttesttest Cycle Timers: {'; '.join(timer_strings)}"
-                        )
-
-                # --- Timer Decrement --- #
-                cycle_duration = time.monotonic() - loop_cycle_start_time
                 async with self._timer_lock:
                     self._loop_timer -= cycle_duration
                     # Log timer decrement less aggressively
@@ -858,7 +862,7 @@ response_language = "Recommend Chinese"
             logger.error(traceback.format_exc())
             return None
 
-    # --- Methods moved from HeartFC_Controller start ---
+    # --- Methods moved from HeartFCController start ---
     async def _create_thinking_message(self, anchor_message: Optional[MessageRecv]) -> Optional[str]:
         """创建思考消息 (尝试锚定到 anchor_message)"""
         if not anchor_message or not anchor_message.chat_stream:

@@ -1,14 +1,13 @@
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import urllib3
 
-from .utils_image import image_manager
-
-from ..message.message_base import Seg, UserInfo, BaseMessageInfo, MessageBase
-from .chat_stream import ChatStream
 from src.common.logger import get_module_logger
+from .chat_stream import ChatStream
+from .utils_image import image_manager
+from ..message.message_base import Seg, UserInfo, BaseMessageInfo, MessageBase
 
 logger = get_module_logger("chat_message")
 
@@ -207,7 +206,7 @@ class MessageProcessBase(Message):
             # 处理单个消息段
             return await self._process_single_segment(segment)
 
-    async def _process_single_segment(self, seg: Seg) -> str:
+    async def _process_single_segment(self, seg: Seg) -> Union[str, None]:
         """处理单个消息段
 
         Args:
@@ -233,6 +232,7 @@ class MessageProcessBase(Message):
             elif seg.type == "reply":
                 if self.reply and hasattr(self.reply, "processed_plain_text"):
                     return f"[回复：{self.reply.processed_plain_text}]"
+                return None
             else:
                 return f"[{seg.type}:{str(seg.data)}]"
         except Exception as e:

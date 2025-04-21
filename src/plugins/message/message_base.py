@@ -12,7 +12,6 @@ class Seg:
             - 对于 text 类型，data 是字符串
             - 对于 image 类型，data 是 base64 字符串
             - 对于 seglist 类型，data 是 Seg 列表
-        translated_data: 经过翻译处理的数据（可选）
     """
 
     type: str

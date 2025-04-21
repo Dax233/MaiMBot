@@ -5,7 +5,8 @@ import time
 from pathlib import Path
 import datetime
 from rich.console import Console
-from memory_manual_build import Memory_graph, Hippocampus  # 海马体和记忆图
+from Hippocampus import Hippocampus  # 海马体和记忆图
+
 
 from dotenv import load_dotenv
 
@@ -45,13 +46,13 @@ else:
 
 
 # 查询节点信息
-def query_mem_info(memory_graph: Memory_graph):
+def query_mem_info(hippocampus: Hippocampus):
     while True:
         query = input("\n请输入新的查询概念（输入'退出'以结束）：")
         if query.lower() == "退出":
             break
 
-        items_list = memory_graph.get_related_item(query)
+        items_list = hippocampus.memory_graph.get_related_item(query)
         if items_list:
             have_memory = False
             first_layer, second_layer = items_list
@@ -312,14 +313,11 @@ def alter_mem_edge(hippocampus: Hippocampus):
 async def main():
     start_time = time.time()
 
-    # 创建记忆图
-    memory_graph = Memory_graph()
-
     # 创建海马体
-    hippocampus = Hippocampus(memory_graph)
+    hippocampus = Hippocampus()
 
     # 从数据库同步数据
-    hippocampus.sync_memory_from_db()
+    hippocampus.entorhinal_cortex.sync_memory_from_db()
 
     end_time = time.time()
     logger.info(f"\033[32m[加载海马体耗时: {end_time - start_time:.2f} 秒]\033[0m")
@@ -338,7 +336,7 @@ async def main():
             query = -1
 
         if query == 0:
-            query_mem_info(memory_graph)
+            query_mem_info(hippocampus.memory_graph)
         elif query == 1:
             add_mem_node(hippocampus)
         elif query == 2:
@@ -355,7 +353,7 @@ async def main():
             print("已结束操作")
             break
 
-        hippocampus.sync_memory_to_db()
+        hippocampus.entorhinal_cortex.sync_memory_to_db()
 
 
 if __name__ == "__main__":

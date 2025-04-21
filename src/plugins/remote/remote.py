@@ -134,3 +134,4 @@ def main():
         heartbeat_thread.start()
 
         return heartbeat_thread  # 返回线程对象，便于外部控制
+    return None

@@ -105,3 +105,4 @@ class Individuality:
             return self.personality.agreeableness
         elif factor == "neuroticism":
             return self.personality.neuroticism
+        return None

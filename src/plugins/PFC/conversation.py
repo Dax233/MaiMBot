@@ -180,6 +180,7 @@ class Conversation:
                     "time": datetime.datetime.now().strftime("%H:%M:%S"),
                 }
             )
+            return None
 
         elif action == "fetch_knowledge":
             self.waiter.wait_accumulated_time = 0
@@ -193,28 +194,35 @@ class Conversation:
             if knowledge:
                 if topic not in self.conversation_info.knowledge_list:
                     self.conversation_info.knowledge_list.append({"topic": topic, "knowledge": knowledge})
+                    return None
                 else:
                     self.conversation_info.knowledge_list[topic] += knowledge
+                    return None
+            return None
 
         elif action == "rethink_goal":
             self.waiter.wait_accumulated_time = 0
 
             self.state = ConversationState.RETHINKING
             await self.goal_analyzer.analyze_goal(conversation_info, observation_info)
+            return None
 
         elif action == "listening":
             self.state = ConversationState.LISTENING
             logger.info("倾听对方发言...")
             await self.waiter.wait_listening(conversation_info)
+            return None
 
         elif action == "end_conversation":
             self.should_continue = False
             logger.info("决定结束对话...")
+            return None
 
         else:  # wait
             self.state = ConversationState.WAITING
             logger.info("等待更多信息...")
             await self.waiter.wait(self.conversation_info)
+            return None
 
     async def _send_timeout_message(self):
         """发送超时结束消息"""

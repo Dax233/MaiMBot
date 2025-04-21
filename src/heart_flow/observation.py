@@ -227,7 +227,7 @@ response_language = "Recommend Chinese"
         #     traceback.print_exc()  # 记录详细堆栈
         # print(f"处理后self.talking_message：{self.talking_message}")
 
-        self.talking_message_str = await build_readable_messages(self.talking_message)
+        self.talking_message_str = await build_readable_messages(messages=self.talking_message, timestamp_mode="normal")
 
         logger.trace(
             f"Chat {self.chat_id} - 压缩早期记忆：{self.mid_memory_info}\n现在聊天内容：{self.talking_message_str}"
