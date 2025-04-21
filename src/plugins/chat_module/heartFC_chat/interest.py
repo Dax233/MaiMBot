@@ -18,7 +18,7 @@ logger = get_module_logger("InterestManager", config=interest_log_config)
 
 
 # 定义常量
-DEFAULT_DECAY_RATE_PER_SECOND = 0.98  # 每秒衰减率 (兴趣保留 99%)
+DEFAULT_DECAY_RATE_PER_SECOND = 0.99  # 每秒衰减率 (兴趣保留 99%)
 MAX_INTEREST = 15.0  # 最大兴趣值
 # MIN_INTEREST_THRESHOLD = 0.1      # 低于此值可能被清理 (可选)
 CLEANUP_INTERVAL_SECONDS = 1200  # 清理任务运行间隔 (例如：20分钟)
@@ -31,7 +31,7 @@ HISTORY_LOG_FILENAME = "interest_history.log"  # 新的历史日志文件名
 # INTEREST_INCREASE_THRESHOLD = 0.5
 
 # --- 新增：概率回复相关常量 ---
-REPLY_TRIGGER_THRESHOLD = 3.0  # 触发概率回复的兴趣阈值 (示例值)
+REPLY_TRIGGER_THRESHOLD = 2.0  # 触发概率回复的兴趣阈值 (示例值)
 BASE_REPLY_PROBABILITY = 0.1  # 首次超过阈值时的基础回复概率 (示例值)
 PROBABILITY_INCREASE_RATE_PER_SECOND = 0.02  # 高于阈值时，每秒概率增加量 (线性增长, 示例值)
 PROBABILITY_DECAY_FACTOR_PER_SECOND = 0.2  # 低于阈值时，每秒概率衰减因子 (指数衰减, 示例值)
