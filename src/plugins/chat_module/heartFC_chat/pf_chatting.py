@@ -814,7 +814,7 @@ response_language = "Recommend Chinese"
             "6. 表情包是用来表达情绪的，不要直接回复或评价别人的表情包，而是根据对话内容和情绪选择是否用表情回应。\n"
             "7. 如果观察到的内容只有你自己的发言，选择 'no_reply'。\n"
             "8. 不要回复你自己的话，不要把自己的话当做别人说的。\n"
-            "8. 昵称后面跟随\"(你)\"的人就是你。\n"
+            '8. 昵称后面跟随"(你)"的人就是你。\n'
             "必须调用 'decide_reply_action' 工具并提供 'action' 和 'reasoning'。如果选择了 'emoji_reply' 或者选择了 'text_reply' 并想追加表情，则必须提供 'emoji_query'。"
         )
 
