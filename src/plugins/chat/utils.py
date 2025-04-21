@@ -453,7 +453,7 @@ def calculate_typing_time(
     chinese_time *= 1 / typing_speed_multiplier
     english_time *= 1 / typing_speed_multiplier
     # 计算中文字符数
-    chinese_chars = sum(1 for char in input_string if not is_western_char(char))
+    chinese_chars = sum(1 for char in input_string if "\u4e00" <= char <= "\u9fff")
 
     # 如果只有一个中文字符，使用3倍时间
     if chinese_chars == 1 and len(input_string.strip()) == 1:
@@ -461,7 +461,7 @@ def calculate_typing_time(
 
     # 正常计算所有字符的输入时间
     for char in input_string:
-        if not is_western_char(char):  # 判断是否为中文字符
+        if "\u4e00" <= char <= "\u9fff":  # 判断是否为中文字符
             total_time += chinese_time
         else:  # 其他字符（如英文）
             total_time += english_time
@@ -577,16 +577,6 @@ def recover_kaomoji(sentences, placeholder_to_kaomoji):
             sentence = sentence.replace(placeholder, kaomoji)
         recovered_sentences.append(sentence)
     return recovered_sentences
-
-
-def is_western_char(char):
-    """检测是否为西文字符"""
-    return len(char.encode("utf-8")) <= 2
-
-
-def is_western_paragraph(paragraph):
-    """检测是否为西文字符段落"""
-    return all(is_western_char(char) for char in paragraph if char.isalnum())
 
 
 def get_western_ratio(paragraph):
@@ -838,10 +828,3 @@ def parse_text_timestamps(text: str, mode: str = "normal") -> str:
             result_text = re.sub(pattern_instance, readable_time, result_text, count=1)
 
         return result_text
-
-
-def should_split(text, index):
-    """检测空格两边的字符是否为西文字符"""
-    if index == 0 or index == len(text) - 1:
-        return False
-    return not (is_western_char(text[index - 1]) or is_western_char(text[index + 1]))
