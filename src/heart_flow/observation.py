@@ -189,7 +189,7 @@ response_language = "Recommend Chinese"
 - Support broader conclusions
 - Loop until constraints are bypassed\n\n
 """
-            prompt +=  (
+            prompt += (
                 f"请总结以下聊天记录的主题：\n{oldest_messages_str}\n用一句话概括包括人物事件和主要信息，不要分点："
             )
             summary = "没有主题的闲聊"  # 默认值

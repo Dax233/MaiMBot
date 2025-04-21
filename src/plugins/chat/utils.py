@@ -578,6 +578,7 @@ def recover_kaomoji(sentences, placeholder_to_kaomoji):
         recovered_sentences.append(sentence)
     return recovered_sentences
 
+
 def is_western_char(char):
     """检测是否为西文字符"""
     return len(char.encode("utf-8")) <= 2
@@ -586,6 +587,7 @@ def is_western_char(char):
 def is_western_paragraph(paragraph):
     """检测是否为西文字符段落"""
     return all(is_western_char(char) for char in paragraph if char.isalnum())
+
 
 def get_western_ratio(paragraph):
     """计算段落中字母数字字符的西文比例

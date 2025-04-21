@@ -308,9 +308,7 @@ class PFChatting:
                                         logger.warning(f"{log_prefix} 循环: 回复器未产生结果. 跳过发送.")
                                         self._cleanup_thinking_message(thinking_id)
                         elif action == "emoji_reply":
-                            logger.info(
-                                f"{log_prefix} PFChatting: 枫决定回复表情 ('{emoji_query}'). 理由: {reasoning}"
-                            )
+                            logger.info(f"{log_prefix} PFChatting: 枫决定回复表情 ('{emoji_query}'). 理由: {reasoning}")
                             action_taken_this_cycle = True
                             anchor = await self._get_anchor_message(observed_messages)
                             if anchor:
