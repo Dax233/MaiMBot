@@ -1933,9 +1933,7 @@ class HippocampusManager:
         if not self._initialized:
             raise RuntimeError("HippocampusManager 尚未初始化，请先调用 initialize 方法")
         try:
-            response = await self._hippocampus.get_memory_from_text(
-                text, max_memory_num, max_memory_length, max_depth
-            )
+            response = await self._hippocampus.get_memory_from_text(text, max_memory_num, max_memory_length, max_depth)
         except Exception as e:
             logger.error(f"文本激活记忆失败: {e}")
             response = []
