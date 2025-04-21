@@ -392,7 +392,7 @@ response_language = "Recommand Chinese"
 
         return response
 
-    def create_subheartflow(self, subheartflow_id):
+    async def create_subheartflow(self, subheartflow_id):
         """
         创建一个新的SubHeartflow实例
         添加一个SubHeartflow实例到self._subheartflows字典中
@@ -405,6 +405,7 @@ response_language = "Recommand Chinese"
                 # 创建一个观察对象，目前只可以用chat_id创建观察对象
                 logger.debug(f"创建 observation: {subheartflow_id}")
                 observation = ChattingObservation(subheartflow_id)
+                await observation.initialize()
                 subheartflow.add_observation(observation)
                 logger.debug("添加 observation 成功")
                 # 创建异步任务

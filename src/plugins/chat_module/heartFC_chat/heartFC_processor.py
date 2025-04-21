@@ -12,6 +12,7 @@ from ...chat.chat_stream import chat_manager
 from ...chat.message_buffer import message_buffer
 from ...utils.timer_calculater import Timer
 from .interest import InterestManager
+from src.plugins.person_info.relationship_manager import relationship_manager
 
 # 定义日志配置
 processor_config = LogConfig(
@@ -79,7 +80,7 @@ class HeartFC_Processor:
 
             message.update_chat_stream(chat)
 
-            heartflow.create_subheartflow(chat.stream_id)
+            await heartflow.create_subheartflow(chat.stream_id)
 
             await message.process()
             logger.trace(f"消息处理成功: {message.processed_plain_text}")
@@ -166,7 +167,36 @@ class HeartFC_Processor:
                 f"兴趣度: {current_interest:.2f}"
             )
 
-            # 回复触发逻辑已移至 HeartFC_Chat 的监控任务
+            try:
+                is_known = await relationship_manager.is_known_some_one(
+                    message.message_info.platform, message.message_info.user_info.user_id
+                )
+                if not is_known:
+                    logger.info(f"首次认识用户: {message.message_info.user_info.user_nickname}")
+                    await relationship_manager.first_knowing_some_one(
+                        message.message_info.platform,
+                        message.message_info.user_info.user_id,
+                        message.message_info.user_info.user_nickname,
+                        message.message_info.user_info.user_cardname or message.message_info.user_info.user_nickname,
+                        "",
+                    )
+                else:
+                    logger.debug(f"已认识用户: {message.message_info.user_info.user_nickname}")
+                    if not await relationship_manager.is_qved_name(
+                        message.message_info.platform, message.message_info.user_info.user_id
+                    ):
+                        logger.info(f"更新已认识但未取名的用户: {message.message_info.user_info.user_nickname}")
+                        await relationship_manager.first_knowing_some_one(
+                            message.message_info.platform,
+                            message.message_info.user_info.user_id,
+                            message.message_info.user_info.user_nickname,
+                            message.message_info.user_info.user_cardname
+                            or message.message_info.user_info.user_nickname,
+                            "",
+                        )
+            except Exception as e:
+                logger.error(f"处理认识关系失败: {e}")
+                logger.error(traceback.format_exc())
 
         except Exception as e:
             logger.error(f"消息处理失败 (process_message V3): {e}")

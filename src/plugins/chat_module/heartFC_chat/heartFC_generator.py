@@ -39,6 +39,7 @@ class ResponseGenerator:
 
     async def generate_response(
         self,
+        reason: str,
         message: MessageRecv,
         thinking_id: str,
     ) -> Optional[List[str]]:
@@ -54,7 +55,7 @@ class ResponseGenerator:
             current_model = self.model_normal
             current_model.temperature = global_config.llm_normal["temp"] * arousal_multiplier  # 激活度越高，温度越高
             model_response = await self._generate_response_with_model(
-                message, current_model, thinking_id, mode="normal"
+                reason, message, current_model, thinking_id, mode="normal"
             )
 
         if model_response:
@@ -69,7 +70,7 @@ class ResponseGenerator:
             return None
 
     async def _generate_response_with_model(
-        self, message: MessageRecv, model: LLMRequest, thinking_id: str, mode: str = "normal"
+        self, reason: str, message: MessageRecv, model: LLMRequest, thinking_id: str, mode: str = "normal"
     ) -> str:
         sender_name = ""
 
@@ -81,6 +82,7 @@ class ResponseGenerator:
         with Timer() as t_build_prompt:
             if mode == "normal":
                 prompt = await prompt_builder._build_prompt(
+                    reason,
                     message.chat_stream,
                     message_txt=message.processed_plain_text,
                     sender_name=sender_name,

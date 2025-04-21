@@ -88,6 +88,25 @@ MEMORY_STYLE_CONFIG = {
     },
 }
 
+# pfc配置
+PFC_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{extra[module]: <12}</cyan> | "
+            "<light-yellow>PFC</light-yellow> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | PFC | {message}",
+    },
+    "simple": {
+        "console_format": (
+            "<green>{time:MM-DD HH:mm}</green> | <light-green>PFC</light-green> | <light-green>{message}</light-green>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | PFC | {message}",
+    },
+}
 
 # MOOD
 MOOD_STYLE_CONFIG = {
@@ -327,6 +346,7 @@ SUB_HEARTFLOW_STYLE_CONFIG = (
 WILLING_STYLE_CONFIG = WILLING_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else WILLING_STYLE_CONFIG["advanced"]
 CONFIG_STYLE_CONFIG = CONFIG_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else CONFIG_STYLE_CONFIG["advanced"]
 TOOL_USE_STYLE_CONFIG = TOOL_USE_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else TOOL_USE_STYLE_CONFIG["advanced"]
+PFC_STYLE_CONFIG = PFC_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else PFC_STYLE_CONFIG["advanced"]
 
 
 def is_registered_module(record: dict) -> bool:

@@ -1,6 +1,5 @@
 from src.plugins.models.utils_model import LLMRequest
 from src.config.config import global_config
-from src.plugins.chat.chat_stream import ChatStream
 import json
 from src.common.logger import get_module_logger, TOOL_USE_STYLE_CONFIG, LogConfig
 from src.do_tool.tool_can_use import get_all_tool_definitions, get_tool_instance
@@ -24,21 +23,20 @@ class ToolUser:
         )
 
     @staticmethod
-    async def _build_tool_prompt(message_txt: str, chat_stream: ChatStream, subheartflow: SubHeartflow = None):
+    async def _build_tool_prompt(message_txt: str, subheartflow: SubHeartflow = None):
         """构建工具使用的提示词
 
         Args:
             message_txt: 用户消息文本
-            chat_stream: 聊天流对象
+            subheartflow: 子心流对象
 
         Returns:
             str: 构建好的提示词
         """
+
         if subheartflow:
             mid_memory_info = subheartflow.observations[0].mid_memory_info
             # print(f"intol111111111111111111111111111111111222222222222mid_memory_info：{mid_memory_info}")
-        else:
-            mid_memory_info = ""
 
         # 这些信息应该从调用者传入，而不是从self获取
         bot_name = global_config.BOT_NICKNAME
@@ -104,7 +102,7 @@ class ToolUser:
             logger.error(f"执行工具调用时发生错误: {str(e)}")
             return None
 
-    async def use_tool(self, message_txt: str, chat_stream: ChatStream, sub_heartflow: SubHeartflow = None):
+    async def use_tool(self, message_txt: str, sub_heartflow: SubHeartflow = None):
         """使用工具辅助思考，判断是否需要额外信息
 
         Args:
@@ -120,7 +118,6 @@ class ToolUser:
             # 构建提示词
             prompt = await self._build_tool_prompt(
                 message_txt=message_txt,
-                chat_stream=chat_stream,
                 subheartflow=sub_heartflow,
             )
 

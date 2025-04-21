@@ -24,6 +24,7 @@ def init_prompt():
 你正在{chat_target_2},现在请你读读之前的聊天记录，然后给出日常且口语化的回复，平淡一些，
 你刚刚脑子里在想：
 {current_mind_info}
+{reason}
 回复尽量简短一些。{keywords_reaction_prompt}请注意把握聊天内容，不要回复的太有条理，可以有个性。请一次只回复一个话题，不要同时回复多个人。{prompt_ger}
 请回复的平淡一些，简短一些，说中文，不要刻意突出自身学科背景，尽量不要说你说过的话 ，注意只输出回复内容。
 {moderation_prompt}。注意：不要输出多余内容(包括前后缀，冒号和引号，括号，表情包，at或 @等 )。""",
@@ -74,7 +75,7 @@ class PromptBuilder:
         self.activate_messages = ""
 
     async def _build_prompt(
-        self, chat_stream, message_txt: str, sender_name: str = "某人", stream_id: Optional[int] = None
+        self, reason, chat_stream, message_txt: str, sender_name: str = "某人", stream_id: Optional[int] = None
     ) -> tuple[str, str]:
         current_mind_info = heartflow.get_subheartflow(stream_id).current_mind
 
@@ -255,6 +256,7 @@ response_language = "Recommend Chinese"
             if chat_in_group
             else await global_prompt_manager.get_prompt_async("chat_target_private2"),
             current_mind_info=current_mind_info,
+            reason=reason,
             keywords_reaction_prompt=keywords_reaction_prompt,
             prompt_ger=prompt_ger,
             moderation_prompt=await global_prompt_manager.get_prompt_async("moderation_prompt"),

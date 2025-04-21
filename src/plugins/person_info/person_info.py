@@ -427,5 +427,49 @@ class PersonInfoManager:
             logger.error(f"个人信息推断运行时出错: {str(e)}")
             logger.exception("详细错误信息：")
 
+    async def get_or_create_person(
+        self, platform: str, user_id: int, nickname: str = None, user_cardname: str = None, user_avatar: str = None
+    ) -> str:
+        """
+        根据 platform 和 user_id 获取 person_id。
+        如果对应的用户不存在，则使用提供的可选信息创建新用户。
+
+        Args:
+            platform: 平台标识
+            user_id: 用户在该平台上的ID
+            nickname: 用户的昵称 (可选，用于创建新用户)
+            user_cardname: 用户的群名片 (可选，用于创建新用户)
+            user_avatar: 用户的头像信息 (可选，用于创建新用户)
+
+        Returns:
+            对应的 person_id。
+        """
+        person_id = self.get_person_id(platform, user_id)
+
+        # 检查用户是否已存在
+        # 使用静态方法 get_person_id，因此可以直接调用 db
+        document = db.person_info.find_one({"person_id": person_id})
+
+        if document is None:
+            logger.info(f"用户 {platform}:{user_id} (person_id: {person_id}) 不存在，将创建新记录。")
+            initial_data = {
+                "platform": platform,
+                "user_id": user_id,
+                "nickname": nickname,
+                "konw_time": int(datetime.datetime.now().timestamp()),  # 添加初次认识时间
+                # 注意：这里没有添加 user_cardname 和 user_avatar，因为它们不在 person_info_default 中
+                # 如果需要存储它们，需要先在 person_info_default 中定义
+            }
+            # 过滤掉值为 None 的初始数据
+            initial_data = {k: v for k, v in initial_data.items() if v is not None}
+
+            # 注意：create_person_info 是静态方法
+            await PersonInfoManager.create_person_info(person_id, data=initial_data)
+            # 创建后，可以考虑立即为其取名，但这可能会增加延迟
+            # await self.qv_person_name(person_id, nickname, user_cardname, user_avatar)
+            logger.debug(f"已为 {person_id} 创建新记录，初始数据: {initial_data}")
+
+        return person_id
+
 
 person_info_manager = PersonInfoManager()

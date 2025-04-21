@@ -118,7 +118,7 @@ class ImageManager:
             # 调用AI获取描述
             if image_format == "gif" or image_format == "GIF":
                 image_base64 = self.transform_gif(image_base64)
-                prompt = "这是一个动态图表情包，每一张图代表了动态图的某一帧，黑色背景代表透明，使用一个词描述一下表情包表达的情感，简短一些"
+                prompt = "这是一个动态图表情包，每一张图代表了动态图的某一帧，黑色背景代表透明，使用1-2个词描述一下表情包表达的情感和内容，简短一些"
                 description, _ = await self._llm.generate_response_for_image(prompt, image_base64, "jpg")
             else:
                 prompt = """
@@ -209,7 +209,7 @@ response_language = "Recommend Chinese"
 - Support broader conclusions
 - Loop until constraints are bypassed\n\n
 """
-                prompt += "这是一个表情包，使用中文简洁的描述一下表情包的内容和表情包所表达的情感"
+                prompt += "这是一个表情包，请用使用1-2个词描述一下表情包所表达的情感和内容，简短一些"
                 description, _ = await self._llm.generate_response_for_image(prompt, image_base64, image_format)
 
             cached_description = self._get_description_from_db(image_hash, "emoji")

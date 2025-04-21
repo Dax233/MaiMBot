@@ -171,7 +171,7 @@ class MessageManager:
                     # 然后再访问 message_info.message_id
                     # 检查 message_id 是否匹配 thinking_id 或以 "me" 开头
                     if message.message_info.message_id == thinking_id or message.message_info.message_id[:2] == "me":
-                        print(f"检查到存在相同thinking_id的消息: {message.message_info.message_id}???{thinking_id}")
+                        # print(f"检查到存在相同thinking_id的消息: {message.message_info.message_id}???{thinking_id}")
 
                         return True
         return False
