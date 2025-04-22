@@ -62,4 +62,4 @@ class MessageProcessor:
         mes_name = chat.group_info.group_name if chat.group_info else "私聊"
         # 将时间戳转换为datetime对象
         current_time = datetime.fromtimestamp(message.message_info.time).strftime("%H:%M:%S")
-        logger.info(f"[{current_time}][{mes_name}]{chat.user_info.user_nickname}: {message.processed_plain_text}")
+        logger.info(f"[{current_time}][{mes_name}]{message.message_info.user_info.user_nickname}: {message.processed_plain_text}")

@@ -236,7 +236,7 @@ class ReasoningChat:
         willing_log = f"[回复意愿:{await willing_manager.get_willing(chat.stream_id):.2f}]" if is_willing else ""
         logger.info(
             f"[{current_time}][{mes_name}]"
-            f"{chat.user_info.user_nickname}:"
+            f"{message.message_info.user_info.user_nickname}:"
             f"{message.processed_plain_text}{willing_log}[概率:{reply_probability * 100:.1f}%]"
         )
         do_reply = False
