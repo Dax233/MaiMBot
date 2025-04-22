@@ -27,7 +27,6 @@ class ChatBot:
         self.bot = None  # bot 实例引用
         self._started = False
         self.mood_manager = MoodManager.get_instance()  # 获取情绪管理器单例
-        self.mood_manager.start_mood_update()  # 启动情绪更新
         self.reasoning_chat = ReasoningChat()
         self.heartFC_processor = HeartFCProcessor()  # 新增
 

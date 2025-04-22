@@ -17,7 +17,6 @@ from .common.logger import get_module_logger
 from .plugins.remote import heartbeat_thread  # noqa: F401
 from .individuality.individuality import Individuality
 from .common.server import global_server
-from .plugins.chat_module.heartFC_chat.interest import InterestManager
 from .plugins.chat_module.heartFC_chat.heartFC_controler import HeartFCController
 
 logger = get_module_logger("main")
@@ -111,11 +110,6 @@ class MainSystem:
             # 启动心流系统
             asyncio.create_task(heartflow.heartflow_start_working())
             logger.success("心流系统启动成功")
-
-            # 启动 InterestManager 的后台任务
-            interest_manager = InterestManager()  # 获取单例
-            await interest_manager.start_background_tasks()
-            logger.success("兴趣管理器后台任务启动成功")
 
             # 初始化并独立启动 HeartFCController
             HeartFCController()

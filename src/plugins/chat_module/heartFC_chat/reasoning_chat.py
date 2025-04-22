@@ -20,8 +20,8 @@ from src.plugins.chat.chat_stream import ChatStream
 from src.plugins.person_info.relationship_manager import relationship_manager
 from src.plugins.respon_info_catcher.info_catcher import info_catcher_manager
 from src.plugins.utils.timer_calculater import Timer
-from .interest import InterestManager
-from .heartFC_controler import HeartFCController  # 导入 HeartFCController
+from src.heart_flow.heartflow import heartflow
+from .heartFC_controler import HeartFCController
 
 # 定义日志配置
 chat_config = LogConfig(
@@ -56,11 +56,9 @@ class ReasoningChat:
             self.storage = MessageStorage()
             self.gpt = ResponseGenerator()
             self.mood_manager = MoodManager.get_instance()
-            self.mood_manager.start_mood_update()
             # 用于存储每个 chat stream 的兴趣监控任务
             self._interest_monitoring_tasks: Dict[str, asyncio.Task] = {}
             self._initialized = True
-            self.interest_manager = InterestManager()
             logger.info("ReasoningChat 单例初始化完成。")  # 添加日志
 
     @classmethod
@@ -182,55 +180,69 @@ class ReasoningChat:
         # 此函数设计为后台任务，轮询指定 chat 的兴趣消息。
         # 它通常由外部代码在 chat 流活跃时启动。
         controller = HeartFCController.get_instance()  # 获取控制器实例
+        stream_id = chat.stream_id  # 获取 stream_id
+
         if not controller:
-            logger.error(f"无法获取 HeartFCController 实例，无法检查 PFChatting 状态。stream: {chat.stream_id}")
+            logger.error(f"无法获取 HeartFCController 实例，无法检查 PFChatting 状态。stream: {stream_id}")
             # 在没有控制器的情况下可能需要决定是继续处理还是完全停止？这里暂时假设继续
             pass  # 或者 return?
 
+        logger.info(f"[{stream_id}] 兴趣消息监控任务启动。")  # 增加启动日志
         while True:
             await asyncio.sleep(1)  # 每秒检查一次
-            interest_chatting = self.interest_manager.get_interest_chatting(chat.stream_id)
 
-            if not interest_chatting:
-                continue
+            # --- 修改：通过 heartflow 获取 subheartflow 和 interest_dict --- #
+            subheartflow = heartflow.get_subheartflow(stream_id)
 
-            interest_dict = interest_chatting.interest_dict if interest_chatting.interest_dict else {}
+            # 检查 subheartflow 是否存在以及是否被标记停止
+            if not subheartflow or subheartflow.should_stop:
+                logger.info(f"[{stream_id}] SubHeartflow 不存在或已停止，兴趣消息监控任务退出。")
+                break  # 退出循环，任务结束
+
+            # 从 subheartflow 获取 interest_dict
+            interest_dict = subheartflow.get_interest_dict()
+            # --- 结束修改 --- #
+
+            # 创建 items 快照进行迭代，避免在迭代时修改字典
             items_to_process = list(interest_dict.items())
 
             if not items_to_process:
-                continue
+                continue  # 没有需要处理的消息，继续等待
+
+            # logger.debug(f"[{stream_id}] 发现 {len(items_to_process)} 条待处理兴趣消息。") # 调试日志
 
             for msg_id, (message, interest_value, is_mentioned) in items_to_process:
                 # --- 检查 PFChatting 是否活跃 --- #
                 pf_active = False
                 if controller:
-                    pf_active = controller.is_pf_chatting_active(chat.stream_id)
+                    pf_active = controller.is_pf_chatting_active(stream_id)
 
                 if pf_active:
                     # 如果 PFChatting 活跃，则跳过处理，直接移除消息
                     removed_item = interest_dict.pop(msg_id, None)
                     if removed_item:
-                        logger.debug(f"PFChatting 活跃，已跳过并移除兴趣消息 {msg_id} for stream: {chat.stream_id}")
+                        logger.debug(f"[{stream_id}] PFChatting 活跃，已跳过并移除兴趣消息 {msg_id}")
                     continue  # 处理下一条消息
                 # --- 结束检查 --- #
 
                 # 只有当 PFChatting 不活跃时才执行以下处理逻辑
                 try:
-                    # logger.debug(f"正在处理消息 {msg_id} for stream: {chat.stream_id}") # 可选调试信息
+                    # logger.debug(f"[{stream_id}] 正在处理兴趣消息 {msg_id} (兴趣值: {interest_value:.2f})" )
                     await self.normal_reasoning_chat(
                         message=message,
-                        chat=chat,
+                        chat=chat,  # chat 对象仍然有效
                         is_mentioned=is_mentioned,
-                        interested_rate=interest_value,
+                        interested_rate=interest_value,  # 使用从字典获取的原始兴趣值
                     )
-                    # logger.debug(f"处理完成消息 {msg_id}") # 可选调试信息
+                    # logger.debug(f"[{stream_id}] 处理完成消息 {msg_id}")
                 except Exception as e:
-                    logger.error(f"处理兴趣消息 {msg_id} 时出错: {e}\n{traceback.format_exc()}")
+                    logger.error(f"[{stream_id}] 处理兴趣消息 {msg_id} 时出错: {e}\n{traceback.format_exc()}")
                 finally:
                     # 无论处理成功与否（且PFChatting不活跃），都尝试从原始字典中移除该消息
+                    # 使用 pop(key, None) 避免 Key Error
                     removed_item = interest_dict.pop(msg_id, None)
                     if removed_item:
-                        logger.debug(f"已从兴趣字典中移除消息 {msg_id}")
+                        logger.debug(f"[{stream_id}] 已从兴趣字典中移除消息 {msg_id}")
 
     async def normal_reasoning_chat(
         self, message: MessageRecv, chat: ChatStream, is_mentioned: bool, interested_rate: float
@@ -281,7 +293,10 @@ class ReasoningChat:
             # 生成回复
             try:
                 with Timer("生成回复", timing_results):
-                    response_set = await self.gpt.generate_response(message, thinking_id)
+                    response_set = await self.gpt.generate_response(
+                        message=message,
+                        thinking_id=thinking_id,
+                    )
 
                 info_catcher.catch_after_generate_response(timing_results["生成回复"])
             except Exception as e:
@@ -289,23 +304,34 @@ class ReasoningChat:
                 response_set = None
 
             if not response_set:
-                logger.info("为什么生成回复失败？")
-                return
+                logger.info(f"[{chat.stream_id}] 模型未生成回复内容")
+                # 如果模型未生成回复，移除思考消息
+                container = message_manager.get_container(chat.stream_id)
+                # thinking_message = None
+                for msg in container.messages[:]:  # Iterate over a copy
+                    if isinstance(msg, MessageThinking) and msg.message_info.message_id == thinking_id:
+                        # thinking_message = msg
+                        container.messages.remove(msg)
+                        logger.debug(f"[{chat.stream_id}] 已移除未产生回复的思考消息 {thinking_id}")
+                        break
+                return  # 不发送回复
 
-            # 发送消息
-            with Timer("发送消息", timing_results):
+            logger.info(f"[{chat.stream_id}] 回复内容: {response_set}")
+
+            # 发送回复
+            with Timer("消息发送", timing_results):
                 first_bot_msg = await self._send_response_messages(message, chat, response_set, thinking_id)
 
-            info_catcher.catch_after_response(timing_results["发送消息"], response_set, first_bot_msg)
+            info_catcher.catch_after_response(timing_results["消息发送"], response_set, first_bot_msg)
 
             info_catcher.done_catch()
 
             # 处理表情包
             with Timer("处理表情包", timing_results):
-                await self._handle_emoji(message, chat, response_set)
+                await self._handle_emoji(message, chat, response_set[0])
 
             # 更新关系情绪
-            with Timer("更新关系情绪", timing_results):
+            with Timer("关系更新", timing_results):
                 await self._update_relationship(message, response_set)
 
             # 回复后处理
@@ -349,64 +375,51 @@ class ReasoningChat:
         return False
 
     async def start_monitoring_interest(self, chat: ChatStream):
-        """为指定的 ChatStream 启动后台兴趣消息监控任务。"""
+        """为指定的 ChatStream 启动兴趣消息监控任务（如果尚未运行）。"""
         stream_id = chat.stream_id
-        # 检查任务是否已在运行
-        if stream_id in self._interest_monitoring_tasks and not self._interest_monitoring_tasks[stream_id].done():
-            task = self._interest_monitoring_tasks[stream_id]
-            if not task.cancelled():  # 确保任务未被取消
-                logger.info(f"兴趣监控任务已在运行 stream: {stream_id}")
-                return
-            else:
-                logger.info(f"发现已取消的任务，重新创建 stream: {stream_id}")
-                # 如果任务被取消了，允许重新创建
-
-        logger.info(f"启动兴趣监控任务 stream: {stream_id}...")
-        # 创建新的后台任务来运行 _find_interested_message
-        task = asyncio.create_task(self._find_interested_message(chat))
-        self._interest_monitoring_tasks[stream_id] = task
-
-        # 添加回调，当任务完成（或被取消）时，自动从字典中移除
-        task.add_done_callback(lambda t: self._handle_task_completion(stream_id, t))
+        if stream_id not in self._interest_monitoring_tasks or self._interest_monitoring_tasks[stream_id].done():
+            logger.info(f"为聊天流 {stream_id} 启动兴趣消息监控任务...")
+            # 创建新任务
+            task = asyncio.create_task(self._find_interested_message(chat))
+            # 添加完成回调
+            task.add_done_callback(lambda t: self._handle_task_completion(stream_id, t))
+            self._interest_monitoring_tasks[stream_id] = task
+        # else:
+        # logger.debug(f"聊天流 {stream_id} 的兴趣消息监控任务已在运行。")
 
     def _handle_task_completion(self, stream_id: str, task: asyncio.Task):
-        """处理监控任务完成的回调。"""
+        """兴趣监控任务完成时的回调函数。"""
         try:
             # 检查任务是否因异常而结束
             exception = task.exception()
             if exception:
-                logger.error(f"兴趣监控任务 stream {stream_id} 异常结束: {exception}", exc_info=exception)
-            elif task.cancelled():
-                logger.info(f"兴趣监控任务 stream {stream_id} 已被取消。")
+                logger.error(f"聊天流 {stream_id} 的兴趣监控任务因异常结束: {exception}")
+                logger.error(traceback.format_exc())  # 记录完整的 traceback
             else:
-                logger.info(f"兴趣监控任务 stream {stream_id} 正常结束。")  # 理论上 while True 不会正常结束
+                logger.info(f"聊天流 {stream_id} 的兴趣监控任务正常结束。")
         except asyncio.CancelledError:
-            logger.info(f"兴趣监控任务 stream {stream_id} 在完成处理期间被取消。")
+            logger.info(f"聊天流 {stream_id} 的兴趣监控任务被取消。")
+        except Exception as e:
+            logger.error(f"处理聊天流 {stream_id} 任务完成回调时出错: {e}")
         finally:
-            # 无论如何都从字典中移除
-            removed_task = self._interest_monitoring_tasks.pop(stream_id, None)
-            if removed_task:
-                logger.debug(f"已从监控任务字典移除 stream: {stream_id}")
+            # 从字典中移除已完成或取消的任务
+            if stream_id in self._interest_monitoring_tasks:
+                del self._interest_monitoring_tasks[stream_id]
+                logger.debug(f"已从监控任务字典中移除 {stream_id}")
 
     async def stop_monitoring_interest(self, stream_id: str):
-        """停止指定 stream_id 的兴趣消息监控任务。"""
+        """停止指定聊天流的兴趣监控任务。"""
         if stream_id in self._interest_monitoring_tasks:
             task = self._interest_monitoring_tasks[stream_id]
-            if not task.done():
-                logger.info(f"正在停止兴趣监控任务 stream: {stream_id}...")
-                task.cancel()  # 请求取消任务
+            if task and not task.done():
+                task.cancel()  # 尝试取消任务
+                logger.info(f"尝试取消聊天流 {stream_id} 的兴趣监控任务。")
                 try:
-                    # 等待任务实际被取消（可选，提供更明确的停止）
-                    # 设置超时以防万一
-                    await asyncio.wait_for(task, timeout=5.0)
+                    await task  # 等待任务响应取消
                 except asyncio.CancelledError:
-                    logger.info(f"兴趣监控任务 stream {stream_id} 已确认取消。")
-                except asyncio.TimeoutError:
-                    logger.warning(f"停止兴趣监控任务 stream {stream_id} 超时。任务可能仍在运行。")
+                    logger.info(f"聊天流 {stream_id} 的兴趣监控任务已成功取消。")
                 except Exception as e:
-                    # 捕获 task.exception() 可能在取消期间重新引发的错误
-                    logger.error(f"停止兴趣监控任务 stream {stream_id} 时发生错误: {e}")
-            # 任务最终会由 done_callback 移除，或在这里再次确认移除
-            self._interest_monitoring_tasks.pop(stream_id, None)
-        else:
-            logger.warning(f"尝试停止不存在或已停止的监控任务 stream: {stream_id}")
+                    logger.error(f"等待聊天流 {stream_id} 监控任务取消时出现异常: {e}")
+            # 在回调函数 _handle_task_completion 中移除任务
+        # else:
+        # logger.debug(f"聊天流 {stream_id} 没有正在运行的兴趣监控任务可停止。")

@@ -89,8 +89,8 @@ class RelationshipManager:
         person_id = person_info_manager.get_person_id(platform, user_id)
         is_qved = await person_info_manager.has_one_field(person_id, "person_name")
         old_name = await person_info_manager.get_value(person_id, "person_name")
-        print(f"old_name: {old_name}")
-        print(f"is_qved: {is_qved}")
+        # print(f"old_name: {old_name}")
+        # print(f"is_qved: {is_qved}")
         if is_qved and old_name is not None:
             return True
         else:

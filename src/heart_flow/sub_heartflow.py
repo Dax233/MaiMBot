@@ -4,21 +4,20 @@ from src.plugins.moods.moods import MoodManager
 from src.plugins.models.utils_model import LLMRequest
 from src.config.config import global_config
 import time
-from typing import Optional, List
+from typing import Optional, List, Dict
 import traceback
 from src.plugins.chat.utils import parse_text_timestamps
-
-# from src.plugins.schedule.schedule_generator import bot_schedule
-# from src.plugins.memory_system.Hippocampus import HippocampusManager
+import enum
 from src.common.logger import get_module_logger, LogConfig, SUB_HEARTFLOW_STYLE_CONFIG  # noqa: E402
-
-# from src.plugins.chat.utils import get_embedding
-# from src.common.database import db
-# from typing import Union
 from src.individuality.individuality import Individuality
 import random
 from src.plugins.person_info.relationship_manager import relationship_manager
 from ..plugins.utils.prompt_builder import Prompt, global_prompt_manager
+from src.plugins.chat.message import MessageRecv
+import math
+
+# 定义常量 (从 interest.py 移动过来)
+MAX_INTEREST = 15.0
 
 subheartflow_config = LogConfig(
     # 使用海马体专用样式
@@ -26,6 +25,12 @@ subheartflow_config = LogConfig(
     file_format=SUB_HEARTFLOW_STYLE_CONFIG["file_format"],
 )
 logger = get_module_logger("subheartflow", config=subheartflow_config)
+
+interest_log_config = LogConfig(
+    console_format=SUB_HEARTFLOW_STYLE_CONFIG["console_format"],
+    file_format=SUB_HEARTFLOW_STYLE_CONFIG["file_format"],
+)
+interest_logger = get_module_logger("InterestChatting", config=interest_log_config)
 
 
 def init_prompt():
@@ -48,16 +53,166 @@ def init_prompt():
     Prompt(prompt, "sub_heartflow_prompt_before")
 
 
-class CurrentState:
+class ChatState(enum.Enum):
+    ABSENT = "不参与"
+    CHAT = "闲聊"
+    FOCUSED = "专注"
+
+
+class ChatStateInfo:
     def __init__(self):
         self.willing = 0
-        self.current_state_info = ""
+
+        self.chat_status: ChatState = ChatState.ABSENT
 
         self.mood_manager = MoodManager()
         self.mood = self.mood_manager.get_prompt()
 
-    def update_current_state_info(self):
-        self.current_state_info = self.mood_manager.get_current_mood()
+    def update_chat_state_info(self):
+        self.chat_state_info = self.mood_manager.get_current_mood()
+
+
+base_reply_probability = 0.05
+probability_increase_rate_per_second = 0.08
+max_reply_probability = 1
+
+
+class InterestChatting:
+    def __init__(
+        self,
+        decay_rate=global_config.default_decay_rate_per_second,
+        max_interest=MAX_INTEREST,
+        trigger_threshold=global_config.reply_trigger_threshold,
+        base_reply_probability=base_reply_probability,
+        increase_rate=probability_increase_rate_per_second,
+        decay_factor=global_config.probability_decay_factor_per_second,
+        max_probability=max_reply_probability,
+    ):
+        self.interest_level: float = 0.0
+        self.last_update_time: float = time.time()
+        self.decay_rate_per_second: float = decay_rate
+        self.max_interest: float = max_interest
+        self.last_interaction_time: float = self.last_update_time
+
+        self.trigger_threshold: float = trigger_threshold
+        self.base_reply_probability: float = base_reply_probability
+        self.probability_increase_rate: float = increase_rate
+        self.probability_decay_factor: float = decay_factor
+        self.max_reply_probability: float = max_probability
+        self.current_reply_probability: float = 0.0
+        self.is_above_threshold: bool = False
+
+        self.interest_dict: Dict[str, tuple[MessageRecv, float, bool]] = {}
+
+    def add_interest_dict(self, message: MessageRecv, interest_value: float, is_mentioned: bool):
+        self.interest_dict[message.message_info.message_id] = (message, interest_value, is_mentioned)
+        self.last_interaction_time = time.time()
+
+    def _calculate_decay(self, current_time: float):
+        time_delta = current_time - self.last_update_time
+        if time_delta > 0:
+            old_interest = self.interest_level
+            if self.interest_level < 1e-9:
+                self.interest_level = 0.0
+            else:
+                if self.decay_rate_per_second <= 0:
+                    interest_logger.warning(
+                        f"InterestChatting encountered non-positive decay rate: {self.decay_rate_per_second}. Setting interest to 0."
+                    )
+                    self.interest_level = 0.0
+                elif self.interest_level < 0:
+                    interest_logger.warning(
+                        f"InterestChatting encountered negative interest level: {self.interest_level}. Setting interest to 0."
+                    )
+                    self.interest_level = 0.0
+                else:
+                    try:
+                        decay_factor = math.pow(self.decay_rate_per_second, time_delta)
+                        self.interest_level *= decay_factor
+                    except ValueError as e:
+                        interest_logger.error(
+                            f"Math error during decay calculation: {e}. Rate: {self.decay_rate_per_second}, Delta: {time_delta}, Level: {self.interest_level}. Setting interest to 0."
+                        )
+                        self.interest_level = 0.0
+
+            if old_interest != self.interest_level:
+                self.last_update_time = current_time
+
+    def _update_reply_probability(self, current_time: float):
+        time_delta = current_time - self.last_update_time
+        if time_delta <= 0:
+            return
+
+        currently_above = self.interest_level >= self.trigger_threshold
+
+        if currently_above:
+            if not self.is_above_threshold:
+                self.current_reply_probability = self.base_reply_probability
+                interest_logger.debug(
+                    f"兴趣跨过阈值 ({self.trigger_threshold}). 概率重置为基础值: {self.base_reply_probability:.4f}"
+                )
+            else:
+                increase_amount = self.probability_increase_rate * time_delta
+                self.current_reply_probability += increase_amount
+
+            self.current_reply_probability = min(self.current_reply_probability, self.max_reply_probability)
+
+        else:
+            if 0 < self.probability_decay_factor < 1:
+                decay_multiplier = math.pow(self.probability_decay_factor, time_delta)
+                self.current_reply_probability *= decay_multiplier
+                if self.current_reply_probability < 1e-6:
+                    self.current_reply_probability = 0.0
+            elif self.probability_decay_factor <= 0:
+                if self.current_reply_probability > 0:
+                    interest_logger.warning(f"无效的衰减因子 ({self.probability_decay_factor}). 设置概率为0.")
+                    self.current_reply_probability = 0.0
+
+            self.current_reply_probability = max(self.current_reply_probability, 0.0)
+
+        self.is_above_threshold = currently_above
+
+    def increase_interest(self, current_time: float, value: float):
+        self._update_reply_probability(current_time)
+        self._calculate_decay(current_time)
+        self.interest_level += value
+        self.interest_level = min(self.interest_level, self.max_interest)
+        self.last_update_time = current_time
+        self.last_interaction_time = current_time
+
+    def decrease_interest(self, current_time: float, value: float):
+        self._update_reply_probability(current_time)
+        self.interest_level -= value
+        self.interest_level = max(self.interest_level, 0.0)
+        self.last_update_time = current_time
+        self.last_interaction_time = current_time
+
+    def get_interest(self) -> float:
+        current_time = time.time()
+        self._update_reply_probability(current_time)
+        self._calculate_decay(current_time)
+        self.last_update_time = current_time
+        return self.interest_level
+
+    def get_state(self) -> dict:
+        interest = self.get_interest()
+        return {
+            "interest_level": round(interest, 2),
+            "last_update_time": self.last_update_time,
+            "current_reply_probability": round(self.current_reply_probability, 4),
+            "is_above_threshold": self.is_above_threshold,
+            "last_interaction_time": self.last_interaction_time,
+        }
+
+    def should_evaluate_reply(self) -> bool:
+        current_time = time.time()
+        self._update_reply_probability(current_time)
+
+        if self.current_reply_probability > 0:
+            trigger = random.random() < self.current_reply_probability
+            return trigger
+        else:
+            return False
 
 
 class SubHeartflow:
@@ -66,7 +221,10 @@ class SubHeartflow:
 
         self.current_mind = "你什么也没想"
         self.past_mind = []
-        self.current_state: CurrentState = CurrentState()
+        self.chat_state: ChatStateInfo = ChatStateInfo()
+
+        self.interest_chatting = InterestChatting()
+
         self.llm_model = LLMRequest(
             model=global_config.llm_sub_heartflow,
             temperature=global_config.llm_sub_heartflow["temp"],
@@ -123,7 +281,7 @@ class SubHeartflow:
         self.last_active_time = time.time()  # 更新最后激活时间戳
 
         current_thinking_info = self.current_mind
-        mood_info = self.current_state.mood
+        mood_info = self.chat_state.mood
         observation = self._get_primary_observation()
 
         # --- 获取观察信息 --- #
@@ -342,6 +500,26 @@ response_language = "Recommend Chinese"
             return self.observations[0]
         logger.warning(f"SubHeartflow {self.subheartflow_id} 没有找到有效的 ChattingObservation")
         return None
+
+    def get_interest_state(self) -> dict:
+        """获取当前兴趣状态"""
+        return self.interest_chatting.get_state()
+
+    def get_interest_level(self) -> float:
+        """获取当前兴趣等级"""
+        return self.interest_chatting.get_interest()
+
+    def should_evaluate_reply(self) -> bool:
+        """判断是否应该评估回复"""
+        return self.interest_chatting.should_evaluate_reply()
+
+    def add_interest_dict_entry(self, message: MessageRecv, interest_value: float, is_mentioned: bool):
+        """添加兴趣字典条目"""
+        self.interest_chatting.add_interest_dict(message, interest_value, is_mentioned)
+
+    def get_interest_dict(self) -> Dict[str, tuple[MessageRecv, float, bool]]:
+        """获取兴趣字典"""
+        return self.interest_chatting.interest_dict
 
 
 init_prompt()

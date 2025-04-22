@@ -80,3 +80,15 @@ await heartflow.heartflow_start_working()
 1. 子心流会在长时间不活跃后自动清理
 2. 需要合理配置更新间隔以平衡性能和响应速度
 3. 观察系统会限制消息处理数量以避免过载 
+
+
+更新：
+把聊天控制移动到心流下吧
+首先心流要根据日程以及当前状况判定总体状态MaiStateInfo
+
+然后根据每个子心流的运行情况，给子心流分配聊天资源（ChatStateInfo：ABSENT CHAT 或者 FOCUS）
+
+子心流负责根据状态进行执行
+
+1.将interest.py进行拆分，class InterestChatting 将会在 sub_heartflow中声明，每个sub_heartflow都会所属一个InterestChatting
+class InterestManager 将会在heartflow中声明，成为heartflow的一个组件，伴随heartflow产生

@@ -36,7 +36,6 @@ class ReasoningChat:
         self.storage = MessageStorage()
         self.gpt = ResponseGenerator()
         self.mood_manager = MoodManager.get_instance()
-        self.mood_manager.start_mood_update()
 
     @staticmethod
     async def _create_thinking_message(message, chat, userinfo, messageinfo):

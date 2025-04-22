@@ -840,7 +840,7 @@ response_language = "Recommend Chinese"
             # --- Generate Response with LLM --- #
             # Access gpt instance via controller
             gpt_instance = self.heartfc_controller.gpt
-            logger.debug(f"{log_prefix}[Replier-{thinking_id}] Calling LLM to generate response...")
+            # logger.debug(f"{log_prefix}[Replier-{thinking_id}] Calling LLM to generate response...")
 
             # Ensure generate_response has access to current_mind if it's crucial context
             response_set = await gpt_instance.generate_response(

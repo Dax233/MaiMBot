@@ -7,10 +7,10 @@ from ...chat.emoji_manager import emoji_manager
 from .heartFC_generator import ResponseGenerator
 from .messagesender import MessageManager
 from src.heart_flow.heartflow import heartflow
+from src.heart_flow.sub_heartflow import SubHeartflow, ChatState
 from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
 from src.plugins.person_info.relationship_manager import relationship_manager
 from src.do_tool.tool_use import ToolUser
-from .interest import InterestManager
 from src.plugins.chat.chat_stream import chat_manager
 from .pf_chatting import PFChatting
 
@@ -46,34 +46,22 @@ class HeartFCController:
         # 使用 _initialized 标志确保 __init__ 只执行一次
         if self._initialized:
             return
-        # 虽然 __new__ 保证了只有一个实例，但为了防止意外重入或多线程下的初始化竞争，
-        # 再次使用类锁保护初始化过程是更严谨的做法。
-        # 如果确定 __init__ 逻辑本身是幂等的或非关键的，可以省略这里的锁。
-        # 但为了保持原始逻辑的意图（防止重复初始化），这里保留检查。
-        with self.__class__._lock:  # 确保初始化逻辑线程安全
-            if self._initialized:  # 再次检查，防止锁等待期间其他线程已完成初始化
-                return
 
-            logger.info("正在初始化 HeartFCController 单例...")
-            self.gpt = ResponseGenerator()
-            self.mood_manager = MoodManager.get_instance()
-            # 注意：mood_manager 的 start_mood_update 可能需要在应用主循环启动后调用，
-            # 或者确保其内部实现是安全的。这里保持原状。
-            self.mood_manager.start_mood_update()
-            self.tool_user = ToolUser()
-            # 注意：InterestManager() 可能是另一个单例或需要特定初始化。
-            # 假设 InterestManager() 返回的是正确配置的实例。
-            self.interest_manager = InterestManager()
-            self._interest_monitor_task: Optional[asyncio.Task] = None
-            self.pf_chatting_instances: Dict[str, PFChatting] = {}
-            # _pf_chatting_lock 用于保护 pf_chatting_instances 的异步操作
-            self._pf_chatting_lock = asyncio.Lock()  # 这个是 asyncio.Lock，用于异步上下文
-            self.emoji_manager = emoji_manager  # 假设是全局或已初始化的实例
-            self.relationship_manager = relationship_manager  # 假设是全局或已初始化的实例
-            # MessageManager 可能是类本身或单例实例，根据其设计确定
-            self.MessageManager = MessageManager
-            self._initialized = True
-            logger.info("HeartFCController 单例初始化完成。")
+        self.gpt = ResponseGenerator()
+        self.mood_manager = MoodManager.get_instance()
+        self.tool_user = ToolUser()
+        self._interest_monitor_task: Optional[asyncio.Task] = None
+
+        self.heartflow = heartflow
+
+        self.pf_chatting_instances: Dict[str, PFChatting] = {}
+        self._pf_chatting_lock = asyncio.Lock()  # 这个是 asyncio.Lock，用于异步上下文
+        self.emoji_manager = emoji_manager  # 假设是全局或已初始化的实例
+        self.relationship_manager = relationship_manager  # 假设是全局或已初始化的实例
+
+        self.MessageManager = MessageManager
+        self._initialized = True
+        logger.info("HeartFCController 单例初始化完成。")
 
     @classmethod
     def get_instance(cls):
@@ -114,7 +102,7 @@ class HeartFCController:
         if self._interest_monitor_task is None or self._interest_monitor_task.done():
             try:
                 loop = asyncio.get_running_loop()
-                self._interest_monitor_task = loop.create_task(self._interest_monitor_loop())
+                self._interest_monitor_task = loop.create_task(self._response_control_loop())
             except RuntimeError:
                 logger.error("创建兴趣监控任务失败：没有运行中的事件循环。")
                 raise
@@ -138,41 +126,41 @@ class HeartFCController:
 
     # --- End Added PFChatting Instance Manager ---
 
-    async def _interest_monitor_loop(self):
+    # async def update_mai_Status(self):
+    #     """后台任务，定期检查更新麦麦状态"""
+    #     logger.info("麦麦状态更新循环开始...")
+    #     while True:
+    #         await asyncio.sleep(0)
+    #         self.heartflow.update_chat_status()
+
+    async def _response_control_loop(self):
         """后台任务，定期检查兴趣度变化并触发回复"""
         logger.info("兴趣监控循环开始...")
         while True:
             await asyncio.sleep(INTEREST_MONITOR_INTERVAL_SECONDS)
+
             try:
                 # 从心流中获取活跃流
-                active_stream_ids = list(heartflow.get_all_subheartflows_streams_ids())
+                active_stream_ids = list(self.heartflow.get_all_subheartflows_streams_ids())
                 for stream_id in active_stream_ids:
                     stream_name = chat_manager.get_stream_name(stream_id) or stream_id  # 获取流名称
-                    sub_hf = heartflow.get_subheartflow(stream_id)
+                    sub_hf = self.heartflow.get_subheartflow(stream_id)
                     if not sub_hf:
                         logger.warning(f"监控循环: 无法获取活跃流 {stream_name} 的 sub_hf")
                         continue
 
-                    should_trigger = False
+                    should_trigger_hfc = False
                     try:
-                        interest_chatting = self.interest_manager.get_interest_chatting(stream_id)
-                        if interest_chatting:
-                            should_trigger = interest_chatting.should_evaluate_reply()
-                        else:
-                            logger.trace(
-                                f"[{stream_name}] 没有找到对应的 InterestChatting 实例，跳过基于兴趣的触发检查。"
-                            )
+                        interest_chatting = sub_hf.interest_chatting
+                        should_trigger_hfc = interest_chatting.should_evaluate_reply()
+
                     except Exception as e:
                         logger.error(f"检查兴趣触发器时出错 流 {stream_name}: {e}")
                         logger.error(traceback.format_exc())
 
-                    if should_trigger:
+                    if should_trigger_hfc:
                         # 启动一次麦麦聊天
-                        pf_instance = await self._get_or_create_pf_chatting(stream_id)
-                        if pf_instance:
-                            asyncio.create_task(pf_instance.add_time())
-                        else:
-                            logger.error(f"[{stream_name}] 无法获取或创建PFChatting实例。跳过触发。")
+                        await self._trigger_hfc(sub_hf)
 
             except asyncio.CancelledError:
                 logger.info("兴趣监控循环已取消。")
@@ -181,3 +169,17 @@ class HeartFCController:
                 logger.error(f"兴趣监控循环错误: {e}")
                 logger.error(traceback.format_exc())
                 await asyncio.sleep(5)  # 发生错误时等待
+
+    async def _trigger_hfc(self, sub_hf: SubHeartflow):
+        chat_state = sub_hf.chat_state
+        if chat_state == ChatState.ABSENT:
+            chat_state = ChatState.CHAT
+        elif chat_state == ChatState.CHAT:
+            chat_state = ChatState.FOCUSED
+
+        # 从 sub_hf 获取 stream_id
+        if chat_state == ChatState.FOCUSED:
+            stream_id = sub_hf.subheartflow_id
+            pf_instance = await self._get_or_create_pf_chatting(stream_id)
+            if pf_instance:  # 确保实例成功获取或创建
+                asyncio.create_task(pf_instance.add_time())

@@ -309,10 +309,7 @@ class MessageSending(MessageProcessBase):
 
     def set_reply(self, reply: Optional["MessageRecv"] = None) -> None:
         """设置回复消息"""
-        if (
-            self.message_info.format_info.accept_format is not None
-            and "reply" in self.message_info.format_info.accept_format
-        ):
+        if self.message_info.format_info is not None and "reply" in self.message_info.format_info.accept_format:
             if reply:
                 self.reply = reply
             if self.reply:
