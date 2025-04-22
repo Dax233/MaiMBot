@@ -80,16 +80,16 @@ def is_mentioned_bot_in_message(message: MessageRecv) -> tuple[bool, float]:
                 f"\[回复 [\s\S]*?\({str(global_config.BOT_QQ)}\)：[\s\S]*?\]，说：", message.processed_plain_text
             ):
                 is_mentioned = True
-
-            # 判断内容中是否被提及
-            message_content = re.sub(r"@[\s\S]*?（(\d+)）", "", message.processed_plain_text)
-            message_content = re.sub(r"\[回复 [\s\S]*?\((\d+)|未知id\)：[\s\S]*?\]，说：", "", message_content)
-            for keyword in keywords:
-                if keyword in message_content:
-                    is_mentioned = True
-            for nickname in nicknames:
-                if nickname in message_content:
-                    is_mentioned = True
+            else:
+                # 判断内容中是否被提及
+                message_content = re.sub(r"@[\s\S]*?（(\d+)）", "", message.processed_plain_text)
+                message_content = re.sub(r"\[回复 [\s\S]*?\((\d+)|未知id\)：[\s\S]*?\]，说：", "", message_content)
+                for keyword in keywords:
+                    if keyword in message_content:
+                        is_mentioned = True
+                for nickname in nicknames:
+                    if nickname in message_content:
+                        is_mentioned = True
         if is_mentioned and global_config.mentioned_bot_inevitable_reply:
             reply_probability = 1.0
             logger.info("被提及，回复概率设置为100%")
