@@ -84,7 +84,7 @@ class InterestLogger:
                 except Exception as e:
                     logger.warning(f"获取子心流 {stream_id} 兴趣状态出错: {e}")
 
-        logger.debug(f"成功获取 {len(results)} 个兴趣状态")
+        logger.trace(f"成功获取 {len(results)} 个兴趣状态")
         return results
 
     async def log_interest_states(self):
