@@ -5,14 +5,15 @@ from ...individuality.individuality import Individuality
 from src.plugins.utils.prompt_builder import Prompt, global_prompt_manager
 from src.plugins.utils.chat_message_builder import build_readable_messages, get_raw_msg_before_timestamp_with_chat
 from src.plugins.person_info.relationship_manager import relationship_manager
-from src.plugins.chat.utils import parse_text_timestamps
+from src.plugins.chat.utils import get_embedding, parse_text_timestamps
 import time
 from typing import Union
 from ...common.database import db
-from ..chat.utils import get_embedding, get_recent_group_speaker
+from ..chat.utils import get_recent_group_speaker
 from ..moods.moods import MoodManager
 from ..memory_system.Hippocampus import HippocampusManager
 from ..schedule.schedule_generator import bot_schedule
+from ..knowledge.knowledge_lib import qa_manager
 
 logger = get_module_logger("prompt")
 
@@ -499,11 +500,10 @@ response_language = "Recommend Chinese"
 
         return prompt
 
-    async def get_prompt_info(self, message: str, threshold: float):
+    async def get_prompt_info_old(self, message: str, threshold: float):
         start_time = time.time()
         related_info = ""
         logger.debug(f"获取知识库内容，元消息：{message[:30]}...，消息长度: {len(message)}")
-
         # 1. 先从LLM获取主题，类似于记忆系统的做法
         topics = []
         # try:
@@ -648,6 +648,30 @@ response_language = "Recommend Chinese"
 
         logger.info(f"知识库检索总耗时: {time.time() - start_time:.3f}秒")
         return related_info
+
+    async def get_prompt_info(self, message: str, threshold: float):
+        related_info = ""
+        start_time = time.time()
+
+        logger.debug(f"获取知识库内容，元消息：{message[:30]}...，消息长度: {len(message)}")
+        # 从LPMM知识库获取知识
+        found_knowledge_from_lpmm = qa_manager.get_knowledge(message)
+
+        end_time = time.time()
+        if found_knowledge_from_lpmm is not None:
+            logger.debug(
+                f"从LPMM知识库获取知识，相关信息：{found_knowledge_from_lpmm[:100]}...，信息长度: {len(found_knowledge_from_lpmm)}"
+            )
+            related_info += found_knowledge_from_lpmm
+            logger.debug(f"获取知识库内容耗时: {(end_time - start_time):.3f}秒")
+            logger.debug(f"获取知识库内容，相关信息：{related_info[:100]}...，信息长度: {len(related_info)}")
+            return related_info
+        else:
+            logger.debug("从LPMM知识库获取知识失败，使用旧版数据库进行检索")
+            knowledge_from_old = await self.get_prompt_info_old(message, threshold=0.38)
+            related_info += knowledge_from_old
+            logger.debug(f"获取知识库内容，相关信息：{related_info[:100]}...，信息长度: {len(related_info)}")
+            return related_info
 
     @staticmethod
     def get_info_from_db(

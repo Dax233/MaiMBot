@@ -28,6 +28,8 @@ memory_graph.gml
 config/bot_config_dev.toml
 config/bot_config.toml
 config/bot_config.toml.bak
+config/lpmm_config.toml
+config/lpmm_config.toml.bak
 src/plugins/remote/client_uuid.json
 （测试版）麦麦生成人格.bat
 （临时版）麦麦开始学习.bat
@@ -240,4 +242,5 @@ logs
 
 /config/*
 config/old/bot_config_20250405_212257.toml
+temp/
 

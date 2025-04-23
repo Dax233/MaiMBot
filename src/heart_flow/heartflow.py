@@ -343,10 +343,15 @@ class Heartflow:
 
                         for sub_hf in subflows_snapshot:
                             # Double-check if subflow still exists and is in CHAT state
-                            if sub_hf.subheartflow_id in self._subheartflows and sub_hf.chat_state.chat_status == ChatState.CHAT:
+                            if (
+                                sub_hf.subheartflow_id in self._subheartflows
+                                and sub_hf.chat_state.chat_status == ChatState.CHAT
+                            ):
                                 evaluated_count += 1
                                 if await sub_hf.should_evaluate_reply():
-                                    stream_name = chat_manager.get_stream_name(sub_hf.subheartflow_id) or sub_hf.subheartflow_id
+                                    stream_name = (
+                                        chat_manager.get_stream_name(sub_hf.subheartflow_id) or sub_hf.subheartflow_id
+                                    )
                                     log_prefix = f"[{stream_name}]"
                                     logger.info(f"{log_prefix} 兴趣概率触发，尝试将状态从 CHAT 提升到 FOCUSED")
                                     # set_chat_state handles limit checks and HeartFChatting creation internally
@@ -375,9 +380,9 @@ class Heartflow:
 
     async def get_all_interest_states(self) -> Dict[str, Dict]:  # <-- Make async
         """获取所有活跃子心流的当前兴趣状态"""
-        states = {}
+        _states = {}
         # 创建副本以避免在迭代时修改字典
-        items_snapshot = list(self._subheartflows.items()) # Make a copy for safe iteration
+        items_snapshot = list(self._subheartflows.items())  # Make a copy for safe iteration
         tasks = []
         results = {}
 
@@ -391,7 +396,7 @@ class Heartflow:
 
         # Wait for all tasks to complete
         if tasks:
-            done, pending = await asyncio.wait(tasks, timeout=5.0) # Add a timeout
+            done, pending = await asyncio.wait(tasks, timeout=5.0)  # Add a timeout
 
             if pending:
                 logger.warning(f"[Heartflow] Getting interest states timed out for {len(pending)} tasks.")
@@ -399,7 +404,7 @@ class Heartflow:
                     task.cancel()
 
             for task in done:
-                stream_id = task.get_name().split("_")[-1] # Extract stream_id from task name
+                stream_id = task.get_name().split("_")[-1]  # Extract stream_id from task name
                 try:
                     result = task.result()
                     results[stream_id] = result
