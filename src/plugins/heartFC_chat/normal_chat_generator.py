@@ -8,7 +8,6 @@ from ..chat.utils import process_llm_response
 from ..utils.timer_calculater import Timer
 from src.common.logger import get_module_logger, LogConfig, LLM_STYLE_CONFIG
 from src.plugins.respon_info_catcher.info_catcher import info_catcher_manager
-from src.heart_flow.sub_heartflow import SubHeartflow
 
 # 定义日志配置
 llm_config = LogConfig(
@@ -41,9 +40,7 @@ class ResponseGenerator:
         self.current_model_type = "r1"  # 默认使用 R1
         self.current_model_name = "unknown model"
 
-    async def generate_response(
-        self, sub_hf: SubHeartflow, message: MessageThinking, thinking_id: str
-    ) -> Optional[Union[str, List[str]]]:
+    async def generate_response(self, message: MessageThinking, thinking_id: str) -> Optional[Union[str, List[str]]]:
         """根据当前模型类型选择对应的生成函数"""
         # 从global_config中获取模型概率值并选择模型
         if random.random() < global_config.model_reasoning_probability:
@@ -57,9 +54,7 @@ class ResponseGenerator:
             f"{self.current_model_type}思考:{message.processed_plain_text[:30] + '...' if len(message.processed_plain_text) > 30 else message.processed_plain_text}"
         )  # noqa: E501
 
-        model_response = await self._generate_response_with_model(sub_hf, message, current_model, thinking_id)
-
-        # print(f"raw_content: {model_response}")
+        model_response = await self._generate_response_with_model(message, current_model, thinking_id)
 
         if model_response:
             logger.info(f"{global_config.BOT_NICKNAME}的回复是：{model_response}")
@@ -70,9 +65,7 @@ class ResponseGenerator:
             logger.info(f"{self.current_model_type}思考，失败")
             return None
 
-    async def _generate_response_with_model(
-        self, sub_hf: SubHeartflow, message: MessageThinking, model: LLMRequest, thinking_id: str
-    ):
+    async def _generate_response_with_model(self, message: MessageThinking, model: LLMRequest, thinking_id: str):
         info_catcher = info_catcher_manager.get_info_catcher(thinking_id)
 
         if message.chat_stream.user_info.user_cardname and message.chat_stream.user_info.user_nickname:

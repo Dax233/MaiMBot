@@ -689,7 +689,7 @@ class LLMRequest:
         stream_mode = request_content["stream_mode"]
         if response.status in policy["retry_codes"] or response.status in policy["abort_codes"]:
             await self._handle_error_response(response, retry_count, policy)
-            return
+            return None
 
         response.raise_for_status()
         result = {}

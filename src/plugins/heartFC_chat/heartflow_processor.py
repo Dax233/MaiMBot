@@ -12,7 +12,6 @@ from ..chat.chat_stream import chat_manager
 from ..chat.message_buffer import message_buffer
 from ..utils.timer_calculater import Timer
 from src.plugins.person_info.relationship_manager import relationship_manager
-from .normal_chat import NormalChat
 
 # 定义日志配置
 processor_config = LogConfig(
@@ -25,7 +24,6 @@ logger = get_module_logger("heartflow_processor", config=processor_config)
 class HeartFCProcessor:
     def __init__(self):
         self.storage = MessageStorage()
-        self.normal_chat = NormalChat.get_instance()
 
     async def process_message(self, message_data: str) -> None:
         """处理接收到的原始消息数据，完成消息解析、缓冲、过滤、存储、兴趣度计算与更新等核心流程。
@@ -74,11 +72,6 @@ class HeartFCProcessor:
             if not subheartflow:
                 logger.error(f"无法为 stream_id {chat.stream_id} 创建或获取 SubHeartflow，中止处理")
                 return
-
-            # --- 添加兴趣追踪启动 (现在移动到这里，确保 subheartflow 存在后启动) ---
-            # 在获取到 chat 对象和确认 subheartflow 后，启动对该聊天流的兴趣监控
-            await self.normal_chat.start_monitoring_interest(chat)  # start_monitoring_interest 内部需要修改以适应
-            # --- 结束添加 ---
 
             message.update_chat_stream(chat)
 

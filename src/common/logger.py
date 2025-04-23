@@ -325,6 +325,24 @@ WILLING_STYLE_CONFIG = {
     },
 }
 
+
+MAI_STATE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{extra[module]: <12}</cyan> | "
+            "<light-blue>麦麦状态</light-blue> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦状态 | {message}",
+    },
+    "simple": {
+        "console_format": "<green>{time:MM-DD HH:mm}</green> | <light-blue>麦麦状态</light-blue> | {message}",  # noqa: E501
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦状态 | {message}",
+    },
+}
+
 # LPMM配置
 LPMM_STYLE_CONFIG = {
     "advanced": {
@@ -364,6 +382,7 @@ SUB_HEARTFLOW_STYLE_CONFIG = (
     SUB_HEARTFLOW_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else SUB_HEARTFLOW_STYLE_CONFIG["advanced"]
 )  # noqa: E501
 WILLING_STYLE_CONFIG = WILLING_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else WILLING_STYLE_CONFIG["advanced"]
+MAI_STATE_CONFIG = MAI_STATE_CONFIG["simple"] if SIMPLE_OUTPUT else MAI_STATE_CONFIG["advanced"]
 CONFIG_STYLE_CONFIG = CONFIG_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else CONFIG_STYLE_CONFIG["advanced"]
 TOOL_USE_STYLE_CONFIG = TOOL_USE_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else TOOL_USE_STYLE_CONFIG["advanced"]
 PFC_STYLE_CONFIG = PFC_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else PFC_STYLE_CONFIG["advanced"]

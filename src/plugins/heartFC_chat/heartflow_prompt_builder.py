@@ -7,7 +7,7 @@ from src.plugins.utils.chat_message_builder import build_readable_messages, get_
 from src.plugins.person_info.relationship_manager import relationship_manager
 from src.plugins.chat.utils import get_embedding, parse_text_timestamps
 import time
-from typing import Union
+from typing import Union, Optional
 from ...common.database import db
 from ..chat.utils import get_recent_group_speaker
 from ..moods.moods import MoodManager
@@ -80,12 +80,13 @@ class PromptBuilder:
 
     async def build_prompt(
         self, build_mode, reason, current_mind_info, message_txt: str, sender_name: str = "某人", chat_stream=None
-    ) -> tuple[str, str]:
+    ) -> Optional[tuple[str, str]]:
         if build_mode == "normal":
             return await self._build_prompt_normal(chat_stream, message_txt, sender_name)
 
         elif build_mode == "focus":
             return await self._build_prompt_focus(reason, current_mind_info, chat_stream, message_txt, sender_name)
+        return None
 
     async def _build_prompt_focus(
         self, reason, current_mind_info, chat_stream, message_txt: str, sender_name: str = "某人"
@@ -314,11 +315,6 @@ response_language = "Recommend Chinese"
                 "memory_prompt", related_memory_info=related_memory_info
             )
 
-        # print(f"相关记忆：{related_memory_info}")
-
-        # 日程构建
-        # schedule_prompt = f"""你现在正在做的事情是：{bot_schedule.get_current_num_task(num=1, time_info=False)}"""
-
         # 获取聊天上下文
         if chat_stream.group_info:
             chat_in_group = True
@@ -380,9 +376,12 @@ response_language = "Recommend Chinese"
 
         logger.debug("开始构建prompt")
 
-        schedule_prompt = await global_prompt_manager.format_prompt(
-            "schedule_prompt", schedule_info=bot_schedule.get_current_num_task(num=1, time_info=False)
-        )
+        if global_config.ENABLE_SCHEDULE_GEN:
+            schedule_prompt = await global_prompt_manager.format_prompt(
+                "schedule_prompt", schedule_info=bot_schedule.get_current_num_task(num=1, time_info=False)
+            )
+        else:
+            schedule_prompt = ""
 
         prompt = """
 ## Base Configuration

@@ -17,8 +17,8 @@ from src.plugins.utils.timer_calculater import Timer  # <--- Import Timer
 # --- Import necessary dependencies directly ---
 from .heartFC_generator import ResponseGenerator  # Assuming this is the type for gpt
 from src.do_tool.tool_use import ToolUser
-from src.plugins.chat.emoji_manager import EmojiManager  # Assuming this is the type
 from ..chat.message_sender import message_manager  # <-- Import the global manager
+from src.plugins.chat.emoji_manager import emoji_manager
 # --- End import ---
 
 
@@ -78,10 +78,8 @@ class HeartFChatting:
     def __init__(
         self,
         chat_id: str,
-        # 显式依赖注入
         gpt_instance: ResponseGenerator,  # 文本回复生成器
         tool_user_instance: ToolUser,  # 工具使用实例
-        emoji_manager_instance: EmojiManager,  # 表情管理实例
     ):
         """
         HeartFChatting 初始化函数
@@ -95,7 +93,7 @@ class HeartFChatting:
         # 基础属性
         self.stream_id: str = chat_id  # 聊天流ID
         self.chat_stream: Optional[ChatStream] = None  # 关联的聊天流
-        self.sub_hf: Optional[SubHeartflow] = None  # 关联的子心流
+        self.sub_hf: SubHeartflow = None  # 关联的子心流
 
         # 初始化状态控制
         self._initialized = False  # 是否已初始化标志
@@ -106,7 +104,6 @@ class HeartFChatting:
         # 依赖注入存储
         self.gpt_instance = gpt_instance  # 文本回复生成器
         self.tool_user = tool_user_instance  # 工具使用实例
-        self.emoji_manager = emoji_manager_instance  # 表情管理实例
 
         # LLM规划器配置
         self.planner_llm = LLMRequest(
@@ -510,7 +507,11 @@ class HeartFChatting:
         # --- (Moved from _replier_work) 1. 思考前使用工具 --- #
         try:
             # Access tool_user directly
-            tool_result = await self.tool_user.use_tool(message_txt=observed_messages_str, sub_heartflow=self.sub_hf)
+            tool_result = await self.tool_user.use_tool(
+                message_txt=observed_messages_str,
+                chat_stream=self.chat_stream,
+                observation=self.sub_hf._get_primary_observation(),
+            )
             if tool_result.get("used_tools", False):
                 tool_result_info = tool_result.get("structured_info", {})
                 logger.debug(f"{log_prefix}[Planner] 规划前工具结果: {tool_result_info}")
@@ -654,26 +655,6 @@ class HeartFChatting:
             logger.error(f"{self._get_log_prefix()} Error getting/creating anchor message: {e}")
             logger.error(traceback.format_exc())
             return None
-
-    # def _cleanup_thinking_message(self, thinking_id: str):
-    #     """Safely removes the thinking message."""
-    #     log_prefix = self._get_log_prefix()
-    #     try:
-    #         # Access MessageManager directly
-    #         container = await message_manager.get_container(self.stream_id)
-    #         # container.remove_message(thinking_id, msg_type=MessageThinking) # Need to find the message object first
-    #         found_msg = None
-    #         for msg in container.get_all_messages():
-    #             if isinstance(msg, MessageThinking) and msg.message_info.message_id == thinking_id:
-    #                 found_msg = msg
-    #                 break
-    #         if found_msg:
-    #             container.remove_message(found_msg)
-    #             logger.debug(f"{log_prefix} Cleaned up thinking message {thinking_id}.")
-    #         else:
-    #              logger.warning(f"{log_prefix} Could not find thinking message {thinking_id} to cleanup.")
-    #     except Exception as e:
-    #         logger.error(f"{log_prefix} Error cleaning up thinking message {thinking_id}: {e}")
 
     # --- 发送器 (Sender) --- #
     async def _sender(
@@ -867,12 +848,6 @@ response_language = "Recommend Chinese"
         log_prefix = self._get_log_prefix()
         response_set: Optional[List[str]] = None
         try:
-            # --- Generate Response with LLM --- #
-            # Access gpt instance directly
-            # logger.debug(f"{log_prefix}[Replier-{thinking_id}] Calling LLM to generate response...")
-
-            # Ensure generate_response has access to current_mind if it's crucial context
-            # Access gpt_instance directly
             response_set = await self.gpt_instance.generate_response(
                 current_mind_info=self.sub_hf.current_mind,
                 reason=reason,
@@ -986,15 +961,12 @@ response_language = "Recommend Chinese"
             return
 
         chat = anchor_message.chat_stream
-        # Access emoji_manager directly
-        # emoji_manager_instance = self.heartfc_controller.emoji_manager # Removed
+
         if send_emoji:
-            # Use self.emoji_manager directly
-            emoji_raw = await self.emoji_manager.get_emoji_for_text(send_emoji)
+            emoji_raw = await emoji_manager.get_emoji_for_text(send_emoji)
         else:
             emoji_text_source = "".join(response_set) if response_set else ""
-            # Use self.emoji_manager directly
-            emoji_raw = await self.emoji_manager.get_emoji_for_text(emoji_text_source)
+            emoji_raw = await emoji_manager.get_emoji_for_text(emoji_text_source)
 
         if emoji_raw:
             emoji_path, _description = emoji_raw

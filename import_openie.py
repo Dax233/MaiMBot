@@ -156,6 +156,7 @@ def main():
     if handle_import_openie(openie_data, embed_manager, kg_manager) is False:
         logger.error("处理OpenIE数据时发生错误")
         return False
+    return None
 
 
 if __name__ == "__main__":

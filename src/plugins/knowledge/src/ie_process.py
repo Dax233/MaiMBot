@@ -1,6 +1,6 @@
 import json
 import time
-from typing import List
+from typing import List, Union
 
 from .global_logger import logger
 from . import prompt_template
@@ -64,7 +64,7 @@ def _rdf_triple_extract(llm_client: LLMClient, paragraph: str, entities: list) -
 
 def info_extract_from_str(
     llm_client_for_ner: LLMClient, llm_client_for_rdf: LLMClient, paragraph: str
-) -> tuple[None, None] | tuple[list[str], list[list[str]]]:
+) -> Union[tuple[None, None], tuple[list[str], list[list[str]]]]:
     try_count = 0
     while True:
         try:

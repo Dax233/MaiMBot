@@ -1,5 +1,5 @@
 import time
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Optional
 
 from .global_logger import logger
 
@@ -28,7 +28,7 @@ class QAManager:
             "qa": llm_client_qa,
         }
 
-    def process_query(self, question: str) -> Tuple[List[Tuple[str, float, float]], Dict[str, float] | None]:
+    def process_query(self, question: str) -> Tuple[List[Tuple[str, float, float]], Optional[Dict[str, float]]]:
         """处理查询"""
 
         # 生成问题的Embedding

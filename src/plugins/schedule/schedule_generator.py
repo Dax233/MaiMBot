@@ -73,29 +73,32 @@ class ScheduleGenerator:
     async def mai_schedule_start(self):
         """启动日程系统，每5分钟执行一次move_doing，并在日期变化时重新检查日程"""
         try:
-            logger.info(f"日程系统启动/刷新时间: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-            # 初始化日程
-            await self.check_and_create_today_schedule()
-            # self.print_schedule()
+            if global_config.ENABLE_SCHEDULE_GEN:
+                logger.info(f"日程系统启动/刷新时间: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                # 初始化日程
+                await self.check_and_create_today_schedule()
+                # self.print_schedule()
 
-            while True:
-                # print(self.get_current_num_task(1, True))
+                while True:
+                    # print(self.get_current_num_task(1, True))
 
-                current_time = datetime.datetime.now(TIME_ZONE)
+                    current_time = datetime.datetime.now(TIME_ZONE)
 
-                # 检查是否需要重新生成日程（日期变化）
-                if current_time.date() != self.start_time.date():
-                    logger.info("检测到日期变化，重新生成日程")
-                    self.start_time = current_time
-                    await self.check_and_create_today_schedule()
-                    # self.print_schedule()
+                    # 检查是否需要重新生成日程（日期变化）
+                    if current_time.date() != self.start_time.date():
+                        logger.info("检测到日期变化，重新生成日程")
+                        self.start_time = current_time
+                        await self.check_and_create_today_schedule()
+                        # self.print_schedule()
 
-                # 执行当前活动
-                # mind_thinking = heartflow.current_state.current_mind
+                    # 执行当前活动
+                    # mind_thinking = heartflow.current_state.current_mind
 
-                await self.move_doing()
+                    await self.move_doing()
 
-                await asyncio.sleep(self.schedule_doing_update_interval)
+                    await asyncio.sleep(self.schedule_doing_update_interval)
+            else:
+                logger.info("日程系统未启用")
 
         except Exception as e:
             logger.error(f"日程系统运行时出错: {str(e)}")
