@@ -9,7 +9,7 @@ from .plugins.willing.willing_manager import willing_manager
 from .plugins.chat.chat_stream import chat_manager
 from .heart_flow.heartflow import heartflow
 from .plugins.memory_system.Hippocampus import HippocampusManager
-from .plugins.chat.messagesender import message_manager
+from .plugins.chat.message_sender import message_manager
 from .plugins.storage.storage import MessageStorage
 from .config.config import global_config
 from .plugins.chat.bot import chat_bot
@@ -17,7 +17,6 @@ from .common.logger import get_module_logger
 from .plugins.remote import heartbeat_thread  # noqa: F401
 from .individuality.individuality import Individuality
 from .common.server import global_server
-from .plugins.chat_module.heartFC_chat.heartFC_controler import HeartFCController
 
 logger = get_module_logger("main")
 
@@ -67,11 +66,6 @@ class MainSystem:
         # 启动愿望管理器
         await willing_manager.async_task_starter()
 
-        # 启动消息处理器
-        if not self._message_manager_started:
-            asyncio.create_task(message_manager.start_processor())
-            self._message_manager_started = True
-
         # 初始化聊天管理器
         await chat_manager._initialize()
         asyncio.create_task(chat_manager._auto_save_task())
@@ -107,18 +101,13 @@ class MainSystem:
         logger.success("个体特征初始化成功")
 
         try:
-            # 启动心流系统
+            # 启动全局消息管理器 (负责消息发送/排队)
+            await message_manager.start()
+            logger.success("全局消息管理器启动成功")
+
+            # 启动心流系统主循环
             asyncio.create_task(heartflow.heartflow_start_working())
             logger.success("心流系统启动成功")
-
-            # 初始化并独立启动 HeartFCController
-            HeartFCController()
-            heartfc_chat_instance = HeartFCController.get_instance()
-            if heartfc_chat_instance:
-                await heartfc_chat_instance.start()
-                logger.success("HeartFC_Chat 模块独立启动成功")
-            else:
-                logger.error("获取 HeartFC_Chat 实例失败，无法启动。")
 
             init_time = int(1000 * (time.time() - init_start_time))
             logger.success(f"初始化完成，神经元放电{init_time}次")

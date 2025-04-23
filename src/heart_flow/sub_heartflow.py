@@ -4,7 +4,7 @@ from src.plugins.moods.moods import MoodManager
 from src.plugins.models.utils_model import LLMRequest
 from src.config.config import global_config
 import time
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Callable, TYPE_CHECKING
 import traceback
 from src.plugins.chat.utils import parse_text_timestamps
 import enum
@@ -14,7 +14,15 @@ import random
 from src.plugins.person_info.relationship_manager import relationship_manager
 from ..plugins.utils.prompt_builder import Prompt, global_prompt_manager
 from src.plugins.chat.message import MessageRecv
+from src.plugins.chat.chat_stream import chat_manager
 import math
+from src.plugins.heartFC_chat.heartFC_chat import HeartFChatting
+
+# Type hinting for circular dependency
+if TYPE_CHECKING:
+    from .heartflow import Heartflow  # Import Heartflow for type hinting
+    from .sub_heartflow import ChatState  # Keep ChatState here too?
+    from src.plugins.heartFC_chat.heartFC_chat import HeartFChatting  # <-- Add for type hint
 
 # 定义常量 (从 interest.py 移动过来)
 MAX_INTEREST = 15.0
@@ -68,9 +76,6 @@ class ChatStateInfo:
         self.mood_manager = MoodManager()
         self.mood = self.mood_manager.get_prompt()
 
-    def update_chat_state_info(self):
-        self.chat_state_info = self.mood_manager.get_current_mood()
-
 
 base_reply_probability = 0.05
 probability_increase_rate_per_second = 0.08
@@ -87,6 +92,7 @@ class InterestChatting:
         increase_rate=probability_increase_rate_per_second,
         decay_factor=global_config.probability_decay_factor_per_second,
         max_probability=max_reply_probability,
+        state_change_callback: Optional[Callable[[ChatState], None]] = None,
     ):
         self.interest_level: float = 0.0
         self.last_update_time: float = time.time()
@@ -101,6 +107,7 @@ class InterestChatting:
         self.max_reply_probability: float = max_probability
         self.current_reply_probability: float = 0.0
         self.is_above_threshold: bool = False
+        self.state_change_callback = state_change_callback
 
         self.interest_dict: Dict[str, tuple[MessageRecv, float, bool]] = {}
 
@@ -108,7 +115,7 @@ class InterestChatting:
         self.interest_dict[message.message_info.message_id] = (message, interest_value, is_mentioned)
         self.last_interaction_time = time.time()
 
-    def _calculate_decay(self, current_time: float):
+    async def _calculate_decay(self, current_time: float):
         time_delta = current_time - self.last_update_time
         if time_delta > 0:
             old_interest = self.interest_level
@@ -138,12 +145,13 @@ class InterestChatting:
             if old_interest != self.interest_level:
                 self.last_update_time = current_time
 
-    def _update_reply_probability(self, current_time: float):
+    async def _update_reply_probability(self, current_time: float):
         time_delta = current_time - self.last_update_time
         if time_delta <= 0:
             return
 
         currently_above = self.interest_level >= self.trigger_threshold
+        previous_is_above = self.is_above_threshold
 
         if currently_above:
             if not self.is_above_threshold:
@@ -158,6 +166,13 @@ class InterestChatting:
             self.current_reply_probability = min(self.current_reply_probability, self.max_reply_probability)
 
         else:
+            if previous_is_above:
+                if self.state_change_callback:
+                    try:
+                        await self.state_change_callback(ChatState.ABSENT)
+                    except Exception as e:
+                        interest_logger.error(f"Error calling state_change_callback for ABSENT: {e}")
+
             if 0 < self.probability_decay_factor < 1:
                 decay_multiplier = math.pow(self.probability_decay_factor, time_delta)
                 self.current_reply_probability *= decay_multiplier
@@ -172,30 +187,30 @@ class InterestChatting:
 
         self.is_above_threshold = currently_above
 
-    def increase_interest(self, current_time: float, value: float):
-        self._update_reply_probability(current_time)
-        self._calculate_decay(current_time)
+    async def increase_interest(self, current_time: float, value: float):
+        await self._update_reply_probability(current_time)
+        await self._calculate_decay(current_time)
         self.interest_level += value
         self.interest_level = min(self.interest_level, self.max_interest)
         self.last_update_time = current_time
         self.last_interaction_time = current_time
 
-    def decrease_interest(self, current_time: float, value: float):
-        self._update_reply_probability(current_time)
+    async def decrease_interest(self, current_time: float, value: float):
+        await self._update_reply_probability(current_time)
         self.interest_level -= value
         self.interest_level = max(self.interest_level, 0.0)
         self.last_update_time = current_time
         self.last_interaction_time = current_time
 
-    def get_interest(self) -> float:
+    async def get_interest(self) -> float:
         current_time = time.time()
-        self._update_reply_probability(current_time)
-        self._calculate_decay(current_time)
+        await self._update_reply_probability(current_time)
+        await self._calculate_decay(current_time)
         self.last_update_time = current_time
         return self.interest_level
 
-    def get_state(self) -> dict:
-        interest = self.get_interest()
+    async def get_state(self) -> dict:
+        interest = await self.get_interest()
         return {
             "interest_level": round(interest, 2),
             "last_update_time": self.last_update_time,
@@ -204,9 +219,9 @@ class InterestChatting:
             "last_interaction_time": self.last_interaction_time,
         }
 
-    def should_evaluate_reply(self) -> bool:
+    async def should_evaluate_reply(self) -> bool:
         current_time = time.time()
-        self._update_reply_probability(current_time)
+        await self._update_reply_probability(current_time)
 
         if self.current_reply_probability > 0:
             trigger = random.random() < self.current_reply_probability
@@ -216,15 +231,39 @@ class InterestChatting:
 
 
 class SubHeartflow:
-    def __init__(self, subheartflow_id):
+    def __init__(self, subheartflow_id, parent_heartflow: "Heartflow"):
+        """子心流初始化函数
+
+        Args:
+            subheartflow_id: 子心流唯一标识符
+            parent_heartflow: 父级心流实例
+        """
+        # 基础属性
         self.subheartflow_id = subheartflow_id
+        self.parent_heartflow = parent_heartflow
+        self.bot_name = global_config.BOT_NICKNAME  # 机器人昵称
 
-        self.current_mind = "你什么也没想"
-        self.past_mind = []
-        self.chat_state: ChatStateInfo = ChatStateInfo()
+        # 思维状态相关
+        self.current_mind = "你什么也没想"  # 当前想法
+        self.past_mind = []  # 历史想法记录
+        self.main_heartflow_info = ""  # 主心流信息
 
-        self.interest_chatting = InterestChatting()
+        # 聊天状态管理
+        self.chat_state: ChatStateInfo = ChatStateInfo()  # 聊天状态信息
+        self.interest_chatting = InterestChatting(state_change_callback=self.set_chat_state)  # 兴趣聊天系统
 
+        # 活动状态管理
+        self.last_active_time = time.time()  # 最后活跃时间
+        self.is_active = False  # 是否活跃标志
+        self.should_stop = False  # 停止标志
+        self.task: Optional[asyncio.Task] = None  # 后台任务
+        self.heart_fc_instance: Optional["HeartFChatting"] = None  # <-- Add instance variable
+
+        # 观察和知识系统
+        self.observations: List[ChattingObservation] = []  # 观察列表
+        self.running_knowledges = []  # 运行中的知识
+
+        # LLM模型配置
         self.llm_model = LLMRequest(
             model=global_config.llm_sub_heartflow,
             temperature=global_config.llm_sub_heartflow["temp"],
@@ -232,35 +271,101 @@ class SubHeartflow:
             request_type="sub_heart_flow",
         )
 
-        self.main_heartflow_info = ""
+    async def set_chat_state(self, new_state: "ChatState"):
+        """更新sub_heartflow的聊天状态，并管理 HeartFChatting 实例"""
 
-        self.last_active_time = time.time()  # 添加最后激活时间
-        self.should_stop = False  # 添加停止标志
-        self.task: Optional[asyncio.Task] = None  # 添加 task 属性
+        current_state = self.chat_state.chat_status
+        if current_state == new_state:
+            logger.trace(f"[{self.subheartflow_id}] State already {current_state.value}, no change.")
+            return  # No change needed
 
-        self.is_active = False
+        log_prefix = f"[{chat_manager.get_stream_name(self.subheartflow_id) or self.subheartflow_id}]"
+        current_mai_state = self.parent_heartflow.current_state.mai_status
 
-        self.observations: List[ChattingObservation] = []  # 使用 List 类型提示
+        # --- Entering CHAT state ---
+        if new_state == ChatState.CHAT:
+            normal_limit = current_mai_state.get_normal_chat_max_num()
+            current_chat_count = self.parent_heartflow.count_subflows_by_state(ChatState.CHAT)
 
-        self.running_knowledges = []
+            if current_chat_count >= normal_limit:
+                logger.debug(
+                    f"{log_prefix} 拒绝从 {current_state.value} 转换到 CHAT。原因：CHAT 状态已达上限 ({normal_limit})。当前数量: {current_chat_count}"
+                )
+                return  # Block the state transition
+            else:
+                logger.debug(
+                    f"{log_prefix} 允许从 {current_state.value} 转换到 CHAT (上限: {normal_limit}, 当前: {current_chat_count})"
+                )
+                # If transitioning out of FOCUSED, shut down HeartFChatting first
+                if current_state == ChatState.FOCUSED and self.heart_fc_instance:
+                    logger.info(f"{log_prefix} 从 FOCUSED 转换到 CHAT，正在关闭 HeartFChatting...")
+                    await self.heart_fc_instance.shutdown()
+                    self.heart_fc_instance = None
 
-        self.bot_name = global_config.BOT_NICKNAME
+        # --- Entering FOCUSED state ---
+        elif new_state == ChatState.FOCUSED:
+            focused_limit = current_mai_state.get_focused_chat_max_num()
+            current_focused_count = self.parent_heartflow.count_subflows_by_state(ChatState.FOCUSED)
+
+            if current_focused_count >= focused_limit:
+                logger.debug(
+                    f"{log_prefix} 拒绝从 {current_state.value} 转换到 FOCUSED。原因：FOCUSED 状态已达上限 ({focused_limit})。当前数量: {current_focused_count}"
+                )
+                return  # Block the state transition
+            else:
+                logger.debug(
+                    f"{log_prefix} 允许从 {current_state.value} 转换到 FOCUSED (上限: {focused_limit}, 当前: {current_focused_count})"
+                )
+                if not self.heart_fc_instance:
+                    logger.info(f"{log_prefix} 状态转为 FOCUSED，创建并初始化 HeartFChatting 实例...")
+                    try:
+                        self.heart_fc_instance = HeartFChatting(
+                            chat_id=self.subheartflow_id,
+                            gpt_instance=self.parent_heartflow.gpt_instance,
+                            tool_user_instance=self.parent_heartflow.tool_user_instance,
+                            emoji_manager_instance=self.parent_heartflow.emoji_manager_instance,
+                        )
+                        # Initialize and potentially start the loop via add_time
+                        if await self.heart_fc_instance._initialize():
+                            # Give it an initial time boost to start the loop
+                            await self.heart_fc_instance.add_time()
+                            logger.info(f"{log_prefix} HeartFChatting 实例已创建并启动。")
+                        else:
+                            logger.error(
+                                f"{log_prefix} HeartFChatting 实例初始化失败，状态回滚到 {current_state.value}"
+                            )
+                            self.heart_fc_instance = None
+                            return  # Prevent state change if HeartFChatting fails to init
+                    except Exception as e:
+                        logger.error(f"{log_prefix} 创建 HeartFChatting 实例时出错: {e}")
+                        logger.error(traceback.format_exc())
+                        self.heart_fc_instance = None
+                        return  # Prevent state change on error
+
+                else:
+                    logger.warning(f"{log_prefix} 尝试进入 FOCUSED 状态，但 HeartFChatting 实例已存在。")
+
+        # --- Entering ABSENT state (or any state other than FOCUSED) ---
+        elif current_state == ChatState.FOCUSED and self.heart_fc_instance:
+            logger.info(f"{log_prefix} 从 FOCUSED 转换到 {new_state.value}，正在关闭 HeartFChatting...")
+            await self.heart_fc_instance.shutdown()
+            self.heart_fc_instance = None
+
+        # --- Update state and timestamp if transition is allowed --- # 更新状态必须放在所有检查和操作之后
+        self.chat_state.chat_status = new_state
+        self.last_active_time = time.time()
+        logger.info(f"{log_prefix} 聊天状态从 {current_state.value} 变更为 {new_state.value}")
 
     async def subheartflow_start_working(self):
         while True:
-            # --- 调整后台任务逻辑 --- #
-            # 这个后台循环现在主要负责检查是否需要自我销毁
-            # 不再主动进行思考或状态更新，这些由 HeartFC_Chat 驱动
-
-            # 检查是否被主心流标记为停止
             if self.should_stop:
                 logger.info(f"子心流 {self.subheartflow_id} 被标记为停止，正在退出后台任务...")
-                break  # 退出循环以停止任务
+                break
 
-            await asyncio.sleep(global_config.sub_heart_flow_update_interval)  # 定期检查销毁条件
+            # await asyncio.sleep(global_config.sub_heart_flow_update_interval)
+            await asyncio.sleep(10)
 
     async def ensure_observed(self):
-        """确保在思考前执行了观察"""
         observation = self._get_primary_observation()
         if observation:
             try:
@@ -273,18 +378,14 @@ class SubHeartflow:
     async def do_thinking_before_reply(
         self,
         extra_info: str,
-        obs_id: list[str] = None,  # 修改 obs_id 类型为 list[str]
+        obs_id: list[str] = None,
     ):
-        # --- 在思考前确保观察已执行 --- #
-        # await self.ensure_observed()
-
-        self.last_active_time = time.time()  # 更新最后激活时间戳
+        self.last_active_time = time.time()
 
         current_thinking_info = self.current_mind
         mood_info = self.chat_state.mood
         observation = self._get_primary_observation()
 
-        # --- 获取观察信息 --- #
         chat_observe_info = ""
         if obs_id:
             try:
@@ -294,12 +395,11 @@ class SubHeartflow:
                 logger.error(
                     f"[{self.subheartflow_id}] Error getting observe info with IDs {obs_id}: {e}. Falling back."
                 )
-                chat_observe_info = observation.get_observe_info()  # 出错时回退到默认观察
+                chat_observe_info = observation.get_observe_info()
         else:
             chat_observe_info = observation.get_observe_info()
-            logger.debug(f"[{self.subheartflow_id}] Using default observation info.")
+            # logger.debug(f"[{self.subheartflow_id}] Using default observation info.")
 
-        # --- 构建 Prompt (基本逻辑不变) --- #
         extra_info_prompt = ""
         if extra_info:
             for tool_name, tool_data in extra_info.items():
@@ -307,28 +407,25 @@ class SubHeartflow:
                 for item in tool_data:
                     extra_info_prompt += f"- {item['name']}: {item['content']}\n"
         else:
-            extra_info_prompt = "无工具信息。\n"  # 提供默认值
+            extra_info_prompt = "无工具信息。\n"
 
         individuality = Individuality.get_instance()
         prompt_personality = f"你的名字是{self.bot_name}，你"
         prompt_personality += individuality.personality.personality_core
 
-        # 添加随机性格侧面
         if individuality.personality.personality_sides:
             random_side = random.choice(individuality.personality.personality_sides)
             prompt_personality += f"，{random_side}"
 
-        # 添加随机身份细节
         if individuality.identity.identity_detail:
             random_detail = random.choice(individuality.identity.identity_detail)
             prompt_personality += f"，{random_detail}"
 
         time_now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
-        # 创建局部Random对象避免影响全局随机状态
         local_random = random.Random()
         current_minute = int(time.strftime("%M"))
-        local_random.seed(current_minute)  # 用分钟作为种子确保每分钟内选择一致
+        local_random.seed(current_minute)
 
         hf_options = [
             ("继续生成你在这个聊天中的想法，在原来想法的基础上继续思考", 0.7),
@@ -431,7 +528,6 @@ response_language = "Recommend Chinese"
 """
         prompt += (await global_prompt_manager.get_prompt_async("sub_heartflow_prompt_before")).format(
             extra_info=extra_info_prompt,
-            # relation_prompt_all=relation_prompt_all,
             prompt_personality=prompt_personality,
             bot_name=self.bot_name,
             current_thinking_info=current_thinking_info,
@@ -439,8 +535,6 @@ response_language = "Recommend Chinese"
             chat_observe_info=chat_observe_info,
             mood_info=mood_info,
             hf_do_next=hf_do_next,
-            # sender_name=sender_name_sign,
-            # message_txt=message_txt,
         )
 
         prompt = await relationship_manager.convert_all_person_sign_to_person_name(prompt)
@@ -453,18 +547,15 @@ response_language = "Recommend Chinese"
 
             logger.debug(f"[{self.subheartflow_id}] 心流思考结果:\n{response}\n")
 
-            if not response:  # 如果 LLM 返回空，给一个默认想法
+            if not response:
                 response = "(不知道该想些什么...)"
                 logger.warning(f"[{self.subheartflow_id}] LLM 返回空结果，思考失败。")
         except Exception as e:
             logger.error(f"[{self.subheartflow_id}] 内心独白获取失败: {e}")
-            response = "(思考时发生错误...)"  # 错误时的默认想法
+            response = "(思考时发生错误...)"
 
         self.update_current_mind(response)
 
-        # self.current_mind 已经在 update_current_mind 中更新
-
-        # logger.info(f"[{self.subheartflow_id}] 思考前脑内状态：{self.current_mind}")
         return self.current_mind, self.past_mind
 
     def update_current_mind(self, response):
@@ -472,55 +563,41 @@ response_language = "Recommend Chinese"
         self.current_mind = response
 
     def add_observation(self, observation: Observation):
-        """添加一个新的observation对象到列表中，如果已存在相同id的observation则不添加"""
-        # 查找是否存在相同id的observation
         for existing_obs in self.observations:
             if existing_obs.observe_id == observation.observe_id:
-                # 如果找到相同id的observation，直接返回
                 return
-        # 如果没有找到相同id的observation，则添加新的
         self.observations.append(observation)
 
     def remove_observation(self, observation: Observation):
-        """从列表中移除一个observation对象"""
         if observation in self.observations:
             self.observations.remove(observation)
 
     def get_all_observations(self) -> list[Observation]:
-        """获取所有observation对象"""
         return self.observations
 
     def clear_observations(self):
-        """清空所有observation对象"""
         self.observations.clear()
 
     def _get_primary_observation(self) -> Optional[ChattingObservation]:
-        """获取主要的（通常是第一个）ChattingObservation实例"""
         if self.observations and isinstance(self.observations[0], ChattingObservation):
             return self.observations[0]
         logger.warning(f"SubHeartflow {self.subheartflow_id} 没有找到有效的 ChattingObservation")
         return None
 
-    def get_interest_state(self) -> dict:
-        """获取当前兴趣状态"""
-        return self.interest_chatting.get_state()
+    async def get_interest_state(self) -> dict:
+        return await self.interest_chatting.get_state()
 
-    def get_interest_level(self) -> float:
-        """获取当前兴趣等级"""
-        return self.interest_chatting.get_interest()
+    async def get_interest_level(self) -> float:
+        return await self.interest_chatting.get_interest()
 
-    def should_evaluate_reply(self) -> bool:
-        """判断是否应该评估回复"""
-        return self.interest_chatting.should_evaluate_reply()
+    async def should_evaluate_reply(self) -> bool:
+        return await self.interest_chatting.should_evaluate_reply()
 
-    def add_interest_dict_entry(self, message: MessageRecv, interest_value: float, is_mentioned: bool):
-        """添加兴趣字典条目"""
+    async def add_interest_dict_entry(self, message: MessageRecv, interest_value: float, is_mentioned: bool):
         self.interest_chatting.add_interest_dict(message, interest_value, is_mentioned)
 
     def get_interest_dict(self) -> Dict[str, tuple[MessageRecv, float, bool]]:
-        """获取兴趣字典"""
         return self.interest_chatting.interest_dict
 
 
 init_prompt()
-# subheartflow = SubHeartflow()

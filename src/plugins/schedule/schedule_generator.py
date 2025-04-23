@@ -76,7 +76,7 @@ class ScheduleGenerator:
             logger.info(f"日程系统启动/刷新时间: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
             # 初始化日程
             await self.check_and_create_today_schedule()
-            self.print_schedule()
+            # self.print_schedule()
 
             while True:
                 # print(self.get_current_num_task(1, True))
@@ -88,7 +88,7 @@ class ScheduleGenerator:
                     logger.info("检测到日期变化，重新生成日程")
                     self.start_time = current_time
                     await self.check_and_create_today_schedule()
-                    self.print_schedule()
+                    # self.print_schedule()
 
                 # 执行当前活动
                 # mind_thinking = heartflow.current_state.current_mind

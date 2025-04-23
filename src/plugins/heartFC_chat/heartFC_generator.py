@@ -1,14 +1,14 @@
 from typing import List, Optional
 
 
-from ...models.utils_model import LLMRequest
-from ....config.config import global_config
-from ...chat.message import MessageRecv
-from .heartFC_prompt_builder import prompt_builder
-from ...chat.utils import process_llm_response
+from ..models.utils_model import LLMRequest
+from ...config.config import global_config
+from ..chat.message import MessageRecv
+from .heartflow_prompt_builder import prompt_builder
+from ..chat.utils import process_llm_response
 from src.common.logger import get_module_logger, LogConfig, LLM_STYLE_CONFIG
 from src.plugins.respon_info_catcher.info_catcher import info_catcher_manager
-from ...utils.timer_calculater import Timer
+from ..utils.timer_calculater import Timer
 
 from src.plugins.moods.moods import MoodManager
 
@@ -39,6 +39,7 @@ class ResponseGenerator:
 
     async def generate_response(
         self,
+        current_mind_info: str,
         reason: str,
         message: MessageRecv,
         thinking_id: str,
@@ -55,7 +56,7 @@ class ResponseGenerator:
             current_model = self.model_normal
             current_model.temperature = global_config.llm_normal["temp"] * arousal_multiplier  # 激活度越高，温度越高
             model_response = await self._generate_response_with_model(
-                reason, message, current_model, thinking_id, mode="normal"
+                current_mind_info, reason, message, current_model, thinking_id
             )
 
         if model_response:
@@ -70,7 +71,7 @@ class ResponseGenerator:
             return None
 
     async def _generate_response_with_model(
-        self, reason: str, message: MessageRecv, model: LLMRequest, thinking_id: str, mode: str = "normal"
+        self, current_mind_info: str, reason: str, message: MessageRecv, model: LLMRequest, thinking_id: str
     ) -> str:
         sender_name = ""
 
@@ -78,16 +79,15 @@ class ResponseGenerator:
 
         sender_name = f"<{message.chat_stream.user_info.platform}:{message.chat_stream.user_info.user_id}:{message.chat_stream.user_info.user_nickname}:{message.chat_stream.user_info.user_cardname}>"
 
-        # 构建prompt
         with Timer() as t_build_prompt:
-            if mode == "normal":
-                prompt = await prompt_builder._build_prompt(
-                    reason,
-                    message.chat_stream,
-                    message_txt=message.processed_plain_text,
-                    sender_name=sender_name,
-                    stream_id=message.chat_stream.stream_id,
-                )
+            prompt = await prompt_builder.build_prompt(
+                build_mode="focus",
+                reason=reason,
+                current_mind_info=current_mind_info,
+                message_txt=message.processed_plain_text,
+                sender_name=sender_name,
+                chat_stream=message.chat_stream,
+            )
         logger.info(f"构建prompt时间: {t_build_prompt.human_readable}")
 
         try:

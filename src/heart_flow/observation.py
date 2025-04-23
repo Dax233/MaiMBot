@@ -78,8 +78,6 @@ class ChattingObservation(Observation):
             return self.talking_message_str
 
     async def observe(self):
-        # 查找新消息，最多获取 self.max_now_obs_len 条
-        print("2222222222222222221111111111111111开始观察")
         new_messages_list = get_raw_msg_by_timestamp_with_chat(
             chat_id=self.chat_id,
             timestamp_start=self.last_observe_time,
@@ -87,8 +85,8 @@ class ChattingObservation(Observation):
             limit=self.max_now_obs_len,
             limit_mode="latest",
         )
-        print(f"2222222222222222221111111111111111获取到新消息{len(new_messages_list)}条")
         if new_messages_list:  # 检查列表是否为空
+            last_obs_time_mark = self.last_observe_time
             self.last_observe_time = new_messages_list[-1]["time"]
             self.talking_message.extend(new_messages_list)
 
@@ -98,7 +96,11 @@ class ChattingObservation(Observation):
             oldest_messages = self.talking_message[:messages_to_remove_count]
             self.talking_message = self.talking_message[messages_to_remove_count:]  # 保留后半部分，即最新的
 
-            oldest_messages_str = await build_readable_messages(oldest_messages)
+            oldest_messages_str = await build_readable_messages(
+                messages=oldest_messages,
+                timestamp_mode="normal",
+                read_mark=last_obs_time_mark,
+            )
 
             # 调用 LLM 总结主题
             prompt = """
@@ -222,10 +224,6 @@ response_language = "Recommend Chinese"
                     f"距离现在{time_diff}分钟前(聊天记录id:{mid_memory_item['id']})：{mid_memory_item['theme']}\n"
                 )
             self.mid_memory_info = mid_memory_str
-        # except Exception as e:  # 将异常处理移至此处以覆盖整个总结过程
-        #     logger.error(f"处理和总结旧消息时出错 for chat {self.chat_id}: {e}")
-        #     traceback.print_exc()  # 记录详细堆栈
-        # print(f"处理后self.talking_message：{self.talking_message}")
 
         self.talking_message_str = await build_readable_messages(messages=self.talking_message, timestamp_mode="normal")
 

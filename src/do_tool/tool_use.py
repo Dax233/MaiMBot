@@ -3,10 +3,11 @@ from src.config.config import global_config
 import json
 from src.common.logger import get_module_logger, TOOL_USE_STYLE_CONFIG, LogConfig
 from src.do_tool.tool_can_use import get_all_tool_definitions, get_tool_instance
-from src.heart_flow.sub_heartflow import SubHeartflow
 import traceback
 from src.plugins.person_info.relationship_manager import relationship_manager
 from src.plugins.chat.utils import parse_text_timestamps
+from src.plugins.chat.chat_stream import ChatStream
+from src.heart_flow.observation import ChattingObservation
 
 tool_use_config = LogConfig(
     # 使用消息发送专用样式
@@ -23,7 +24,9 @@ class ToolUser:
         )
 
     @staticmethod
-    async def _build_tool_prompt(message_txt: str, subheartflow: SubHeartflow = None):
+    async def _build_tool_prompt(
+        message_txt: str, chat_stream: ChatStream = None, observation: ChattingObservation = None
+    ):
         """构建工具使用的提示词
 
         Args:
@@ -34,8 +37,8 @@ class ToolUser:
             str: 构建好的提示词
         """
 
-        if subheartflow:
-            mid_memory_info = subheartflow.observations[0].mid_memory_info
+        if observation:
+            mid_memory_info = observation.mid_memory_info
             # print(f"intol111111111111111111111111111111111222222222222mid_memory_info：{mid_memory_info}")
 
         # 这些信息应该从调用者传入，而不是从self获取
@@ -102,14 +105,14 @@ class ToolUser:
             logger.error(f"执行工具调用时发生错误: {str(e)}")
             return None
 
-    async def use_tool(self, message_txt: str, sub_heartflow: SubHeartflow = None):
+    async def use_tool(self, message_txt: str, chat_stream: ChatStream = None, observation: ChattingObservation = None):
         """使用工具辅助思考，判断是否需要额外信息
 
         Args:
             message_txt: 用户消息文本
             sender_name: 发送者名称
             chat_stream: 聊天流对象
-            sub_heartflow: 子心流对象（可选）
+            observation: 观察对象（可选）
 
         Returns:
             dict: 工具使用结果，包含结构化的信息
@@ -118,7 +121,8 @@ class ToolUser:
             # 构建提示词
             prompt = await self._build_tool_prompt(
                 message_txt=message_txt,
-                subheartflow=sub_heartflow,
+                chat_stream=chat_stream,
+                observation=observation,
             )
 
             # 定义可用工具
@@ -171,7 +175,7 @@ class ToolUser:
 
                 # 如果有工具结果，返回结构化的信息
                 if structured_info:
-                    logger.info(f"工具调用收集到结构化信息: {json.dumps(structured_info, ensure_ascii=False)}")
+                    logger.debug(f"工具调用收集到结构化信息: {json.dumps(structured_info, ensure_ascii=False)}")
                     return {"used_tools": True, "structured_info": structured_info}
             else:
                 # 没有工具调用

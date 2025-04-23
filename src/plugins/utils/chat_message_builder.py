@@ -232,7 +232,7 @@ async def _build_readable_messages_internal(
 
     # 4 & 5: 格式化为字符串
     output_lines = []
-    for merged in merged_messages:
+    for _i, merged in enumerate(merged_messages):
         # 使用指定的 timestamp_mode 格式化时间
         readable_time = translate_timestamp_to_human_readable(merged["start_time"], mode=timestamp_mode)
 
@@ -242,11 +242,14 @@ async def _build_readable_messages_internal(
         for line in merged["content"]:
             stripped_line = line.strip()
             if stripped_line:  # 过滤空行
+                # 移除末尾句号，添加分号
                 if stripped_line.endswith("。"):
-                    stripped_line = stripped_line.rstrip("。")
+                    stripped_line = stripped_line[:-1]
                 output_lines.append(f"{stripped_line};")
-        output_lines += "\n"
-    formatted_string = "".join(output_lines)
+        output_lines.append("\n")  # 在每个消息块后添加换行，保持可读性
+
+    # 移除可能的多余换行，然后合并
+    formatted_string = "".join(output_lines).strip()
 
     # 返回格式化后的字符串和原始的 message_details 列表
     return formatted_string, message_details
@@ -273,12 +276,42 @@ async def build_readable_messages(
     replace_bot_name: bool = True,
     merge_messages: bool = False,
     timestamp_mode: str = "relative",
+    read_mark: float = 0.0,
 ) -> str:
     """
     将消息列表转换为可读的文本格式。
+    如果提供了 read_mark，则在相应位置插入已读标记。
     允许通过参数控制格式化行为。
     """
-    formatted_string, _ = await _build_readable_messages_internal(
-        messages, replace_bot_name, merge_messages, timestamp_mode
-    )
-    return formatted_string
+    if read_mark <= 0:
+        # 没有有效的 read_mark，直接格式化所有消息
+        formatted_string, _ = await _build_readable_messages_internal(
+            messages, replace_bot_name, merge_messages, timestamp_mode
+        )
+        return formatted_string
+    else:
+        # 按 read_mark 分割消息
+        messages_before_mark = [msg for msg in messages if msg.get("time", 0) <= read_mark]
+        messages_after_mark = [msg for msg in messages if msg.get("time", 0) > read_mark]
+
+        # 分别格式化
+        formatted_before, _ = await _build_readable_messages_internal(
+            messages_before_mark, replace_bot_name, merge_messages, timestamp_mode
+        )
+        formatted_after, _ = await _build_readable_messages_internal(
+            messages_after_mark, replace_bot_name, merge_messages, timestamp_mode
+        )
+
+        readable_read_mark = translate_timestamp_to_human_readable(read_mark, mode=timestamp_mode)
+        read_mark_line = f"\n--- 以上消息已读 (标记时间: {readable_read_mark}) ---\n"
+
+        # 组合结果，确保空部分不引入多余的标记或换行
+        if formatted_before and formatted_after:
+            return f"{formatted_before}{read_mark_line}{formatted_after}"
+        elif formatted_before:
+            return f"{formatted_before}{read_mark_line}"
+        elif formatted_after:
+            return f"{read_mark_line}{formatted_after}"
+        else:
+            # 理论上不应该发生，但作为保险
+            return read_mark_line.strip()  # 如果前后都无消息，只返回标记行

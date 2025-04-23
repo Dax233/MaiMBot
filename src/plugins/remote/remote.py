@@ -66,11 +66,12 @@ def send_heartbeat(server_url, client_id):
             logger.debug(f"心跳发送成功。服务器响应: {data}")
             return True
         else:
-            logger.error(f"心跳发送失败。状态码: {response.status_code}, 响应内容: {response.text}")
+            logger.debug(f"心跳发送失败。状态码: {response.status_code}, 响应内容: {response.text}")
             return False
 
     except requests.RequestException as e:
-        logger.error(f"发送心跳时出错: {e}")
+        # 如果请求异常，可能是网络问题，不记录错误
+        logger.debug(f"发送心跳时出错: {e}")
         return False
 
 

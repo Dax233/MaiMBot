@@ -6,8 +6,7 @@ from .chat_stream import chat_manager
 from ..chat_module.only_process.only_message_process import MessageProcessor
 
 from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
-from ..chat_module.reasoning_chat.reasoning_chat import ReasoningChat
-from ..chat_module.heartFC_chat.heartFC_processor import HeartFCProcessor
+from ..heartFC_chat.heartflow_processor import HeartFCProcessor
 from ..utils.prompt_builder import Prompt, global_prompt_manager
 import traceback
 
@@ -27,8 +26,7 @@ class ChatBot:
         self.bot = None  # bot 实例引用
         self._started = False
         self.mood_manager = MoodManager.get_instance()  # 获取情绪管理器单例
-        self.reasoning_chat = ReasoningChat()
-        self.heartFC_processor = HeartFCProcessor()  # 新增
+        self.heartflow_processor = HeartFCProcessor()  # 新增
 
         # 创建初始化PFC管理器的任务，会在_ensure_started时执行
         self.only_process_chat = MessageProcessor()
@@ -53,18 +51,10 @@ class ChatBot:
 
     async def message_process(self, message_data: str) -> None:
         """处理转化后的统一格式消息
-        根据global_config.response_mode选择不同的回复模式：
-        1. heart_flow模式：使用思维流系统进行回复
-           - 包含思维流状态管理
-           - 在回复前进行观察和状态更新
-           - 回复后更新思维流状态
-
-        2. reasoning模式：使用推理系统进行回复
-           - 直接使用意愿管理器计算回复概率
-           - 没有思维流相关的状态管理
-           - 更简单直接的回复逻辑
-
-        所有模式都包含：
+        heart_flow模式：使用思维流系统进行回复
+        - 包含思维流状态管理
+        - 在回复前进行观察和状态更新
+        - 回复后更新思维流状态
         - 消息过滤
         - 记忆激活
         - 意愿计算
@@ -119,9 +109,9 @@ class ChatBot:
                             await self.only_process_chat.process_message(message)
                             await self._create_pfc_chat(message)
                         else:
-                            await self.heartFC_processor.process_message(message_data)
+                            await self.heartflow_processor.process_message(message_data)
                 else:
-                    await self.heartFC_processor.process_message(message_data)
+                    await self.heartflow_processor.process_message(message_data)
 
             if template_group_name:
                 async with global_prompt_manager.async_message_scope(template_group_name):

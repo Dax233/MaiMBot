@@ -202,7 +202,7 @@ class PersonInfoManager:
             }"""
             # logger.debug(f"取名提示词：{qv_name_prompt}")
             response = await self.qv_name_llm.generate_response(qv_name_prompt)
-            logger.debug(f"取名提示词：{qv_name_prompt}\n取名回复：{response}")
+            logger.trace(f"取名提示词：{qv_name_prompt}\n取名回复：{response}")
             result = self._extract_json_from_text(response[0])
 
             if not result["nickname"]:
