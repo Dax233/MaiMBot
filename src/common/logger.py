@@ -332,14 +332,14 @@ MAI_STATE_CONFIG = {
             "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
             "<level>{level: <8}</level> | "
             "<cyan>{extra[module]: <12}</cyan> | "
-            "<light-blue>麦麦状态</light-blue> | "
+            "<light-blue>枫の状态</light-blue> | "
             "<level>{message}</level>"
         ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦状态 | {message}",
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の状态 | {message}",
     },
     "simple": {
-        "console_format": "<green>{time:MM-DD HH:mm}</green> | <light-blue>麦麦状态 | {message} </light-blue>",  # noqa: E501
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦状态 | {message}",
+        "console_format": "<green>{time:MM-DD HH:mm}</green> | <light-blue>枫の状态 | {message} </light-blue>",  # noqa: E501
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の状态 | {message}",
     },
 }
 

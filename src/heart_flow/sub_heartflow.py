@@ -42,7 +42,7 @@ interest_logger = get_module_logger("InterestChatting", config=interest_log_conf
 
 def init_prompt():
     prompt = ""
-    # prompt += f"麦麦的总体想法是：{self.main_heartflow_info}\n\n"
+    # prompt += f"枫的总体想法是：{self.main_heartflow_info}\n\n"
     prompt += "{extra_info}\n"
     # prompt += "{prompt_schedule}\n"
     # prompt += "{relation_prompt_all}\n"
@@ -295,13 +295,13 @@ class SubHeartflow:
 
             if current_chat_count >= normal_limit and current_state != ChatState.CHAT:  # 仅在状态转换时检查限制
                 logger.debug(
-                    f"{log_prefix} 麦麦不能从 {current_state.value} 转换到 聊天。原因：聊不过来了 ({current_chat_count}/{normal_limit})"
+                    f"{log_prefix} 枫不能从 {current_state.value} 转换到 聊天。原因：聊不过来了 ({current_chat_count}/{normal_limit})"
                 )
                 return  # 阻止状态转换
             else:
-                logger.debug(f"{log_prefix} 麦麦可以进入或保持 聊天 状态 ({current_chat_count}/{normal_limit})")
+                logger.debug(f"{log_prefix} 枫可以进入或保持 聊天 状态 ({current_chat_count}/{normal_limit})")
                 if current_state == ChatState.FOCUSED and self.heart_fc_instance:
-                    logger.info(f"{log_prefix} 麦麦不再专注聊天，转为随便水水...")
+                    logger.info(f"{log_prefix} 枫不再专注聊天，转为随便水水...")
                     await self.heart_fc_instance.shutdown()  # 正确关闭 HeartFChatting
                     self.heart_fc_instance = None
 
@@ -316,13 +316,13 @@ class SubHeartflow:
 
             if current_focused_count >= focused_limit and current_state != ChatState.FOCUSED:  # 仅在状态转换时检查限制
                 logger.debug(
-                    f"{log_prefix} 麦麦不能从 {current_state.value} 转换到 专注的聊天，原因：聊不过来了。({current_focused_count}/{focused_limit})"
+                    f"{log_prefix} 枫不能从 {current_state.value} 转换到 专注的聊天，原因：聊不过来了。({current_focused_count}/{focused_limit})"
                 )
                 return  # 阻止状态转换
             else:
-                logger.debug(f"{log_prefix} 麦麦可以进入或保持 专注聊天 状态 ({current_focused_count}/{focused_limit})")
+                logger.debug(f"{log_prefix} 枫可以进入或保持 专注聊天 状态 ({current_focused_count}/{focused_limit})")
                 if not self.heart_fc_instance:
-                    logger.info(f"{log_prefix} 麦麦准备开始专注聊天...")
+                    logger.info(f"{log_prefix} 枫准备开始专注聊天...")
                     try:
                         await self.normal_chat_instance.stop_monitoring_interest()
                         self.clear_interest_dict()
@@ -339,16 +339,16 @@ class SubHeartflow:
                         )
                         if await self.heart_fc_instance._initialize():
                             await self.heart_fc_instance.add_time()  # 初始化成功后添加初始时间
-                            logger.info(f"{log_prefix} 麦麦已成功进入专注聊天模式。")
+                            logger.info(f"{log_prefix} 枫已成功进入专注聊天模式。")
                         else:
                             logger.error(
-                                f"{log_prefix} 麦麦不能专注聊天，因为 HeartFChatting 初始化失败了，状态回滚到 {current_state.value}"
+                                f"{log_prefix} 枫不能专注聊天，因为 HeartFChatting 初始化失败了，状态回滚到 {current_state.value}"
                             )
                             self.heart_fc_instance = None
                             return  # 阻止进入 FOCUSED 状态
 
                     except Exception as e:
-                        logger.error(f"{log_prefix} 创建麦麦专注聊天实例时出错: {e}")
+                        logger.error(f"{log_prefix} 创建枫专注聊天实例时出错: {e}")
                         logger.error(traceback.format_exc())
                         self.heart_fc_instance = None
                         return  # 创建实例异常，阻止进入 FOCUSED 状态
@@ -359,12 +359,12 @@ class SubHeartflow:
                         logger.warning(f"{log_prefix} HeartFChatting 实例存在但未激活，尝试重新激活...")
                         await self.heart_fc_instance.add_time()  # 尝试添加时间以激活循环
                     else:
-                        logger.debug(f"{log_prefix} 麦麦已经在专注聊天中。")
+                        logger.debug(f"{log_prefix} 枫已经在专注聊天中。")
                 # NormalChat 启动/停止逻辑将在下面处理
 
         elif new_state == ChatState.ABSENT:
             if current_state == ChatState.FOCUSED and self.heart_fc_instance:
-                logger.info(f"{log_prefix} 麦麦离开专注的聊天，撤退了.....")
+                logger.info(f"{log_prefix} 枫离开专注的聊天，撤退了.....")
                 await self.heart_fc_instance.shutdown()  # 正确关闭 HeartFChatting
                 self.heart_fc_instance = None
             # NormalChat 启动/停止逻辑将在下面处理
@@ -372,7 +372,7 @@ class SubHeartflow:
         # --- 更新状态和最后活动时间 (先更新状态，再根据新状态管理任务)---
         self.chat_state.chat_status = new_state
         self.last_active_time = time.time()
-        logger.info(f"{log_prefix} 麦麦的聊天状态从 {current_state.value} 变更为 {new_state.value}")
+        logger.info(f"{log_prefix} 枫的聊天状态从 {current_state.value} 变更为 {new_state.value}")
 
         # --- 根据新的状态管理 NormalChat 的监控任务 ---
         if self.normal_chat_instance:
