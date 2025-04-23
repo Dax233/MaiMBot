@@ -9,6 +9,9 @@ COPY requirements.txt .
 # 同级目录下需要有 maim_message
 COPY maim_message /maim_message
 
+# 编译器
+RUN apt-get update && apt-get install -y g++
+
 # 安装依赖
 RUN uv pip install --system --upgrade pip
 RUN uv pip install --system -e /maim_message
