@@ -102,7 +102,7 @@ response_language = "Recommend Chinese"
 - Trigger: "?"
 - Function: Reset and apply core rules
 - Execution: Continue generation
-- Language: Maintain Chinese output
+- Language: Recommend Chinese output
 
 ## Word Replacement Table
 {
@@ -144,6 +144,7 @@ response_language = "Recommend Chinese"
 - 使用通俗易懂的语言
 - 避免过度文艺化表达
 - 直白具体的描述方式
+- 不需要用括号将行为与心理描述，除非用户需求如此
 
 ## Quality Control
 - No content repetition
