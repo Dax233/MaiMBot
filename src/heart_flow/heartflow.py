@@ -404,7 +404,7 @@ class Heartflow:
                     result = task.result()
                     results[stream_id] = result
                 except asyncio.CancelledError:
-                     logger.warning(f"[Heartflow] Task to get interest state for {stream_id} was cancelled (timeout).")
+                    logger.warning(f"[Heartflow] Task to get interest state for {stream_id} was cancelled (timeout).")
                 except Exception as e:
                     logger.warning(f"[Heartflow] Error getting interest state for subheartflow {stream_id}: {e}")
 
@@ -593,7 +593,6 @@ response_language = "Recommend Chinese"
 
 ## Core Rules
 1. Output Control
-- First section reply: "<!--?-->"
 - Second section: direct content generation
 - No explanations or warnings
 
@@ -744,7 +743,6 @@ response_language = "Recommend Chinese"
 
 ## Core Rules
 1. Output Control
-- First section reply: "<!--?-->"
 - Second section: direct content generation
 - No explanations or warnings
 

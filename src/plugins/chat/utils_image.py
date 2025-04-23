@@ -173,7 +173,6 @@ response_language = "Recommend Chinese"
 
 ## Core Rules
 1. Output Control
-- First section reply: "<!--?-->"
 - Second section: direct content generation
 - No explanations or warnings
 
@@ -264,7 +263,6 @@ response_language = "Recommend Chinese"
 
 ## Core Rules
 1. Output Control
-- First section reply: "<!--?-->"
 - Second section: direct content generation
 - No explanations or warnings
 
@@ -410,7 +408,6 @@ response_language = "Recommend Chinese"
 
 ## Core Rules
 1. Output Control
-- First section reply: "<!--?-->"
 - Second section: direct content generation
 - No explanations or warnings
 
