@@ -133,9 +133,9 @@ class MaiStateInfo:
             self.last_5min_check_time = current_time  # 重置5分钟检查计时器
             # 将新状态和时间戳添加到历史记录
             self.mai_status_history.append((new_status, current_time))
-            logger.info(f"麦麦状态更新为: {self.mai_status.value}")
+            logger.info(f"枫状态更新为: {self.mai_status.value}")
         elif not isinstance(new_status, MaiState):
-            logger.warning(f"尝试设置无效的麦麦状态: {new_status}")
+            logger.warning(f"尝试设置无效的枫状态: {new_status}")
         # else: # 状态未改变，不处理
         #     pass
 
@@ -642,7 +642,7 @@ response_language = "Recommend Chinese"
                 response = "(暂时没什么想法...)"  # 提供默认想法
 
             self.update_current_mind(response)  # 更新主心流想法
-            logger.info(f"麦麦的总体脑内状态：{self.current_mind}")
+            logger.info(f"枫的总体脑内状态：{self.current_mind}")
 
             # 更新所有子心流的主心流信息
             items_snapshot = list(self._subheartflows.items())  # 创建快照
