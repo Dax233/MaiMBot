@@ -232,7 +232,8 @@ class ActionPlanner:
         prompt = f"""{persona_text}。现在你在参与一场QQ聊天，请根据以下【所有信息】审慎决策下一步行动，可以发言，可以等待，可以倾听，可以调取知识：
 
 【当前对话目标】
-{goals_str if goals_str.strip() else "- 目前没有明确对话目标，请考虑设定一个。\n"}
+{goals_str if goals_str.strip() else "- 目前没有明确对话目标，请考虑设定一个。"}
+
 
 【最近行动历史概要】
 {action_history_summary}
@@ -241,7 +242,8 @@ class ActionPlanner:
 【时间和超时提示】
 {time_since_last_bot_message_info}{timeout_context}
 【最近的对话记录】(包括你已成功发送的消息 和 新收到的消息)
-{chat_history_text if chat_history_text.strip() else "还没有聊天记录。\n"}
+{chat_history_text if chat_history_text.strip() else "还没有聊天记录。"}
+
 --- 行动决策指南 ---
 1.  **仔细分析【上一次行动的详细情况和结果】**。如果上次行动是 direct_reply 且因“内容与你上一条发言完全相同”或“高度相似”而被取消(status: recall)，那么【绝对不要】立即再次规划 direct_reply。在这种特定情况下，你应该优先考虑 wait (等待用户的新回应) 或 rethink_goal (如果对话似乎因此卡住了)。
 2.  结合【当前对话目标】和【最近的对话记录】来判断是否需要回应、回应什么。如果【最近的对话记录】中有新的用户消息，通常需要 direct_reply。如果上次行动成功，或者上次失败的原因不是重复，可以根据对话内容考虑 direct_reply。
