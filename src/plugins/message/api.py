@@ -147,7 +147,10 @@ class MessageServer(BaseMessageHandler):
         try:
             if self.own_app:
                 # 如果使用自己的 FastAPI 实例，运行 uvicorn 服务器
-                config = uvicorn.Config(self.app, host=self.host, port=self.port, loop="asyncio")
+                # 禁用 uvicorn 默认日志和访问日志
+                config = uvicorn.Config(
+                    self.app, host=self.host, port=self.port, loop="asyncio", log_config=None, access_log=False
+                )
                 self.server = uvicorn.Server(config)
                 await self.server.serve()
             else:

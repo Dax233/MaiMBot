@@ -3,7 +3,7 @@ from ...config.config import global_config
 from .message import MessageRecv
 from ..PFC.pfc_manager import PFCManager
 from .chat_stream import chat_manager
-from ..chat_module.only_process.only_message_process import MessageProcessor
+from .only_message_process import MessageProcessor
 
 from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
 from ..heartFC_chat.heartflow_processor import HeartFCProcessor
@@ -80,6 +80,10 @@ class ChatBot:
 
             if userinfo.user_id in global_config.ban_user_id:
                 logger.debug(f"用户{userinfo.user_id}被禁止回复")
+                return
+
+            if groupinfo.group_id not in global_config.talk_allowed_groups:
+                logger.debug(f"群{groupinfo.group_id}被禁止回复")
                 return
 
             if message.message_info.template_info and not message.message_info.template_info.template_default:

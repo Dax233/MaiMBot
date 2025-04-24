@@ -13,12 +13,16 @@ from .plugins.chat.message_sender import message_manager
 from .plugins.storage.storage import MessageStorage
 from .config.config import global_config
 from .plugins.chat.bot import chat_bot
-from .common.logger import get_module_logger
+from .common.logger import get_module_logger, LogConfig, MAIN_STYLE_CONFIG
 from .plugins.remote import heartbeat_thread  # noqa: F401
 from .individuality.individuality import Individuality
 from .common.server import global_server
 
-logger = get_module_logger("main")
+main_log_config = LogConfig(
+    console_format=MAIN_STYLE_CONFIG["console_format"],
+    file_format=MAIN_STYLE_CONFIG["file_format"],
+)
+logger = get_module_logger("main", config=main_log_config)
 
 
 class MainSystem:

@@ -37,24 +37,55 @@ class InterestMonitorApp:
         # 使用 deque 来存储有限的历史数据点
         # key: stream_id, value: deque([(timestamp, interest_level), ...])
         self.stream_history = {}
-        # key: stream_id, value: deque([(timestamp, reply_probability), ...]) # <--- 新增：存储概率历史
+        # key: stream_id, value: deque([(timestamp, reply_probability), ...])
         self.probability_history = {}
         self.stream_colors = {}  # 为每个 stream 分配颜色
-        self.stream_display_names = {}  # *** New: Store display names (group_name) ***
+        self.stream_display_names = {}  # 存储显示名称 (group_name)
         self.selected_stream_id = tk.StringVar()  # 用于 Combobox 绑定
 
+        # --- 新增：存储其他参数 ---
+        # 顶层信息
+        self.latest_main_mind = tk.StringVar(value="N/A")
+        self.latest_mai_state = tk.StringVar(value="N/A")
+        self.latest_subflow_count = tk.IntVar(value=0)
+        # 子流最新状态 (key: stream_id)
+        self.stream_sub_minds = {}
+        self.stream_chat_states = {}
+        self.stream_threshold_status = {}
+        self.stream_last_active = {}
+        self.stream_last_interaction = {}
+        # 用于显示单个流详情的 StringVar
+        self.single_stream_sub_mind = tk.StringVar(value="想法: N/A")
+        self.single_stream_chat_state = tk.StringVar(value="状态: N/A")
+        self.single_stream_threshold = tk.StringVar(value="阈值: N/A")
+        self.single_stream_last_active = tk.StringVar(value="活跃: N/A")
+        self.single_stream_last_interaction = tk.StringVar(value="交互: N/A")
+
         # --- UI 元素 ---
+
+        # --- 新增：顶部全局信息框架 ---
+        self.global_info_frame = ttk.Frame(root, padding="5 0 5 5")  # 顶部内边距调整
+        self.global_info_frame.pack(side=tk.TOP, fill=tk.X, pady=(5, 0))  # 底部外边距为0
+
+        ttk.Label(self.global_info_frame, text="全局状态:").pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Label(self.global_info_frame, textvariable=self.latest_mai_state).pack(side=tk.LEFT, padx=5)
+        ttk.Label(self.global_info_frame, text="想法:").pack(side=tk.LEFT, padx=(10, 0))
+        ttk.Label(self.global_info_frame, textvariable=self.latest_main_mind).pack(side=tk.LEFT, padx=5)
+        ttk.Label(self.global_info_frame, text="子流数:").pack(side=tk.LEFT, padx=(10, 0))
+        ttk.Label(self.global_info_frame, textvariable=self.latest_subflow_count).pack(side=tk.LEFT, padx=5)
+
         # 创建 Notebook (选项卡控件)
         self.notebook = ttk.Notebook(root)
-        self.notebook.pack(pady=10, padx=10, fill=tk.BOTH, expand=1)
+        # 修改：fill 和 expand，让 notebook 填充剩余空间
+        self.notebook.pack(pady=(5, 0), padx=10, fill=tk.BOTH, expand=1)  # 顶部外边距改小
 
         # --- 第一个选项卡：所有流 ---
         self.frame_all = ttk.Frame(self.notebook, padding="5 5 5 5")
         self.notebook.add(self.frame_all, text="所有聊天流")
 
-        # 状态标签
+        # 状态标签 (移动到最底部)
         self.status_label = tk.Label(root, text="Initializing...", anchor="w", fg="grey")
-        self.status_label.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=2)
+        self.status_label.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 5))  # 调整边距
 
         # Matplotlib 图表设置 (用于第一个选项卡)
         self.fig = Figure(figsize=(5, 4), dpi=100)
@@ -80,6 +111,24 @@ class InterestMonitorApp:
         )
         self.stream_selector.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.stream_selector.bind("<<ComboboxSelected>>", self.on_stream_selected)
+
+        # --- 新增：单个流详情显示区域 ---
+        self.single_stream_details_frame = ttk.Frame(self.frame_single, padding="5 5 5 0")
+        self.single_stream_details_frame.pack(side=tk.TOP, fill=tk.X, pady=(0, 5))
+
+        ttk.Label(self.single_stream_details_frame, textvariable=self.single_stream_sub_mind).pack(side=tk.LEFT, padx=5)
+        ttk.Label(self.single_stream_details_frame, textvariable=self.single_stream_chat_state).pack(
+            side=tk.LEFT, padx=5
+        )
+        ttk.Label(self.single_stream_details_frame, textvariable=self.single_stream_threshold).pack(
+            side=tk.LEFT, padx=5
+        )
+        ttk.Label(self.single_stream_details_frame, textvariable=self.single_stream_last_active).pack(
+            side=tk.LEFT, padx=5
+        )
+        ttk.Label(self.single_stream_details_frame, textvariable=self.single_stream_last_interaction).pack(
+            side=tk.LEFT, padx=5
+        )
 
         # Matplotlib 图表设置 (用于第二个选项卡)
         self.fig_single = Figure(figsize=(5, 4), dpi=100)
@@ -116,6 +165,11 @@ class InterestMonitorApp:
         new_stream_history = {}
         new_stream_display_names = {}
         new_probability_history = {}  # <--- 重置概率历史
+        # --- 新增：重置其他子流状态 --- (如果需要的话，但通常覆盖即可)
+        # self.stream_sub_minds = {}
+        # self.stream_chat_states = {}
+        # ... 等等 ...
+
         read_count = 0
         error_count = 0
         # *** Calculate the timestamp threshold for the last 30 minutes ***
@@ -128,58 +182,114 @@ class InterestMonitorApp:
                     read_count += 1
                     try:
                         log_entry = json.loads(line.strip())
-                        timestamp = log_entry.get("timestamp")
+                        timestamp = log_entry.get("timestamp")  # 获取顶层时间戳
 
-                        # *** Add time filtering ***
-                        if timestamp is None or float(timestamp) < time_threshold:
-                            continue  # Skip old or invalid entries
-
-                        stream_id = log_entry.get("stream_id")
-                        interest_level = log_entry.get("interest_level")
-                        group_name = log_entry.get(
-                            "group_name", stream_id
-                        )  # *** Get group_name, fallback to stream_id ***
-                        reply_probability = log_entry.get("reply_probability")  # <--- 获取概率值
-
-                        # *** Check other required fields AFTER time filtering ***
-                        if stream_id is None or interest_level is None:
+                        # *** 时间过滤 ***
+                        if timestamp is None:
                             error_count += 1
-                            continue  # 跳过无效行
+                            continue  # 跳过没有时间戳的行
+                        try:
+                            entry_timestamp = float(timestamp)
+                            if entry_timestamp < time_threshold:
+                                continue  # 跳过时间过早的条目
+                        except (ValueError, TypeError):
+                            error_count += 1
+                            continue  # 跳过时间戳格式错误的行
 
-                        # 如果是第一次读到这个 stream_id，则创建 deque
-                        if stream_id not in new_stream_history:
-                            new_stream_history[stream_id] = deque(maxlen=MAX_HISTORY_POINTS)
-                            new_probability_history[stream_id] = deque(maxlen=MAX_HISTORY_POINTS)  # <--- 创建概率 deque
-                            # 检查是否已有颜色，没有则分配
-                            if stream_id not in self.stream_colors:
-                                self.stream_colors[stream_id] = self.get_random_color()
+                        # --- 新增：更新顶层信息 (使用最后一个有效行的数据) ---
+                        self.latest_main_mind.set(
+                            log_entry.get("main_mind", self.latest_main_mind.get())
+                        )  # 保留旧值如果缺失
+                        self.latest_mai_state.set(log_entry.get("mai_state", self.latest_mai_state.get()))
+                        self.latest_subflow_count.set(log_entry.get("subflow_count", self.latest_subflow_count.get()))
 
-                        # *** Store the latest display name found for this stream_id ***
-                        new_stream_display_names[stream_id] = group_name
+                        # --- 修改开始：迭代 subflows ---
+                        subflows = log_entry.get("subflows")
+                        if not isinstance(subflows, list):  # 检查 subflows 是否存在且为列表
+                            error_count += 1
+                            continue  # 跳过没有 subflows 或格式无效的行
 
-                        # 添加数据点
-                        new_stream_history[stream_id].append((float(timestamp), float(interest_level)))
-                        # 添加概率数据点 (如果存在)
-                        if reply_probability is not None:
+                        for subflow_entry in subflows:
+                            stream_id = subflow_entry.get("stream_id")
+                            interest_level = subflow_entry.get("interest_level")
+                            # 获取 group_name，如果不存在则回退到 stream_id
+                            group_name = subflow_entry.get("group_name", stream_id)
+                            # reply_probability = subflow_entry.get("reply_probability")  # 获取概率值 # <-- 注释掉旧行
+                            start_hfc_probability = subflow_entry.get(
+                                "start_hfc_probability"
+                            )  # <-- 添加新行，读取新字段
+
+                            # *** 检查必要的字段 ***
+                            # 注意：时间戳已在顶层检查过
+                            if stream_id is None or interest_level is None:
+                                # 这里可以选择记录子流错误，但暂时跳过
+                                continue  # 跳过无效的 subflow 条目
+
+                            # 确保 interest_level 可以转换为浮点数
                             try:
-                                new_probability_history[stream_id].append((float(timestamp), float(reply_probability)))
-                            except (TypeError, ValueError):
-                                # 如果概率值无效，可以跳过或记录一个默认值，这里跳过
-                                pass
+                                interest_level_float = float(interest_level)
+                            except (ValueError, TypeError):
+                                continue  # 跳过 interest_level 无效的 subflow
+
+                            # 如果是第一次读到这个 stream_id，则创建 deque
+                            if stream_id not in new_stream_history:
+                                new_stream_history[stream_id] = deque(maxlen=MAX_HISTORY_POINTS)
+                                new_probability_history[stream_id] = deque(maxlen=MAX_HISTORY_POINTS)  # 创建概率 deque
+                                # 检查是否已有颜色，没有则分配
+                                if stream_id not in self.stream_colors:
+                                    self.stream_colors[stream_id] = self.get_random_color()
+
+                            # *** 存储此 stream_id 最新的显示名称 ***
+                            new_stream_display_names[stream_id] = group_name
+
+                            # --- 新增：存储其他子流信息 ---
+                            self.stream_sub_minds[stream_id] = subflow_entry.get("sub_mind", "N/A")
+                            self.stream_chat_states[stream_id] = subflow_entry.get("sub_chat_state", "N/A")
+                            self.stream_threshold_status[stream_id] = subflow_entry.get("is_above_threshold", False)
+                            self.stream_last_active[stream_id] = subflow_entry.get("last_active_time")  # 存储原始时间戳
+                            self.stream_last_interaction[stream_id] = subflow_entry.get(
+                                "last_interaction_time"
+                            )  # 存储原始时间戳
+
+                            # 添加数据点 (使用顶层时间戳)
+                            new_stream_history[stream_id].append((entry_timestamp, interest_level_float))
+
+                            # 添加概率数据点 (如果存在且有效)
+                            # if reply_probability is not None: # <-- 注释掉旧判断
+                            if start_hfc_probability is not None:  # <-- 修改判断条件
+                                try:
+                                    # 尝试将概率转换为浮点数
+                                    # probability_float = float(reply_probability) # <-- 注释掉旧转换
+                                    probability_float = float(start_hfc_probability)  # <-- 使用新变量
+                                    new_probability_history[stream_id].append((entry_timestamp, probability_float))
+                                except (TypeError, ValueError):
+                                    # 如果概率值无效，可以跳过或记录一个默认值，这里跳过
+                                    pass
+                        # --- 修改结束 ---
 
                     except json.JSONDecodeError:
                         error_count += 1
                         # logger.warning(f"Skipping invalid JSON line: {line.strip()}")
                         continue  # 跳过无法解析的行
-                    except (TypeError, ValueError):
-                        error_count += 1
-                        # logger.warning(f"Skipping line due to data type error ({e}): {line.strip()}")
-                        continue  # 跳过数据类型错误的行
+                    # except (TypeError, ValueError) as e: # 这个外层 catch 可能不再需要，因为类型错误在内部处理了
+                    #     error_count += 1
+                    #     # logger.warning(f"Skipping line due to data type error ({e}): {line.strip()}")
+                    #     continue  # 跳过数据类型错误的行
 
             # 读取完成后，用新数据替换旧数据
             self.stream_history = new_stream_history
             self.stream_display_names = new_stream_display_names  # *** Update display names ***
             self.probability_history = new_probability_history  # <--- 更新概率历史
+            # 清理不再存在的 stream_id 的附加信息 (可选，但保持一致性)
+            streams_to_remove = set(self.stream_sub_minds.keys()) - set(new_stream_history.keys())
+            for sid in streams_to_remove:
+                self.stream_sub_minds.pop(sid, None)
+                self.stream_chat_states.pop(sid, None)
+                self.stream_threshold_status.pop(sid, None)
+                self.stream_last_active.pop(sid, None)
+                self.stream_last_interaction.pop(sid, None)
+                # 颜色和显示名称也应该清理，但当前逻辑是保留旧颜色
+                # self.stream_colors.pop(sid, None)
             status_msg = f"Data loaded at {datetime.now().strftime('%H:%M:%S')}. Lines read: {read_count}."
             if error_count > 0:
                 status_msg += f" Skipped {error_count} invalid lines."
@@ -305,13 +415,13 @@ class InterestMonitorApp:
 
         # 设置子图标题和标签
         self.ax_single_interest.set_title("兴趣度")
-        self.ax_single_interest.set_ylabel("兴趣度")
-        self.ax_single_interest.grid(True)
         self.ax_single_interest.set_ylim(0, 10)  # 固定 Y 轴范围 0-10
 
-        self.ax_single_probability.set_title("回复评估概率")
+        # self.ax_single_probability.set_title("回复评估概率") # <-- 注释掉旧标题
+        self.ax_single_probability.set_title("HFC 启动概率")  # <-- 修改标题
         self.ax_single_probability.set_xlabel("时间")
-        self.ax_single_probability.set_ylabel("概率")
+        # self.ax_single_probability.set_ylabel("概率") # <-- 注释掉旧标签
+        self.ax_single_probability.set_ylabel("HFC 概率")  # <-- 修改 Y 轴标签
         self.ax_single_probability.grid(True)
         self.ax_single_probability.set_ylim(0, 1.05)  # 固定 Y 轴范围 0-1
         self.ax_single_probability.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S"))
@@ -383,8 +493,44 @@ class InterestMonitorApp:
             self.ax_single_interest.set_xlim(one_hour_ago, now)
             # self.ax_single_probability.set_xlim(one_hour_ago, now) # sharex 会自动同步
 
+        # --- 新增：更新单个流的详细信息标签 ---
+        self.update_single_stream_details(selected_sid)
+
         # --- 新增：重新绘制画布 ---
         self.canvas_single.draw()
+
+    def format_timestamp(self, ts):
+        """辅助函数：格式化时间戳，处理 None 或无效值"""
+        if ts is None:
+            return "N/A"
+        try:
+            # 假设 ts 是 float 类型的时间戳
+            dt_object = datetime.fromtimestamp(float(ts))
+            return dt_object.strftime("%Y-%m-%d %H:%M:%S")
+        except (ValueError, TypeError):
+            return "Invalid Time"
+
+    def update_single_stream_details(self, stream_id):
+        """更新单个流详情区域的标签内容"""
+        if stream_id:
+            sub_mind = self.stream_sub_minds.get(stream_id, "N/A")
+            chat_state = self.stream_chat_states.get(stream_id, "N/A")
+            threshold = self.stream_threshold_status.get(stream_id, False)
+            last_active_ts = self.stream_last_active.get(stream_id)
+            last_interaction_ts = self.stream_last_interaction.get(stream_id)
+
+            self.single_stream_sub_mind.set(f"想法: {sub_mind}")
+            self.single_stream_chat_state.set(f"状态: {chat_state}")
+            self.single_stream_threshold.set(f"阈值以上: {'是' if threshold else '否'}")
+            self.single_stream_last_active.set(f"最后活跃: {self.format_timestamp(last_active_ts)}")
+            self.single_stream_last_interaction.set(f"最后交互: {self.format_timestamp(last_interaction_ts)}")
+        else:
+            # 如果没有选择流，则清空详情
+            self.single_stream_sub_mind.set("想法: N/A")
+            self.single_stream_chat_state.set("状态: N/A")
+            self.single_stream_threshold.set("阈值: N/A")
+            self.single_stream_last_active.set("活跃: N/A")
+            self.single_stream_last_interaction.set("交互: N/A")
 
     def update_display(self):
         """主更新循环"""

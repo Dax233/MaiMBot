@@ -22,7 +22,7 @@ llm_config = LogConfig(
 logger = get_module_logger("llm_generator", config=llm_config)
 
 
-class ResponseGenerator:
+class HeartFCGenerator:
     def __init__(self):
         self.model_normal = LLMRequest(
             model=global_config.llm_normal,

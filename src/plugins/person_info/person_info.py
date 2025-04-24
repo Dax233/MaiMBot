@@ -1,4 +1,4 @@
-from src.common.logger import get_module_logger
+from src.common.logger import get_module_logger, LogConfig, PERSON_INFO_STYLE_CONFIG
 from ...common.database import db
 import copy
 import hashlib
@@ -33,7 +33,12 @@ PersonInfoManager 类方法功能摘要：
 9. personal_habit_deduction - 定时推断个人习惯
 """
 
-logger = get_module_logger("person_info")
+person_info_log_config = LogConfig(
+    console_format=PERSON_INFO_STYLE_CONFIG["console_format"],
+    file_format=PERSON_INFO_STYLE_CONFIG["file_format"],
+)
+
+logger = get_module_logger("person_info", config=person_info_log_config)
 
 person_info_default = {
     "person_id": None,

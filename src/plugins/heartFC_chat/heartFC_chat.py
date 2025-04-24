@@ -13,9 +13,7 @@ from src.plugins.models.utils_model import LLMRequest
 from src.config.config import global_config
 from src.plugins.chat.utils_image import image_path_to_base64  # Local import needed after move
 from src.plugins.utils.timer_calculater import Timer  # <--- Import Timer
-
-# --- Import necessary dependencies directly ---
-from .heartFC_generator import ResponseGenerator  # Assuming this is the type for gpt
+from src.plugins.heartFC_chat.heartFC_generator import HeartFCGenerator
 from src.do_tool.tool_use import ToolUser
 from ..chat.message_sender import message_manager  # <-- Import the global manager
 from src.plugins.chat.emoji_manager import emoji_manager
@@ -70,25 +68,16 @@ PLANNER_TOOL_DEFINITION = [
 class HeartFChatting:
     """
     管理一个连续的Plan-Replier-Sender循环
-    用于在特定聊天流中生成回复，由计时器控制。
-    只要计时器>0，循环就会继续。
-    现在由其关联的 SubHeartflow 管理生命周期。
+    用于在特定聊天流中生成回复。
+    其生命周期现在由其关联的 SubHeartflow 的 FOCUSED 状态控制。
     """
 
-    def __init__(
-        self,
-        chat_id: str,
-        gpt_instance: ResponseGenerator,  # 文本回复生成器
-        tool_user_instance: ToolUser,  # 工具使用实例
-    ):
+    def __init__(self, chat_id: str):
         """
         HeartFChatting 初始化函数
 
         参数:
             chat_id: 聊天流唯一标识符(如stream_id)
-            gpt_instance: 文本回复生成器实例
-            tool_user_instance: 工具使用实例
-            emoji_manager_instance: 表情管理实例
         """
         # 基础属性
         self.stream_id: str = chat_id  # 聊天流ID
@@ -97,13 +86,11 @@ class HeartFChatting:
 
         # 初始化状态控制
         self._initialized = False  # 是否已初始化标志
-        self._init_lock = asyncio.Lock()  # 初始化锁(确保只初始化一次)
         self._processing_lock = asyncio.Lock()  # 处理锁(确保单次Plan-Replier-Sender周期)
-        self._timer_lock = asyncio.Lock()  # 计时器锁(安全更新计时器)
 
         # 依赖注入存储
-        self.gpt_instance = gpt_instance  # 文本回复生成器
-        self.tool_user = tool_user_instance  # 工具使用实例
+        self.gpt_instance = HeartFCGenerator()  # 文本回复生成器
+        self.tool_user = ToolUser()  # 工具使用实例
 
         # LLM规划器配置
         self.planner_llm = LLMRequest(
@@ -114,12 +101,8 @@ class HeartFChatting:
         )
 
         # 循环控制内部状态
-        self._loop_timer: float = 0.0  # 循环剩余时间(秒)
         self._loop_active: bool = False  # 循环是否正在运行
         self._loop_task: Optional[asyncio.Task] = None  # 主循环任务
-        self._trigger_count_this_activation: int = 0  # 当前激活周期内的触发计数
-        self._initial_duration: float = INITIAL_DURATION  # 首次触发增加的时间
-        self._last_added_duration: float = self._initial_duration  # 上次增加的时间
 
     def _get_log_prefix(self) -> str:
         """获取日志前缀，包含可读的流名称"""
@@ -131,82 +114,72 @@ class HeartFChatting:
         懒初始化以使用提供的标识符解析chat_stream和sub_hf。
         确保实例已准备好处理触发器。
         """
-        async with self._init_lock:
-            if self._initialized:
-                return True
-            log_prefix = self._get_log_prefix()  # 获取前缀
-            try:
-                self.chat_stream = chat_manager.get_stream(self.stream_id)
+        if self._initialized:
+            return True
+        log_prefix = self._get_log_prefix()  # 获取前缀
+        try:
+            self.chat_stream = chat_manager.get_stream(self.stream_id)
 
-                if not self.chat_stream:
-                    logger.error(f"{log_prefix} 获取ChatStream失败。")
-                    return False
-
-                # <-- 在这里导入 heartflow 实例
-                from src.heart_flow.heartflow import heartflow
-
-                self.sub_hf = heartflow.get_subheartflow(self.stream_id)
-                if not self.sub_hf:
-                    logger.warning(f"{log_prefix} 获取SubHeartflow失败。一些功能可能受限。")
-
-                self._initialized = True
-                logger.info(f"枫感觉到了，激发了HeartFChatting{log_prefix} 初始化成功。")
-                return True
-            except Exception as e:
-                logger.error(f"{log_prefix} 初始化失败: {e}")
-                logger.error(traceback.format_exc())
+            if not self.chat_stream:
+                logger.error(f"{log_prefix} 获取ChatStream失败。")
                 return False
 
-    async def add_time(self):
+            # <-- 在这里导入 heartflow 实例
+            from src.heart_flow.heartflow import heartflow
+
+            self.sub_hf = heartflow.get_subheartflow(self.stream_id)
+            if not self.sub_hf:
+                logger.warning(f"{log_prefix} 获取SubHeartflow失败。一些功能可能受限。")
+
+            self._initialized = True
+            logger.info(f"枫感觉到了，激发了HeartFChatting{log_prefix} 初始化成功。")
+            return True
+        except Exception as e:
+            logger.error(f"{log_prefix} 初始化失败: {e}")
+            logger.error(traceback.format_exc())
+            return False
+
+    async def start(self):
         """
-        为麦麦添加时间，麦麦有兴趣时，时间增加。
+        显式尝试启动 HeartFChatting 的主循环。
+        如果循环未激活，则启动循环。
         """
         log_prefix = self._get_log_prefix()
         if not self._initialized:
             if not await self._initialize():
-                logger.error(f"{log_prefix} 无法添加时间: 未初始化。")
+                logger.error(f"{log_prefix} 无法启动循环: 初始化失败。")
                 return
+        logger.info(f"{log_prefix} 尝试显式启动循环...")
+        await self._start_loop_if_needed()
 
-        async with self._timer_lock:
-            duration_to_add: float = 0.0
+    async def _start_loop_if_needed(self):
+        """检查是否需要启动主循环，如果未激活则启动。"""
+        log_prefix = self._get_log_prefix()
+        should_start_loop = False
+        # 直接检查是否激活，无需检查计时器
+        if not self._loop_active:
+            should_start_loop = True
+            self._loop_active = True  # 标记为活动，防止重复启动
 
-            if not self._loop_active:  # First trigger for this activation cycle
-                duration_to_add = self._initial_duration  # 使用初始值
-                self._last_added_duration = duration_to_add  # 更新上次增加的值
-                self._trigger_count_this_activation = 1  # Start counting
-                logger.info(
-                    f"{log_prefix} 枫有兴趣！ #{self._trigger_count_this_activation}. 枫打算聊： {duration_to_add:.2f}s."
-                )
-            else:  # Loop is already active, apply 50% reduction
-                self._trigger_count_this_activation += 1
-                duration_to_add = self._last_added_duration * 0.5
-                if duration_to_add < 1.5:
-                    duration_to_add = 1.5
-                # Update _last_added_duration only if it's >= 0.5 to prevent it from becoming too small
-                self._last_added_duration = duration_to_add
-                logger.info(
-                    f"{log_prefix} 枫兴趣增加！ #{self._trigger_count_this_activation}. 想继续聊： {duration_to_add:.2f}s, 枫还能聊： {self._loop_timer:.1f}s."
-                )
+        if should_start_loop:
+            # 检查是否已有任务在运行（理论上不应该，因为 _loop_active=False）
+            if self._loop_task and not self._loop_task.done():
+                logger.warning(f"{log_prefix} 发现之前的循环任务仍在运行（不符合预期）。取消旧任务。")
+                self._loop_task.cancel()
+                try:
+                    # 等待旧任务确实被取消
+                    await asyncio.wait_for(self._loop_task, timeout=0.5)
+                except (asyncio.CancelledError, asyncio.TimeoutError):
+                    pass  # 忽略取消或超时错误
+                self._loop_task = None  # 清理旧任务引用
 
-            # 添加计算出的时间
-            new_timer_value = self._loop_timer + duration_to_add
-            # Add max timer duration limit? e.g., max(0, min(new_timer_value, 300))
-            self._loop_timer = max(0, new_timer_value)
-            # Log less frequently, e.g., every 10 seconds or significant change?
-            # if self._trigger_count_this_activation % 5 == 0:
-            # logger.info(f"{log_prefix} 麦麦现在想聊{self._loop_timer:.1f}秒")
-
-            # Start the loop if it wasn't active and timer is positive
-            if not self._loop_active and self._loop_timer > 0:
-                self._loop_active = True
-                if self._loop_task and not self._loop_task.done():
-                    logger.warning(f"{log_prefix} 发现意外的循环任务正在进行。取消它。")
-                    self._loop_task.cancel()
-
-                self._loop_task = asyncio.create_task(self._run_pf_loop())
-                self._loop_task.add_done_callback(self._handle_loop_completion)
-            elif self._loop_active:
-                logger.trace(f"{log_prefix} 循环已经激活。计时器延长。")
+            logger.info(f"{log_prefix} 循环未激活，启动主循环...")
+            # 创建新的循环任务
+            self._loop_task = asyncio.create_task(self._run_pf_loop())
+            # 添加完成回调
+            self._loop_task.add_done_callback(self._handle_loop_completion)
+        # else:
+        # logger.trace(f"{log_prefix} 不需要启动循环（已激活）") # 可以取消注释以进行调试
 
     def _handle_loop_completion(self, task: asyncio.Task):
         """当 _run_pf_loop 任务完成时执行的回调。"""
@@ -217,48 +190,37 @@ class HeartFChatting:
                 logger.error(f"{log_prefix} HeartFChatting: 枫脱离了聊天(异常): {exception}")
                 logger.error(traceback.format_exc())  # Log full traceback for exceptions
             else:
-                logger.debug(f"{log_prefix} HeartFChatting: 枫脱离了聊天 (正常完成)")
+                # Loop completing normally now means it was cancelled/shutdown externally
+                logger.info(f"{log_prefix} HeartFChatting: 枫脱离了聊天 (外部停止)")
         except asyncio.CancelledError:
             logger.info(f"{log_prefix} HeartFChatting: 枫脱离了聊天(任务取消)")
         finally:
             self._loop_active = False
             self._loop_task = None
-            self._last_added_duration = self._initial_duration
-            self._trigger_count_this_activation = 0
             if self._processing_lock.locked():
                 logger.warning(f"{log_prefix} HeartFChatting: 处理锁在循环结束时仍被锁定，强制释放。")
                 self._processing_lock.release()
-            # Instance removal is now handled by SubHeartflow
-            # asyncio.create_task(self.heartfc_controller._remove_heartFC_chat_instance(self.stream_id)) # Removed
 
     async def _run_pf_loop(self):
         """
-        主循环，当计时器>0时持续进行计划并可能回复消息
-        管理每个循环周期的处理锁
+        主循环，持续进行计划并可能回复消息，直到被外部取消。
+        管理每个循环周期的处理锁。
         """
         log_prefix = self._get_log_prefix()
-        logger.info(f"{log_prefix} HeartFChatting: 枫打算好好聊聊 (定时器: {self._loop_timer:.1f}s)")
+        logger.info(f"{log_prefix} HeartFChatting: 枫打算好好聊聊 (进入专注模式)")
         try:
             thinking_id = ""
-            while True:
+            while True:  # Loop indefinitely until cancelled
                 cycle_timers = {}  # <--- Initialize timers dict for this cycle
 
                 # Access MessageManager directly
                 if message_manager.check_if_sending_message_exist(self.stream_id, thinking_id):
-                    # logger.info(f"{log_prefix} HeartFChatting: 11111111111111111111111111111111麦麦还在发消息，等会再规划")
+                    # logger.info(f"{log_prefix} HeartFChatting: 麦麦还在发消息，等会再规划")
                     await asyncio.sleep(1)
                     continue
                 else:
-                    # logger.info(f"{log_prefix} HeartFChatting: 11111111111111111111111111111111麦麦不发消息了，开始规划")
+                    # logger.info(f"{log_prefix} HeartFChatting: 麦麦不发消息了，开始规划")
                     pass
-
-                async with self._timer_lock:
-                    current_timer = self._loop_timer
-                    if current_timer <= 0:
-                        logger.info(
-                            f"{log_prefix} HeartFChatting: 聊太久了，枫打算休息一下 (计时器为 {current_timer:.1f}s)。退出HeartFChatting。"
-                        )
-                        break
 
                 # 记录循环周期开始时间，用于计时和休眠计算
                 loop_cycle_start_time = time.monotonic()
@@ -292,7 +254,7 @@ class HeartFChatting:
                             logger.error(f"{log_prefix} Planner LLM 失败，跳过本周期回复尝试。理由: {reasoning}")
                             # Optionally add a longer sleep?
                             action_taken_this_cycle = False  # Ensure no action is counted
-                            # Continue to timer decrement and sleep
+                            # Continue to sleep logic
 
                         elif action == "text_reply":
                             logger.debug(f"{log_prefix} HeartFChatting: 枫决定回复文本. 理由: {reasoning}")
@@ -367,11 +329,11 @@ class HeartFChatting:
                                 with Timer("Wait New Msg", cycle_timers):  # <--- Start Wait timer
                                     wait_start_time = time.monotonic()
                                     while True:
-                                        # 检查计时器是否耗尽
-                                        async with self._timer_lock:
-                                            if self._loop_timer <= 0:
-                                                logger.info(f"{log_prefix} HeartFChatting: 等待新消息时计时器耗尽。")
-                                                break  # 计时器耗尽，退出等待
+                                        # Removed timer check within wait loop
+                                        # async with self._timer_lock:
+                                        #     if self._loop_timer <= 0:
+                                        #         logger.info(f"{log_prefix} HeartFChatting: 等待新消息时计时器耗尽。")
+                                        #         break # 计时器耗尽，退出等待
 
                                         # 检查是否有新消息
                                         has_new = await observation.has_new_messages_since(planner_start_db_time)
@@ -417,7 +379,7 @@ class HeartFChatting:
                         if timer_strings:  # 如果有有效计时器数据才打印
                             logger.debug(f"{log_prefix} 该次决策耗时: {'; '.join(timer_strings)}")
 
-                    # --- Timer Decrement --- #
+                    # --- Timer Decrement Removed --- #
                     cycle_duration = time.monotonic() - loop_cycle_start_time
 
                 except Exception as e_cycle:
@@ -433,20 +395,23 @@ class HeartFChatting:
                         self._processing_lock.release()
                         # logger.trace(f"{log_prefix} 循环释放了处理锁.") # Reduce noise
 
-                async with self._timer_lock:
-                    self._loop_timer -= cycle_duration
-                    # Log timer decrement less aggressively
-                    if cycle_duration > 0.1 or not action_taken_this_cycle:
-                        logger.debug(
-                            f"{log_prefix} HeartFChatting: 周期耗时 {cycle_duration:.2f}s. 剩余时间: {self._loop_timer:.1f}s."
-                        )
+                # --- Timer Decrement Logging Removed ---
+                # async with self._timer_lock:
+                #     self._loop_timer -= cycle_duration
+                #     # Log timer decrement less aggressively
+                #     if cycle_duration > 0.1 or not action_taken_this_cycle:
+                #         logger.debug(
+                #             f"{log_prefix} HeartFChatting: 周期耗时 {cycle_duration:.2f}s. 剩余时间: {self._loop_timer:.1f}s."
+                #         )
+                if cycle_duration > 0.1:
+                    logger.debug(f"{log_prefix} HeartFChatting: 周期耗时 {cycle_duration:.2f}s.")
 
                 # --- Delay --- #
                 try:
                     sleep_duration = 0.0
                     if not action_taken_this_cycle and cycle_duration < 1.5:
                         sleep_duration = 1.5 - cycle_duration
-                    elif cycle_duration < 0.2:
+                    elif cycle_duration < 0.2:  # Keep minimal sleep even after action
                         sleep_duration = 0.2
 
                     if sleep_duration > 0:
@@ -455,7 +420,7 @@ class HeartFChatting:
 
                 except asyncio.CancelledError:
                     logger.info(f"{log_prefix} Sleep interrupted, loop likely cancelling.")
-                    break
+                    break  # Exit loop immediately on cancellation
 
         except asyncio.CancelledError:
             logger.info(f"{log_prefix} HeartFChatting: 枫的聊天主循环被取消了")

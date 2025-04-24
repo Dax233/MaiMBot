@@ -4,7 +4,7 @@ import random
 from typing import Dict, Any, Optional, List
 
 # 导入日志模块
-from src.common.logger import get_module_logger
+from src.common.logger import get_module_logger, LogConfig, SUBHEARTFLOW_MANAGER_STYLE_CONFIG
 
 # 导入聊天流管理模块
 from src.plugins.chat.chat_stream import chat_manager
@@ -15,7 +15,12 @@ from src.heart_flow.mai_state_manager import MaiState, MaiStateInfo
 from .observation import ChattingObservation
 
 # 初始化日志记录器
-logger = get_module_logger("subheartflow_manager")
+
+subheartflow_manager_log_config = LogConfig(
+    console_format=SUBHEARTFLOW_MANAGER_STYLE_CONFIG["console_format"],
+    file_format=SUBHEARTFLOW_MANAGER_STYLE_CONFIG["file_format"],
+)
+logger = get_module_logger("subheartflow_manager", config=subheartflow_manager_log_config)
 
 # 子心流管理相关常量
 INACTIVE_THRESHOLD_SECONDS = 1200  # 子心流不活跃超时时间(秒)
@@ -257,42 +262,172 @@ class SubHeartflowManager:
 
         logger.info(f"[停用] 完成, 尝试停止{len(flow_ids)}个, 成功{stopped_count}个")
 
-    async def evaluate_interest_and_promote(self):
-        """评估CHAT状态的子心流兴趣度，满足条件则提升到FOCUSED状态"""
-        logger.debug("[子心流管理器] 开始兴趣评估周期...")
-        evaluated_count = 0
-        promoted_count = 0
+    async def evaluate_interest_and_promote(self, current_mai_state: MaiStateInfo):
+        """评估子心流兴趣度，满足条件且未达上限则提升到FOCUSED状态（基于start_hfc_probability）"""
+        log_prefix_manager = "[子心流管理器-兴趣评估]"
+        logger.debug(f"{log_prefix_manager} 开始周期... 当前状态: {current_mai_state.get_current_state().value}")
+
+        # 获取 FOCUSED 状态的数量上限
+        current_state_enum = current_mai_state.get_current_state()
+        focused_limit = current_state_enum.get_focused_chat_max_num()
+        if focused_limit <= 0:
+            logger.debug(
+                f"{log_prefix_manager} 当前状态 ({current_state_enum.value}) 不允许 FOCUSED 子心流, 跳过提升检查。"
+            )
+            return
+
+        # 获取当前 FOCUSED 状态的数量 (初始值)
+        current_focused_count = self.count_subflows_by_state(ChatState.FOCUSED)
+        logger.debug(f"{log_prefix_manager} 专注上限: {focused_limit}, 当前专注数: {current_focused_count}")
 
         # 使用快照安全遍历
         subflows_snapshot = list(self.subheartflows.values())
-
-        for sub_hf in subflows_snapshot:
-            flow_id = sub_hf.subheartflow_id
-            if flow_id in self.subheartflows and self.subheartflows[flow_id].chat_state.chat_status == ChatState.CHAT:
-                evaluated_count += 1
+        promoted_count = 0  # 记录本次提升的数量
+        try:
+            for sub_hf in subflows_snapshot:
+                flow_id = sub_hf.subheartflow_id
                 stream_name = chat_manager.get_stream_name(flow_id) or flow_id
-                log_prefix = f"[{stream_name}]"
+                log_prefix_flow = f"[{stream_name}]"
 
-                should_promote = await sub_hf.should_evaluate_reply()
-                if should_promote:
-                    logger.info(f"{log_prefix} 兴趣评估触发升级: CHAT -> FOCUSED")
-                    states_num = (
-                        self.count_subflows_by_state(ChatState.ABSENT),
-                        self.count_subflows_by_state(ChatState.CHAT),
-                        self.count_subflows_by_state(ChatState.FOCUSED),
+                # 只处理 CHAT 状态的子心流
+                # The code snippet is checking if the `chat_status` attribute of `sub_hf.chat_state` is not equal to
+                # `ChatState.CHAT`. If the condition is met, the code will continue to the next iteration of the loop
+                # or block of code where this snippet is located.
+                # if sub_hf.chat_state.chat_status != ChatState.CHAT:
+                #     continue
+
+                # 检查是否满足提升概率
+                should_hfc = random.random() < sub_hf.interest_chatting.start_hfc_probability
+                if not should_hfc:
+                    continue
+
+                # --- 关键检查：检查 FOCUSED 数量是否已达上限 ---
+                # 注意：在循环内部再次获取当前数量，因为之前的提升可能已经改变了计数
+                # 使用已经记录并在循环中更新的 current_focused_count
+                if current_focused_count >= focused_limit:
+                    logger.debug(
+                        f"{log_prefix_manager} {log_prefix_flow} 达到专注上限 ({current_focused_count}/{focused_limit}), 无法提升。概率={sub_hf.interest_chatting.start_hfc_probability:.2f}"
                     )
-                    await sub_hf.set_chat_state(ChatState.FOCUSED, states_num)
-                    if (
-                        self.subheartflows.get(flow_id)
-                        and self.subheartflows[flow_id].chat_state.chat_status == ChatState.FOCUSED
-                    ):
-                        promoted_count += 1
-                        logger.debug(f"{log_prefix} 成功升级到FOCUSED状态")
-                    else:
-                        logger.info(f"{log_prefix} 升级FOCUSED可能被限制阻止")
+                    continue  # 跳过这个子心流，继续检查下一个
 
-        if evaluated_count > 0:
-            logger.debug(f"[子心流管理器] 评估完成. 评估{evaluated_count}个CHAT流, 升级{promoted_count}个到FOCUSED")
+                # --- 执行提升 ---
+                # 获取当前实例以检查最新状态 (防御性编程)
+                current_subflow = self.subheartflows.get(flow_id)
+                if not current_subflow:
+                    logger.warning(f"{log_prefix_manager} {log_prefix_flow} 尝试提升时状态已改变或实例消失，跳过。")
+                    continue
+
+                logger.info(
+                    f"{log_prefix_manager} {log_prefix_flow} 兴趣评估触发升级 (prob={sub_hf.interest_chatting.start_hfc_probability:.2f}, 上限:{focused_limit}, 当前:{current_focused_count}) -> FOCUSED"
+                )
+
+                states_num = (
+                    self.count_subflows_by_state(ChatState.ABSENT),
+                    self.count_subflows_by_state(ChatState.CHAT),  # 这个值在提升前计算
+                    current_focused_count,  # 这个值在提升前计算
+                )
+
+                # --- 状态设置 ---
+                original_state = current_subflow.chat_state.chat_status  # 记录原始状态
+                await current_subflow.set_chat_state(ChatState.FOCUSED, states_num)
+
+                # --- 状态验证 ---
+                final_subflow = self.subheartflows.get(flow_id)
+                if final_subflow:
+                    final_state = final_subflow.chat_state.chat_status
+                    if final_state == ChatState.FOCUSED:
+                        logger.debug(
+                            f"{log_prefix_manager} {log_prefix_flow} 成功从 {original_state.value} 升级到 FOCUSED 状态"
+                        )
+                        promoted_count += 1
+                        # 提升成功后，更新当前专注计数，以便后续检查能使用最新值
+                        current_focused_count += 1
+                    elif final_state == original_state:  # 状态未变
+                        logger.warning(
+                            f"{log_prefix_manager} {log_prefix_flow} 尝试从 {original_state.value} 升级 FOCUSED 失败，状态仍为: {final_state.value} (可能被内部逻辑阻止)"
+                        )
+                    else:  # 状态变成其他了?
+                        logger.warning(
+                            f"{log_prefix_manager} {log_prefix_flow} 尝试从 {original_state.value} 升级 FOCUSED 后状态变为 {final_state.value}"
+                        )
+                else:  # 子心流消失了?
+                    logger.warning(f"{log_prefix_manager} {log_prefix_flow} 升级后验证时子心流 {flow_id} 消失")
+
+        except Exception as e:
+            logger.error(f"{log_prefix_manager} 兴趣评估周期出错: {e}", exc_info=True)
+
+        if promoted_count > 0:
+            logger.info(f"{log_prefix_manager} 评估周期结束, 成功提升 {promoted_count} 个子心流到 FOCUSED。")
+        else:
+            logger.debug(f"{log_prefix_manager} 评估周期结束, 未提升任何子心流。")
+
+    async def randomly_deactivate_subflows(self, deactivation_probability: float = 0.3):
+        """以一定概率将 FOCUSED 或 CHAT 状态的子心流回退到 ABSENT 状态。"""
+        log_prefix_manager = "[子心流管理器-随机停用]"
+        logger.debug(f"{log_prefix_manager} 开始随机停用检查... (概率: {deactivation_probability:.0%})")
+
+        # 使用快照安全遍历
+        subflows_snapshot = list(self.subheartflows.values())
+        deactivated_count = 0
+
+        # 预先计算状态数量，因为 set_chat_state 需要
+        states_num_before = (
+            self.count_subflows_by_state(ChatState.ABSENT),
+            self.count_subflows_by_state(ChatState.CHAT),
+            self.count_subflows_by_state(ChatState.FOCUSED),
+        )
+
+        try:
+            for sub_hf in subflows_snapshot:
+                flow_id = sub_hf.subheartflow_id
+                stream_name = chat_manager.get_stream_name(flow_id) or flow_id
+                log_prefix_flow = f"[{stream_name}]"
+                current_state = sub_hf.chat_state.chat_status
+
+                # 只处理 FOCUSED 或 CHAT 状态
+                if current_state not in [ChatState.FOCUSED, ChatState.CHAT]:
+                    continue
+
+                # 检查随机概率
+                if random.random() < deactivation_probability:
+                    logger.info(
+                        f"{log_prefix_manager} {log_prefix_flow} 随机触发停用 (从 {current_state.value}) -> ABSENT"
+                    )
+
+                    # 获取当前实例以检查最新状态
+                    current_subflow = self.subheartflows.get(flow_id)
+                    if not current_subflow or current_subflow.chat_state.chat_status != current_state:
+                        logger.warning(f"{log_prefix_manager} {log_prefix_flow} 尝试停用时状态已改变或实例消失，跳过。")
+                        continue
+
+                    # --- 状态设置 --- #
+                    # 注意：这里传递的状态数量是 *停用前* 的状态数量
+                    await current_subflow.set_chat_state(ChatState.ABSENT, states_num_before)
+
+                    # --- 状态验证 (可选) ---
+                    final_subflow = self.subheartflows.get(flow_id)
+                    if final_subflow:
+                        final_state = final_subflow.chat_state.chat_status
+                        if final_state == ChatState.ABSENT:
+                            logger.debug(
+                                f"{log_prefix_manager} {log_prefix_flow} 成功从 {current_state.value} 停用到 ABSENT 状态"
+                            )
+                            deactivated_count += 1
+                            # 注意：停用后不需要更新 states_num_before，因为它只用于 set_chat_state 的限制检查
+                        else:
+                            logger.warning(
+                                f"{log_prefix_manager} {log_prefix_flow} 尝试停用到 ABSENT 后状态仍为 {final_state.value}"
+                            )
+                    else:
+                        logger.warning(f"{log_prefix_manager} {log_prefix_flow} 停用后验证时子心流 {flow_id} 消失")
+
+        except Exception as e:
+            logger.error(f"{log_prefix_manager} 随机停用周期出错: {e}", exc_info=True)
+
+        if deactivated_count > 0:
+            logger.info(f"{log_prefix_manager} 随机停用周期结束, 成功停用 {deactivated_count} 个子心流。")
+        else:
+            logger.debug(f"{log_prefix_manager} 随机停用周期结束, 未停用任何子心流。")
 
     def count_subflows_by_state(self, state: ChatState) -> int:
         """统计指定状态的子心流数量

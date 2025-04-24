@@ -19,7 +19,7 @@ llm_config = LogConfig(
 logger = get_module_logger("llm_generator", config=llm_config)
 
 
-class ResponseGenerator:
+class NormalChatGenerator:
     def __init__(self):
         self.model_reasoning = LLMRequest(
             model=global_config.llm_reasoning,
@@ -77,8 +77,6 @@ class ResponseGenerator:
             sender_name = f"({message.chat_stream.user_info.user_id}){message.chat_stream.user_info.user_nickname}"
         else:
             sender_name = f"用户({message.chat_stream.user_info.user_id})"
-
-        logger.debug("开始使用生成回复-2")
         # 构建prompt
         with Timer() as t_build_prompt:
             prompt = """

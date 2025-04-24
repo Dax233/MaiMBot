@@ -28,7 +28,7 @@ logger = get_module_logger("config", config=config_config)
 # 考虑到，实际上配置文件中的mai_version是不会自动更新的,所以采用硬编码
 is_test = True
 mai_version_main = "0.6.3"
-mai_version_fix = "snapshot-3"
+mai_version_fix = "snapshot-4"
 
 if mai_version_fix:
     if is_test:

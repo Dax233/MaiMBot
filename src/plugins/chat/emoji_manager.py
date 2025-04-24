@@ -14,9 +14,14 @@ from ...config.config import global_config
 from ..chat.utils import get_embedding
 from ..chat.utils_image import ImageManager, image_path_to_base64
 from ..models.utils_model import LLMRequest
-from src.common.logger import get_module_logger
+from src.common.logger import get_module_logger, LogConfig, EMOJI_STYLE_CONFIG
 
-logger = get_module_logger("emoji")
+emoji_log_config = LogConfig(
+    console_format=EMOJI_STYLE_CONFIG["console_format"],
+    file_format=EMOJI_STYLE_CONFIG["file_format"],
+)
+
+logger = get_module_logger("emoji", config=emoji_log_config)
 
 
 image_manager = ImageManager()

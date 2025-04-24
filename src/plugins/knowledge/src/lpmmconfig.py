@@ -2,6 +2,7 @@ import os
 import toml
 import sys
 import argparse
+from .global_logger import logger
 
 PG_NAMESPACE = "paragraph"
 ENT_NAMESPACE = "entity"
@@ -63,8 +64,8 @@ def _load_config(config, config_file_path):
 
     if "persistence" in file_config:
         config["persistence"] = file_config["persistence"]
-    print(config)
-    print("Configurations loaded from file: ", config_file_path)
+    # print(config)
+    logger.info(f"从文件中读取配置: {config_file_path}")
 
 
 parser = argparse.ArgumentParser(description="Configurations for the pipeline")

@@ -3,9 +3,14 @@ import inspect
 import importlib
 import pkgutil
 import os
-from src.common.logger import get_module_logger
+from src.common.logger import get_module_logger, LogConfig, BASE_TOOL_STYLE_CONFIG
 
-logger = get_module_logger("base_tool")
+base_tool_log_config = LogConfig(
+    console_format=BASE_TOOL_STYLE_CONFIG["console_format"],
+    file_format=BASE_TOOL_STYLE_CONFIG["file_format"],
+)
+
+logger = get_module_logger("base_tool", config=base_tool_log_config)
 
 # 工具注册表
 TOOL_REGISTRY = {}

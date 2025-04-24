@@ -8,11 +8,16 @@ import time
 import platform
 import traceback
 from dotenv import load_dotenv
-from src.common.logger import get_module_logger, LogConfig, CONFIRM_STYLE_CONFIG
+from src.common.logger import get_module_logger, LogConfig, CONFIRM_STYLE_CONFIG, MAIN_STYLE_CONFIG
 from src.common.crash_logger import install_crash_handler
 from src.main import MainSystem
 
-logger = get_module_logger("main_bot")
+
+main_log_config = LogConfig(
+    console_format=MAIN_STYLE_CONFIG["console_format"],
+    file_format=MAIN_STYLE_CONFIG["file_format"],
+)
+logger = get_module_logger("main_bot", config=main_log_config)
 confirm_logger_config = LogConfig(
     console_format=CONFIRM_STYLE_CONFIG["console_format"],
     file_format=CONFIRM_STYLE_CONFIG["file_format"],

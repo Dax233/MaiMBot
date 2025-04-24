@@ -5,10 +5,15 @@ import platform
 import os
 import json
 import threading
-from src.common.logger import get_module_logger
+from src.common.logger import get_module_logger, LogConfig, REMOTE_STYLE_CONFIG
 from src.config.config import global_config
 
-logger = get_module_logger("remote")
+
+remote_log_config = LogConfig(
+    console_format=REMOTE_STYLE_CONFIG["console_format"],
+    file_format=REMOTE_STYLE_CONFIG["file_format"],
+)
+logger = get_module_logger("remote", config=remote_log_config)
 
 # UUID文件路径
 UUID_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "client_uuid.json")

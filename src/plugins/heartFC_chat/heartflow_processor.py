@@ -67,11 +67,7 @@ class HeartFCProcessor:
                 group_info=groupinfo,
             )
 
-            # --- 确保 SubHeartflow 存在 ---
             subheartflow = await heartflow.create_subheartflow(chat.stream_id)
-            if not subheartflow:
-                logger.error(f"无法为 stream_id {chat.stream_id} 创建或获取 SubHeartflow，中止处理")
-                return
 
             message.update_chat_stream(chat)
 
@@ -137,33 +133,16 @@ class HeartFCProcessor:
 
             # --- 修改：兴趣度更新逻辑 --- #
             if is_mentioned:
-                interest_increase_on_mention = 2
+                interest_increase_on_mention = 1
                 mentioned_boost = interest_increase_on_mention  # 从配置获取提及增加值
                 interested_rate += mentioned_boost
-                logger.trace(f"消息提及机器人，额外增加兴趣 {mentioned_boost:.2f}")
 
             # 更新兴趣度 (调用 SubHeartflow 的方法)
-            current_interest = 0.0  # 初始化
-            try:
-                # 获取当前时间，传递给 increase_interest
-                current_time = time.time()
-                await subheartflow.interest_chatting.increase_interest(current_time, value=interested_rate)
-                current_interest = await subheartflow.get_interest_level()  # 获取更新后的值
+            current_time = time.time()
+            await subheartflow.interest_chatting.increase_interest(current_time, value=interested_rate)
 
-                logger.trace(
-                    f"使用激活率 {interested_rate:.2f} 更新后 (通过缓冲后)，当前兴趣度: {current_interest:.2f} (Stream: {chat.stream_id})"
-                )
-
-                # 添加到 SubHeartflow 的 interest_dict
-                await subheartflow.add_interest_dict_entry(message, interested_rate, is_mentioned)
-                logger.trace(
-                    f"Message {message.message_info.message_id} added to interest dict for stream {chat.stream_id}"
-                )
-
-            except Exception as e:
-                logger.error(f"更新兴趣度失败 (Stream: {chat.stream_id}): {e}")
-                logger.error(traceback.format_exc())
-            # --- 结束修改 --- #
+            # 添加到 SubHeartflow 的 interest_dict，给normal_chat处理
+            await subheartflow.add_interest_dict_entry(message, interested_rate, is_mentioned)
 
             # 打印消息接收和处理信息
             mes_name = chat.group_info.group_name if chat.group_info else "私聊"
@@ -172,7 +151,7 @@ class HeartFCProcessor:
                 f"[{current_time}][{mes_name}]"
                 f"{message.message_info.user_info.user_nickname}:"
                 f"{message.processed_plain_text}"
-                f"兴趣度: {current_interest:.2f}"
+                f"[兴趣度: {interested_rate:.2f}]"
             )
 
             try:

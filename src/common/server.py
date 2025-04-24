@@ -45,7 +45,8 @@ class Server:
 
     async def run(self):
         """启动服务器"""
-        config = Config(app=self.app, host=self._host, port=self._port)
+        # 禁用 uvicorn 默认日志和访问日志
+        config = Config(app=self.app, host=self._host, port=self._port, log_config=None, access_log=False)
         self._server = UvicornServer(config=config)
         try:
             await self._server.serve()
