@@ -129,7 +129,7 @@ global_config = dict(
             "rag_data_dir": "data/rag",
         },
         "info_extraction": {
-            "workers": 10,
+            "workers": 3,
         },
     }
 )
