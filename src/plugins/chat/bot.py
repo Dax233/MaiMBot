@@ -82,7 +82,7 @@ class ChatBot:
                 logger.debug(f"用户{userinfo.user_id}被禁止回复")
                 return
 
-            if groupinfo.group_id not in global_config.talk_allowed_groups:
+            if groupinfo != None and groupinfo.group_id not in global_config.talk_allowed_groups:
                 logger.debug(f"群{groupinfo.group_id}被禁止回复")
                 return
 
