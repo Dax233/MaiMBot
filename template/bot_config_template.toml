@@ -184,7 +184,7 @@ response_max_sentence_num = 4 # 回复允许的最大句子数
 [remote] #发送统计信息，主要是看全球有多少只麦麦
 enable = true
 
-[experimental] #实验性功能，不一定完善或者根本不能用
+[experimental] #实验性功能
 enable_friend_chat = false # 是否启用好友聊天
 pfc_chatting = false # 是否启用PFC聊天，该功能仅作用于私聊，与回复模式独立
 
@@ -273,3 +273,25 @@ name = "Qwen/Qwen2.5-32B-Instruct"
 provider = "SILICONFLOW"
 pri_in = 1.26
 pri_out = 1.26
+
+#私聊PFC：需要开启PFC功能，默认三个模型均为硅基流动v3，如果需要支持多人同时私聊或频繁调用，建议把其中的一个或两个换成官方v3或其它模型，以免撞到429
+
+[model.llm_PFC_action_planner]
+name = "Pro/deepseek-ai/DeepSeek-V3"
+provider = "SILICONFLOW"
+temp = 0.3
+pri_in = 2
+pri_out = 8
+
+[model.llm_PFC_chat]
+name = "Pro/deepseek-ai/DeepSeek-V3"
+provider = "SILICONFLOW"
+temp = 0.3
+pri_in = 2
+pri_out = 8
+
+[model.llm_PFC_reply_checker]
+name = "Pro/deepseek-ai/DeepSeek-V3"
+provider = "SILICONFLOW"
+pri_in = 2
+pri_out = 8

@@ -34,7 +34,8 @@ class GoalAnalyzer:
             model=global_config.llm_normal, temperature=0.7, max_tokens=1000, request_type="conversation_goal"
         )
 
-        self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=2)
+        self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=3)
+        self.identity_detail_info = Individuality.get_instance().get_prompt(type="identity", x_person=2, level=2)
         self.name = global_config.BOT_NICKNAME
         self.nick_name = global_config.BOT_ALIAS_NAMES
         self.chat_observer = ChatObserver.get_instance(stream_id)
@@ -93,15 +94,28 @@ class GoalAnalyzer:
 
             observation_info.clear_unprocessed_messages()
 
-        personality_text = f"你的名字是{self.name}，{self.personality_info}"
+        identity_details_only = self.identity_detail_info
+        identity_addon = ""
+        if isinstance(identity_details_only, str):
+            pronouns = ["你", "我", "他"]
+            for p in pronouns:
+                if identity_details_only.startswith(p):
+                    identity_details_only = identity_details_only[len(p):]
+                    break
+            if identity_details_only.endswith("。"):
+                 identity_details_only = identity_details_only[:-1]
+            cleaned_details = identity_details_only.strip(',， ')        
+            if cleaned_details:
+                identity_addon = f"并且{cleaned_details}"
 
+        persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"       
         # 构建action历史文本
         action_history_list = conversation_info.done_action
         action_history_text = "你之前做的事情是："
         for action in action_history_list:
             action_history_text += f"{action}\n"
 
-        prompt = f"""{personality_text}。现在你在参与一场QQ聊天，请分析以下聊天记录，并根据你的性格特征确定多个明确的对话目标。
+        prompt = f"""{persona_text}。现在你在参与一场QQ聊天，请分析以下聊天记录，并根据你的性格特征确定多个明确的对话目标。
 这些目标应该反映出对话的不同方面和意图。
 
 {action_history_text}
@@ -160,16 +174,16 @@ class GoalAnalyzer:
                 # 返回第一个目标作为当前主要目标（如果有）
                 if result:
                     first_goal = result[0]
-                    return first_goal.get("goal", ""), "", first_goal.get("reasoning", "")
+                    return (first_goal.get("goal", ""), "", first_goal.get("reasoning", ""))
             else:
                 # 单个目标的情况
                 goal = result.get("goal", "")
                 reasoning = result.get("reasoning", "")
                 conversation_info.goal_list.append((goal, reasoning))
-                return goal, "", reasoning
+                return (goal, "", reasoning)
 
         # 如果解析失败，返回默认值
-        return "", "", ""
+        return ("", "", "")
 
     async def _update_goals(self, new_goal: str, method: str, reasoning: str):
         """更新目标列表
@@ -195,8 +209,7 @@ class GoalAnalyzer:
         if len(self.goals) > self.max_goals:
             self.goals.pop()  # 移除最老的目标
 
-    @staticmethod
-    def _calculate_similarity(goal1: str, goal2: str) -> float:
+    def _calculate_similarity(self, goal1: str, goal2: str) -> float:
         """简单计算两个目标之间的相似度
 
         这里使用一个简单的实现，实际可以使用更复杂的文本相似度算法
@@ -244,9 +257,25 @@ class GoalAnalyzer:
                 sender = "你说"
             chat_history_text += f"{time_str},{sender}:{msg.get('processed_plain_text', '')}\n"
 
-        personality_text = f"你的名字是{self.name}，{self.personality_info}"
+        identity_details_only = self.identity_detail_info
+        identity_addon = ""
+        if isinstance(identity_details_only, str):
+            pronouns = ["你", "我", "他"]
+            for p in pronouns:
+                if identity_details_only.startswith(p):
+                    identity_details_only = identity_details_only[len(p):]
+                    break
+            if identity_details_only.endswith("。"):
+                 identity_details_only = identity_details_only[:-1]
+            cleaned_details = identity_details_only.strip(',， ')
+            if cleaned_details:
+                identity_addon = f"并且{cleaned_details}"
 
-        prompt = f"""{personality_text}。现在你在参与一场QQ聊天，
+        persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"
+    # ===> Persona 文本构建结束 <===
+
+    # --- 修改 Prompt 字符串，使用 persona_text ---
+        prompt = f"""{persona_text}。现在你在参与一场QQ聊天，
         当前对话目标：{goal}
         产生该对话目标的原因：{reasoning}
         
@@ -300,8 +329,7 @@ class DirectMessageSender:
         self.logger = get_module_logger("direct_sender")
         self.storage = MessageStorage()
 
-    @staticmethod
-    async def send_via_ws(message: MessageSending) -> None:
+    async def send_via_ws(self, message: MessageSending) -> None:
         try:
             await global_api.send_message(message)
         except Exception as e:
@@ -352,7 +380,7 @@ class DirectMessageSender:
                 # logger.info(f"发送消息到{end_point}")
                 # logger.info(message_json)
                 try:
-                    await global_api.send_message_rest(end_point, message_json)
+                    await global_api.send_message_REST(end_point, message_json)
                 except Exception as e:
                     logger.error(f"REST方式发送失败，出现错误: {str(e)}")
                     logger.info("尝试使用ws发送")

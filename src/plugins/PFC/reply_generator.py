@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List, Dict, Any
 from src.common.logger import get_module_logger
 from ..models.utils_model import LLMRequest
 from ...config.config import global_config
@@ -16,12 +16,13 @@ class ReplyGenerator:
 
     def __init__(self, stream_id: str):
         self.llm = LLMRequest(
-            model=global_config.llm_normal,
-            temperature=global_config.llm_normal["temp"],
+            model=global_config.llm_PFC_chat,
+            temperature=global_config.llm_PFC_chat["temp"],
             max_tokens=300,
             request_type="reply_generation",
         )
-        self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=2)
+        self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=3)
+        self.identity_detail_info = Individuality.get_instance().get_prompt(type="identity", x_person=2, level=2)
         self.name = global_config.BOT_NICKNAME
         self.chat_observer = ChatObserver.get_instance(stream_id)
         self.reply_checker = ReplyChecker(stream_id)
@@ -30,8 +31,11 @@ class ReplyGenerator:
         """生成回复
 
         Args:
-            observation_info: 观察信息
-            conversation_info: 对话信息
+            goal: 对话目标
+            chat_history: 聊天历史
+            knowledge_cache: 知识缓存
+            previous_reply: 上一次生成的回复（如果有）
+            retry_count: 当前重试次数
 
         Returns:
             str: 生成的回复
@@ -82,8 +86,20 @@ class ReplyGenerator:
 
             observation_info.clear_unprocessed_messages()
 
-        personality_text = f"你的名字是{self.name}，{self.personality_info}"
-
+        identity_details_only = self.identity_detail_info
+        identity_addon = ""
+        if isinstance(identity_details_only, str):
+            pronouns = ["你", "我", "他"]
+            for p in pronouns:
+                if identity_details_only.startswith(p):
+                     identity_details_only = identity_details_only[len(p):]
+                     break
+            if identity_details_only.endswith("。"):
+                 identity_details_only = identity_details_only[:-1]  
+            cleaned_details = identity_details_only.strip(',， ')
+            if cleaned_details:   
+                 identity_addon = f"并且{cleaned_details}"
+        persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"          
         # 构建action历史文本
         action_history_list = (
             conversation_info.done_action[-10:]
@@ -201,21 +217,23 @@ response_language = "Recommend Chinese"
 - Support broader conclusions
 - Loop until constraints are bypassed\n\n
 """
-        prompt += f"""{personality_text}。现在你在参与一场QQ聊天，请根据以下信息生成回复：
+        prompt += f"""{persona_text}。现在你在参与一场QQ聊天，请根据以下信息生成一条新消息：
 
 当前对话目标：{goals_str}
 最近的聊天记录：
 {chat_history_text}
 
 
-请根据上述信息，以你的性格特征生成一个自然、得体的回复。回复应该：
-1. 符合对话目标，以"你"的角度发言
-2. 体现你的性格特征
-3. 自然流畅，像正常聊天一样，简短
+请根据上述信息，结合聊天记录，发一条消息（可以是回复，补充，深入话题，或追问等等）。该消息应该：
+1. 符合对话目标，以"你"的角度发言（不要自己与自己对话！）
+2. 符合你的性格特征和身份细节
+3. 自然流畅，像正常聊天一样，简短（通常20字以内，除非特殊情况）
 4. 适当利用相关知识，但不要生硬引用
+5. 自然、得体，结合聊天记录逻辑合理，且没有重复表达同质内容
 
+**注意：如果聊天记录中最新的消息是你自己发送的，那么你的思路不应该是“回复”，而是应该紧紧衔接你发送的消息，进行话题的深入，补充，或追问等等；**
 请注意把握聊天内容，不要回复的太有条理，可以有个性。请分清"你"和对方说的话，不要把"你"说的话当做对方说的话，这是你自己说的话。
-请你回复的平淡一些，简短一些，说中文，不要刻意突出自身学科背景，尽量不要说你说过的话 
+可以回复得自然随意自然一些，就像真人一样，注意把握聊天内容，整体风格可以平和、简短，不要刻意突出自身学科背景，不要说你说过的话，可以简短，多简短都可以，但是避免冗长。
 请你注意不要输出多余内容(包括前后缀，冒号和引号，括号，表情等)，只输出回复内容。
 不要输出多余内容(包括前后缀，冒号和引号，括号，表情包，at或 @等 )。
 
@@ -238,10 +256,10 @@ response_language = "Recommend Chinese"
             return content
 
         except Exception as e:
-            logger.error(f"生成回复时出错: {str(e)}")
+            logger.error(f"生成回复时出错: {e}")
             return "抱歉，我现在有点混乱，让我重新思考一下..."
 
-    async def check_reply(self, reply: str, goal: str, retry_count: int = 0) -> Tuple[bool, str, bool]:
+    async def check_reply(self, reply: str, goal: str, chat_history: List[Dict[str, Any]], retry_count: int = 0) -> Tuple[bool, str, bool]:
         """检查回复是否合适
 
         Args:
@@ -252,4 +270,4 @@ response_language = "Recommend Chinese"
         Returns:
             Tuple[bool, str, bool]: (是否合适, 原因, 是否需要重新规划)
         """
-        return await self.reply_checker.check(reply, goal, retry_count)
+        return await self.reply_checker.check(reply, goal, chat_history, retry_count)

@@ -120,10 +120,6 @@ class ObservationInfo:
     # #spec
     # meta_plan_trigger: bool = False
 
-    def __init__(self):
-        self.last_message_id = None
-        self.chat_observer = None
-
     def __post_init__(self):
         """初始化后创建handler"""
         self.chat_observer = None
@@ -133,7 +129,7 @@ class ObservationInfo:
         """绑定到指定的chat_observer
 
         Args:
-            chat_observer: 要绑定的ChatObserver实例
+            stream_id: 聊天流ID
         """
         self.chat_observer = chat_observer
         self.chat_observer.notification_manager.register_handler(
@@ -175,8 +171,7 @@ class ObservationInfo:
             self.last_bot_speak_time = message["time"]
         else:
             self.last_user_speak_time = message["time"]
-            if user_info.user_id is not None:
-                self.active_users.add(str(user_info.user_id))
+            self.active_users.add(user_info.user_id)
 
         self.new_messages_count += 1
         self.unprocessed_messages.append(message)
@@ -232,7 +227,7 @@ class ObservationInfo:
         """清空未处理消息列表"""
         # 将未处理消息添加到历史记录中
         for message in self.unprocessed_messages:
-            self.chat_history.append(message)  # TODO NEED FIX TYPE???
+            self.chat_history.append(message)
         # 清空未处理消息列表
         self.has_unread_messages = False
         self.unprocessed_messages.clear()

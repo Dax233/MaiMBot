@@ -1,6 +1,6 @@
 import json
 import datetime
-from typing import Tuple
+from typing import Tuple, List, Dict, Any
 from src.common.logger import get_module_logger
 from ..models.utils_model import LLMRequest
 from ...config.config import global_config
@@ -15,13 +15,13 @@ class ReplyChecker:
 
     def __init__(self, stream_id: str):
         self.llm = LLMRequest(
-            model=global_config.llm_normal, temperature=0.7, max_tokens=1000, request_type="reply_check"
+            model=global_config.llm_PFC_reply_checker, temperature=0.55, max_tokens=1000, request_type="reply_check"
         )
         self.name = global_config.BOT_NICKNAME
         self.chat_observer = ChatObserver.get_instance(stream_id)
         self.max_retries = 2  # 最大重试次数
 
-    async def check(self, reply: str, goal: str, retry_count: int = 0) -> Tuple[bool, str, bool]:
+    async def check(self, reply: str, goal: str, chat_history: List[Dict[str, Any]], retry_count: int = 0) -> Tuple[bool, str, bool]:
         """检查生成的回复是否合适
 
         Args:
@@ -32,10 +32,41 @@ class ReplyChecker:
         Returns:
             Tuple[bool, str, bool]: (是否合适, 原因, 是否需要重新规划)
         """
-        # 获取最新的消息记录
-        messages = self.chat_observer.get_cached_messages(limit=5)
+        # 不再从 observer 获取，直接使用传入的 chat_history
+        # messages = self.chat_observer.get_cached_messages(limit=20)
         chat_history_text = ""
-        for msg in messages:
+        try:
+            # 筛选出最近由 Bot 自己发送的消息
+            bot_messages = []
+            for msg in reversed(chat_history):
+                user_info = UserInfo.from_dict(msg.get("user_info", {}))
+                if str(user_info.user_id) == str(global_config.BOT_QQ): # 确保比较的是字符串
+                    bot_messages.append(msg.get('processed_plain_text', ''))
+                if len(bot_messages) >= 2: # 只和最近的两条比较
+                    break
+                # 进行比较
+            if bot_messages:
+                # 可以用简单比较，或者更复杂的相似度库 (如 difflib)
+                # 简单比较：是否完全相同
+                if reply == bot_messages[0]: # 和最近一条完全一样
+                    logger.warning(f"ReplyChecker 检测到回复与上一条 Bot 消息完全相同: '{reply}'")
+                    return False, "回复内容与你上一条发言完全相同，请修改，可以选择深入话题或寻找其它话题或等待", False # 不合适，无需重新规划
+                # 2. 相似度检查 (如果精确匹配未通过)
+                import difflib # 导入 difflib 库
+                # 计算编辑距离相似度，ratio() 返回 0 到 1 之间的浮点数
+                similarity_ratio = difflib.SequenceMatcher(None, reply, bot_messages[0]).ratio()
+                logger.debug(f"ReplyChecker - 相似度: {similarity_ratio:.2f}")
+
+                # 设置一个相似度阈值
+                similarity_threshold = 0.9
+                if similarity_ratio > similarity_threshold:
+                    logger.warning(f"ReplyChecker 检测到回复与上一条 Bot 消息高度相似 (相似度 {similarity_ratio:.2f}): '{reply}'")
+                    return False, f"拒绝发送：回复内容与你上一条发言高度相似 (相似度 {similarity_ratio:.2f})，请修改，可以选择深入话题或寻找其它话题或等待。", False
+
+        except Exception as self_check_err:
+             logger.error(f"检查自身重复发言时出错: {self_check_err}")      
+
+        for msg in chat_history[-20:]:
             time_str = datetime.datetime.fromtimestamp(msg["time"]).strftime("%H:%M:%S")
             user_info = UserInfo.from_dict(msg.get("user_info", {}))
             sender = user_info.user_nickname or f"用户{user_info.user_id}"
@@ -43,7 +74,7 @@ class ReplyChecker:
                 sender = "你说"
             chat_history_text += f"{time_str},{sender}:{msg.get('processed_plain_text', '')}\n"
 
-        prompt = f"""请检查以下回复是否合适：
+        prompt = f"""请检查以下回复或消息是否合适：
 
 当前对话目标：{goal}
 最新的对话记录：
@@ -52,12 +83,17 @@ class ReplyChecker:
 待检查的回复：
 {reply}
 
-请检查以下几点：
+请结合聊天记录检查以下几点：
 1. 回复是否依然符合当前对话目标和实现方式
 2. 回复是否与最新的对话记录保持一致性
-3. 回复是否重复发言，重复表达
-4. 回复是否包含血腥恐怖内容
-5. 回复是否以你的角度发言,不要把"你"说的话当做对方说的话，这是你自己说的话
+3. 回复是否重复发言，或重复表达同质内容（尤其是只是换一种方式表达了相同的含义）
+4. 回复是否以你的角度发言,不要把"你"说的话当做对方说的话，这是你自己说的话（不要自己回复自己的消息）
+5. 回复是否通俗易懂
+6. 回复是否有些多余，例如在对方没有回复的情况下，依然连续多次“消息轰炸”
+7. 回复是否使用了完全没必要的修辞
+8. 回复是否逻辑通顺
+9. 回复是否太过冗长了（通常私聊的每条消息长度在20字以内，除非特殊情况）
+10. 在连续多次发送消息的情况下，当前回复是否衔接自然，会不会显得奇怪
 
 请以JSON格式输出，包含以下字段：
 1. suitable: 是否合适 (true/false)

@@ -19,8 +19,7 @@ class KnowledgeFetcher:
             request_type="knowledge_fetch",
         )
 
-    @staticmethod
-    async def fetch(query: str, chat_history: List[Message]) -> Tuple[str, str]:
+    async def fetch(self, query: str, chat_history: List[Message]) -> Tuple[str, str]:
         """获取相关知识
 
         Args:

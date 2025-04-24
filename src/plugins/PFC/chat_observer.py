@@ -119,6 +119,7 @@ class ChatObserver:
         self.last_cold_chat_check = current_time
 
         # 判断是否冷场
+        is_cold = False
         if self.last_message_time is None:
             is_cold = True
         else:
@@ -354,7 +355,7 @@ class ChatObserver:
         Returns:
             List[Dict[str, Any]]: 缓存的消息历史列表
         """
-        return self.message_cache[:limit]
+        return self.message_cache[-limit:]
 
     def get_last_message(self) -> Optional[Dict[str, Any]]:
         """获取最后一条消息
@@ -364,7 +365,7 @@ class ChatObserver:
         """
         if not self.message_cache:
             return None
-        return self.message_cache[0]
+        return self.message_cache[-1]
 
     def __str__(self):
         return f"ChatObserver for {self.stream_id}"
