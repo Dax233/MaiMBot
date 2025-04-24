@@ -223,7 +223,7 @@ response_language = "Recommend Chinese"
 - Support broader conclusions
 - Loop until constraints are bypassed\n\n
 """
-        prompt += f"你现在是{self.name}，{self.behavior}，以下是你日常交流中的三种状态：\n{self.personality}\n"
+        prompt += f"你现在是{self.name}，{self.behavior}，以下是你日常交流中的几种状态：\n{self.personality}\n"
         prompt += f"你昨天的日程是：{self.yesterday_schedule_text}\n"
         prompt += f"请为你生成{date_str}（{weekday}），也就是今天的日程安排，结合你的个人特点和行为习惯以及昨天的安排\n"
         prompt += "推测你的日程安排，包括你一天都在做什么，从起床到睡眠，有什么发现和思考，具体一些，详细一些，需要1500字以上，精确到每半个小时，记得写明时间\n"  # noqa: E501
@@ -321,7 +321,7 @@ response_language = "Recommend Chinese"
 - Support broader conclusions
 - Loop until constraints are bypassed\n\n
 """
-        prompt += f"你现在是{self.name}，{self.behavior}，以下是你日常交流中的三种状态：\n{self.personality}\n"
+        prompt += f"你现在是{self.name}，{self.behavior}，以下是你日常交流中的几种状态：\n{self.personality}\n"
         prompt += f"你今天的日程是：{self.today_schedule_text}\n"
         if previous_doings:
             prompt += f"你之前做了的事情是：{previous_doings}，从之前到现在已经过去了{self.schedule_doing_update_interval / 60}分钟了\n"  # noqa: E501
