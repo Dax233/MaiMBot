@@ -30,13 +30,13 @@ from dotenv import load_dotenv
 7. 配置(Config)
 浅青色标题 | 浅青色消息
 
-8. 麦麦大脑袋
+8. 枫の大脑袋
 浅绿色标题 | 浅绿色消息
 
 9. 在干嘛
 青色标题 | 青色消息
 
-10. 麦麦组织语言
+10. 枫の组织语言
 浅绿色标题 | 浅绿色消息
 
 11. 见闻(Chat)
@@ -349,30 +349,14 @@ SUB_HEARTFLOW_STYLE_CONFIG = {
         "console_format": (
             "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
             "<level>{level: <8}</level> | "
-            "<light-blue>麦麦水群</light-blue> | "
+            "<light-blue>枫の水群</light-blue> | "
             "<level>{message}</level>"
         ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦小脑袋 | {message}",
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の小脑袋 | {message}",
     },
     "simple": {
-        "console_format": ("<level>{time:MM-DD HH:mm}</level> | <fg #3399FF>麦麦水群 | {message}</fg #3399FF>"),  # noqa: E501
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦水群 | {message}",
-    },
-}
-
-SUB_HEARTFLOW_MIND_STYLE_CONFIG = {
-    "advanced": {
-        "console_format": (
-            "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
-            "<level>{level: <8}</level> | "
-            "<light-blue>麦麦小脑袋</light-blue> | "
-            "<level>{message}</level>"
-        ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦小脑袋 | {message}",
-    },
-    "simple": {
-        "console_format": ("<level>{time:MM-DD HH:mm}</level> | <fg #3399FF>麦麦水群 | {message}</fg #3399FF>"),  # noqa: E501
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦水群 | {message}",
+        "console_format": ("<level>{time:MM-DD HH:mm}</level> | <fg #3399FF>枫の水群 | {message}</fg #3399FF>"),  # noqa: E501
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の水群 | {message}",
     },
 }
 
@@ -387,8 +371,24 @@ SUB_HEARTFLOW_MIND_STYLE_CONFIG = {
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の小脑袋 | {message}",
     },
     "simple": {
-        "console_format": ("<level>{time:MM-DD HH:mm}</level> | <fg #66CCFF>麦麦小脑袋 | {message}</fg #66CCFF>"),  # noqa: E501
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦小脑袋 | {message}",
+        "console_format": ("<level>{time:MM-DD HH:mm}</level> | <fg #3399FF>枫の水群 | {message}</fg #3399FF>"),  # noqa: E501
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の水群 | {message}",
+    },
+}
+
+SUB_HEARTFLOW_MIND_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
+            "<level>{level: <8}</level> | "
+            "<light-blue>枫の小脑袋</light-blue> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の小脑袋 | {message}",
+    },
+    "simple": {
+        "console_format": ("<level>{time:MM-DD HH:mm}</level> | <fg #66CCFF>枫の小脑袋 | {message}</fg #66CCFF>"),  # noqa: E501
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の小脑袋 | {message}",
     },
 }
 
@@ -397,14 +397,14 @@ SUBHEARTFLOW_MANAGER_STYLE_CONFIG = {
         "console_format": (
             "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
             "<level>{level: <8}</level> | "
-            "<light-blue>麦麦水群[管理]</light-blue> | "
+            "<light-blue>枫の水群[管理]</light-blue> | "
             "<level>{message}</level>"
         ),
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦水群[管理] | {message}",
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の水群[管理] | {message}",
     },
     "simple": {
-        "console_format": ("<level>{time:MM-DD HH:mm}</level> | <fg #3399FF>麦麦水群[管理] | {message}</fg #3399FF>"),  # noqa: E501
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦水群[管理] | {message}",
+        "console_format": ("<level>{time:MM-DD HH:mm}</level> | <fg #3399FF>枫の水群[管理] | {message}</fg #3399FF>"),  # noqa: E501
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の水群[管理] | {message}",
     },
 }
 
@@ -540,8 +540,8 @@ MAI_STATE_CONFIG = {
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の状态 | {message}",
     },
     "simple": {
-        "console_format": "<level>{time:MM-DD HH:mm}</level> | <fg #66CCFF>麦麦状态 | {message} </fg #66CCFF>",  # noqa: E501
-        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 麦麦状态 | {message}",
+        "console_format": "<level>{time:MM-DD HH:mm}</level> | <fg #66CCFF>枫の状态 | {message} </fg #66CCFF>",  # noqa: E501
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の状态 | {message}",
     },
 }
 
