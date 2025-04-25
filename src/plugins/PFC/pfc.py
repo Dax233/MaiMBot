@@ -100,15 +100,15 @@ class GoalAnalyzer:
             pronouns = ["你", "我", "他"]
             for p in pronouns:
                 if identity_details_only.startswith(p):
-                    identity_details_only = identity_details_only[len(p):]
+                    identity_details_only = identity_details_only[len(p) :]
                     break
             if identity_details_only.endswith("。"):
-                 identity_details_only = identity_details_only[:-1]
-            cleaned_details = identity_details_only.strip(',， ')        
+                identity_details_only = identity_details_only[:-1]
+            cleaned_details = identity_details_only.strip(",， ")
             if cleaned_details:
                 identity_addon = f"并且{cleaned_details}"
 
-        persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"       
+        persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"
         # 构建action历史文本
         action_history_list = conversation_info.done_action
         action_history_text = "你之前做的事情是："
@@ -263,18 +263,18 @@ class GoalAnalyzer:
             pronouns = ["你", "我", "他"]
             for p in pronouns:
                 if identity_details_only.startswith(p):
-                    identity_details_only = identity_details_only[len(p):]
+                    identity_details_only = identity_details_only[len(p) :]
                     break
             if identity_details_only.endswith("。"):
-                 identity_details_only = identity_details_only[:-1]
-            cleaned_details = identity_details_only.strip(',， ')
+                identity_details_only = identity_details_only[:-1]
+            cleaned_details = identity_details_only.strip(",， ")
             if cleaned_details:
                 identity_addon = f"并且{cleaned_details}"
 
         persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"
-    # ===> Persona 文本构建结束 <===
+        # ===> Persona 文本构建结束 <===
 
-    # --- 修改 Prompt 字符串，使用 persona_text ---
+        # --- 修改 Prompt 字符串，使用 persona_text ---
         prompt = f"""{persona_text}。现在你在参与一场QQ聊天，
         当前对话目标：{goal}
         产生该对话目标的原因：{reasoning}

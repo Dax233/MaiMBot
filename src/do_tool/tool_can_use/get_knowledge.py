@@ -21,7 +21,7 @@ class SearchKnowledgeTool(BaseTool):
         "required": ["query"],
     }
 
-    async def execute(self, function_args: Dict[str, Any], message_txt: str = "") -> Dict[str, Any]:
+    async def execute(self, function_args: Dict[str, Any]) -> Dict[str, Any]:
         """执行知识库搜索
 
         Args:
@@ -32,7 +32,7 @@ class SearchKnowledgeTool(BaseTool):
             Dict: 工具执行结果
         """
         try:
-            query = function_args.get("query", message_txt)
+            query = function_args.get("query")
             threshold = function_args.get("threshold", 0.4)
 
             # 调用知识库搜索

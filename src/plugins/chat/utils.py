@@ -234,6 +234,13 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
     Returns:
         List[str]: 分割和合并后的句子列表
     """
+    # 预处理：处理多余的换行符
+    # 1. 将连续的换行符替换为单个换行符
+    text = re.sub(r"\n\s*\n+", "\n", text)
+    # 2. 处理换行符和其他分隔符的组合
+    text = re.sub(r"\n\s*([，,。;\s])", r"\1", text)
+    text = re.sub(r"([，,。;\s])\s*\n", r"\1", text)
+
     # 处理两个汉字中间的换行符
     text = re.sub(r"([\u4e00-\u9fff])\n([\u4e00-\u9fff])", r"\1。\2", text)
 
@@ -327,8 +334,10 @@ def split_into_sentences_w_remove_punctuation(text: str) -> List[str]:
     # 提取最终的句子内容
     final_sentences = [content for content, sep in merged_segments if content]  # 只保留有内容的段
 
-    # 清理可能引入的空字符串
-    final_sentences = [s for s in final_sentences if s]
+    # 清理可能引入的空字符串和仅包含空白的字符串
+    final_sentences = [
+        s for s in final_sentences if s.strip()
+    ]  # 过滤掉空字符串以及仅包含空白（如换行符、空格）的字符串
 
     logger.debug(f"分割并合并后的句子: {final_sentences}")
     return final_sentences
@@ -368,7 +377,7 @@ def process_llm_response(text: str) -> List[str]:
     # 提取被 () 或 [] 包裹且包含中文的内容
     pattern = re.compile(r"[\(\[\（](?=.*[\u4e00-\u9fff]).*?[\)\]\）]")
     # _extracted_contents = pattern.findall(text)
-    extracted_contents = pattern.findall(protected_text)  # 在保护后的文本上查找
+    _extracted_contents = pattern.findall(protected_text)  # 在保护后的文本上查找
     # 去除 () 和 [] 及其包裹的内容
     cleaned_text = pattern.sub("", protected_text)
 
@@ -411,13 +420,15 @@ def process_llm_response(text: str) -> List[str]:
     if len(sentences) > (max_sentence_num * 2):
         logger.warning(f"分割后消息数量过多 ({len(sentences)} 条)，返回默认回复")
         return [f"{global_config.BOT_NICKNAME}不知道哦"]
-    if extracted_contents:
-        for content in extracted_contents:
-            sentences.append(content)
+
+    # if extracted_contents:
+    #     for content in extracted_contents:
+    #         sentences.append(content)
+
     # 在所有句子处理完毕后，对包含占位符的列表进行恢复
     sentences = recover_kaomoji(sentences, kaomoji_mapping)
 
-    print(sentences)
+    # print(sentences)
 
     return sentences
 

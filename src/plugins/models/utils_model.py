@@ -710,6 +710,8 @@ class LLMRequest:
         usage = None  # 初始化usage变量，避免未定义错误
         reasoning_content = ""
         content = ""
+        tool_calls = None  # 初始化工具调用变量
+
         async for line_bytes in response.content:
             try:
                 line = line_bytes.decode("utf-8").strip()
@@ -731,11 +733,20 @@ class LLMRequest:
                             if delta_content is None:
                                 delta_content = ""
                             accumulated_content += delta_content
+
+                            # 提取工具调用信息
+                            if "tool_calls" in delta:
+                                if tool_calls is None:
+                                    tool_calls = delta["tool_calls"]
+                                else:
+                                    # 合并工具调用信息
+                                    tool_calls.extend(delta["tool_calls"])
+
                             # 检测流式输出文本是否结束
                             finish_reason = chunk["choices"][0].get("finish_reason")
                             if delta.get("reasoning_content", None):
                                 reasoning_content += delta["reasoning_content"]
-                            if finish_reason == "stop":
+                            if finish_reason == "stop" or finish_reason == "tool_calls":
                                 chunk_usage = chunk.get("usage", None)
                                 if chunk_usage:
                                     usage = chunk_usage
@@ -763,16 +774,19 @@ class LLMRequest:
         if think_match:
             reasoning_content = think_match.group(1).strip()
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+
+        # 构建消息对象
+        message = {
+            "content": content,
+            "reasoning_content": reasoning_content,
+        }
+
+        # 如果有工具调用，添加到消息中
+        if tool_calls:
+            message["tool_calls"] = tool_calls
+
         result = {
-            "choices": [
-                {
-                    "message": {
-                        "content": content,
-                        "reasoning_content": reasoning_content,
-                        # 流式输出可能没有工具调用，此处不需要添加tool_calls字段
-                    }
-                }
-            ],
+            "choices": [{"message": message}],
             "usage": usage,
         }
         return result
@@ -1046,6 +1060,7 @@ class LLMRequest:
 
             # 只有当tool_calls存在且不为空时才返回
             if tool_calls:
+                logger.debug(f"检测到工具调用: {tool_calls}")
                 return content, reasoning_content, tool_calls
             else:
                 return content, reasoning_content
@@ -1109,7 +1124,30 @@ class LLMRequest:
 
         response = await self._execute_request(endpoint="/chat/completions", payload=data, prompt=prompt)
         # 原样返回响应，不做处理
+
         return response
+
+    async def generate_response_tool_async(self, prompt: str, tools: list, **kwargs) -> Union[str, Tuple]:
+        """异步方式根据输入的提示生成模型的响应"""
+        # 构建请求体，不硬编码max_tokens
+        data = {
+            "model": self.model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            **self.params,
+            **kwargs,
+            "tools": tools,
+        }
+
+        logger.debug(f"向模型 {self.model_name} 发送工具调用请求，包含 {len(tools)} 个工具")
+        response = await self._execute_request(endpoint="/chat/completions", payload=data, prompt=prompt)
+        # 检查响应是否包含工具调用
+        if isinstance(response, tuple) and len(response) == 3:
+            content, reasoning_content, tool_calls = response
+            logger.debug(f"收到工具调用响应，包含 {len(tool_calls) if tool_calls else 0} 个工具调用")
+            return content, reasoning_content, tool_calls
+        else:
+            logger.debug("收到普通响应，无工具调用")
+            return response
 
     async def get_embedding(self, text: str) -> Union[list, None]:
         """异步方法：获取文本的embedding向量

@@ -8,9 +8,14 @@ from typing import Dict, Optional
 from ...common.database import db
 from ..message.message_base import GroupInfo, UserInfo
 
-from src.common.logger import get_module_logger
+from src.common.logger import get_module_logger, LogConfig, CHAT_STREAM_STYLE_CONFIG
 
-logger = get_module_logger("chat_stream")
+chat_stream_log_config = LogConfig(
+    console_format=CHAT_STREAM_STYLE_CONFIG["console_format"],
+    file_format=CHAT_STREAM_STYLE_CONFIG["file_format"],
+)
+
+logger = get_module_logger("chat_stream", config=chat_stream_log_config)
 
 
 class ChatStream:

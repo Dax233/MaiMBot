@@ -50,8 +50,8 @@ class ToolUser:
         prompt += message_txt
         # prompt += f"你注意到{sender_name}刚刚说：{message_txt}\n"
         prompt += f"注意你就是{bot_name}，{bot_name}是你的名字。根据之前的聊天记录补充问题信息，搜索时避开你的名字。\n"
-        prompt += "必须调用 'lpmm_get_knowledge' 工具来获取知识。\n"
-        prompt += "你现在需要对群里的聊天内容进行回复，现在选择工具来对消息和你的回复进行处理，你是否需要额外的信息，比如回忆或者搜寻已有的知识，改变关系和情感，或者了解你现在正在做什么。"
+        # prompt += "必须调用 'lpmm_get_knowledge' 工具来获取知识。\n"
+        prompt += "你现在需要对群里的聊天内容进行回复，请你思考应该使用什么工具，然后选择工具来对消息和你的回复进行处理，你是否需要额外的信息，比如回忆或者搜寻已有的知识，改变关系和情感，或者了解你现在正在做什么。"
 
         prompt = await relationship_manager.convert_all_person_sign_to_person_name(prompt)
         prompt = parse_text_timestamps(prompt, mode="lite")
@@ -68,7 +68,7 @@ class ToolUser:
         return get_all_tool_definitions()
 
     @staticmethod
-    async def _execute_tool_call(tool_call, message_txt: str):
+    async def _execute_tool_call(tool_call):
         """执行特定的工具调用
 
         Args:
@@ -89,7 +89,7 @@ class ToolUser:
                 return None
 
             # 执行工具
-            result = await tool_instance.execute(function_args, message_txt)
+            result = await tool_instance.execute(function_args)
             if result:
                 # 直接使用 function_name 作为 tool_type
                 tool_type = function_name
@@ -159,13 +159,15 @@ class ToolUser:
                 tool_calls_str = ""
                 for tool_call in tool_calls:
                     tool_calls_str += f"{tool_call['function']['name']}\n"
-                logger.info(f"根据:\n{prompt}\n模型请求调用{len(tool_calls)}个工具: {tool_calls_str}")
+                logger.info(
+                    f"根据:\n{prompt}\n\n内容：{content}\n\n模型请求调用{len(tool_calls)}个工具: {tool_calls_str}"
+                )
                 tool_results = []
                 structured_info = {}  # 动态生成键
 
                 # 执行所有工具调用
                 for tool_call in tool_calls:
-                    result = await self._execute_tool_call(tool_call, message_txt)
+                    result = await self._execute_tool_call(tool_call)
                     if result:
                         tool_results.append(result)
                         # 使用工具名称作为键

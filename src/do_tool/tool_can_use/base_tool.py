@@ -41,12 +41,11 @@ class BaseTool:
             "function": {"name": cls.name, "description": cls.description, "parameters": cls.parameters},
         }
 
-    async def execute(self, function_args: Dict[str, Any], message_txt: str = "") -> Dict[str, Any]:
+    async def execute(self, function_args: Dict[str, Any]) -> Dict[str, Any]:
         """执行工具函数
 
         Args:
             function_args: 工具调用参数
-            message_txt: 原始消息文本
 
         Returns:
             Dict: 工具执行结果

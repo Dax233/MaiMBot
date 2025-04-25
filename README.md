@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://github.com/MaiM-with-u/MaiBot/">
-    <img src="depends-data/maimai.png" alt="Logo" style="max-width: 200px">
+    <img src="depends-data/maimai.png" alt="Logo" style="width: 200px">
   </a>
   <br />
   <a href="https://space.bilibili.com/1344099355">

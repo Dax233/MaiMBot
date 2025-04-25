@@ -13,6 +13,7 @@ mai_state_config = LogConfig(
 logger = get_module_logger("mai_state_manager", config=mai_state_config)
 
 
+# enable_unlimited_hfc_chat = True
 enable_unlimited_hfc_chat = False
 
 
@@ -38,7 +39,7 @@ class MaiState(enum.Enum):
         if self == MaiState.OFFLINE:
             return 0
         elif self == MaiState.PEEKING:
-            return 1
+            return 2
         elif self == MaiState.NORMAL_CHAT:
             return 3
         elif self == MaiState.FOCUSED_CHAT:
@@ -52,11 +53,11 @@ class MaiState(enum.Enum):
         if self == MaiState.OFFLINE:
             return 0
         elif self == MaiState.PEEKING:
-            return 0
+            return 1
         elif self == MaiState.NORMAL_CHAT:
             return 1
         elif self == MaiState.FOCUSED_CHAT:
-            return 2
+            return 3
 
 
 class MaiStateInfo:

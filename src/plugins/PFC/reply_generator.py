@@ -92,14 +92,14 @@ class ReplyGenerator:
             pronouns = ["你", "我", "他"]
             for p in pronouns:
                 if identity_details_only.startswith(p):
-                     identity_details_only = identity_details_only[len(p):]
-                     break
+                    identity_details_only = identity_details_only[len(p) :]
+                    break
             if identity_details_only.endswith("。"):
-                 identity_details_only = identity_details_only[:-1]  
-            cleaned_details = identity_details_only.strip(',， ')
-            if cleaned_details:   
-                 identity_addon = f"并且{cleaned_details}"
-        persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"          
+                identity_details_only = identity_details_only[:-1]
+            cleaned_details = identity_details_only.strip(",， ")
+            if cleaned_details:
+                identity_addon = f"并且{cleaned_details}"
+        persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"
         # 构建action历史文本
         action_history_list = (
             conversation_info.done_action[-10:]
@@ -259,7 +259,9 @@ response_language = "Recommend Chinese"
             logger.error(f"生成回复时出错: {e}")
             return "抱歉，我现在有点混乱，让我重新思考一下..."
 
-    async def check_reply(self, reply: str, goal: str, chat_history: List[Dict[str, Any]], retry_count: int = 0) -> Tuple[bool, str, bool]:
+    async def check_reply(
+        self, reply: str, goal: str, chat_history: List[Dict[str, Any]], retry_count: int = 0
+    ) -> Tuple[bool, str, bool]:
         """检查回复是否合适
 
         Args:

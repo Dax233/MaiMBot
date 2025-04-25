@@ -3,7 +3,7 @@ import time
 from .plugins.utils.statistic import LLMStatistics
 from .plugins.moods.moods import MoodManager
 from .plugins.schedule.schedule_generator import bot_schedule
-from .plugins.chat.emoji_manager import emoji_manager
+from .plugins.emoji_system.emoji_manager import emoji_manager
 from .plugins.person_info.person_info import person_info_manager
 from .plugins.willing.willing_manager import willing_manager
 from .plugins.chat.chat_stream import chat_manager
@@ -128,7 +128,6 @@ class MainSystem:
                 self.print_mood_task(),
                 self.remove_recalled_message_task(),
                 emoji_manager.start_periodic_check_register(),
-                # emoji_manager.start_periodic_register(),
                 self.app.run(),
                 self.server.run(),
             ]

@@ -1,5 +1,5 @@
 [inner]
-version = "1.4.0"
+version = "1.4.2"
 
 #----以下是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 #如果你想要修改配置文件，请在修改后将version的值进行变更
@@ -125,7 +125,12 @@ at_bot_inevitable_reply = false # @bot 必然回复
 max_emoji_num = 90 # 表情包最大数量
 max_reach_deletion = true # 开启则在达到最大数量时删除表情包，关闭则达到最大数量时不删除，只是不会继续收集表情包
 check_interval = 30 # 检查表情包（注册，破损，删除）的时间间隔(分钟)
+
 auto_save = true  # 是否保存表情包和图片
+
+save_pic = false # 是否保存图片
+save_emoji = false # 是否保存表情包
+steal_emoji = true # 是否偷取表情包，让麦麦可以发送她保存的这些表情包
 
 enable_check = false  # 是否启用表情包过滤，只有符合该要求的表情包才会被保存
 check_prompt = "符合公序良俗" # 表情包过滤要求，只有符合该要求的表情包才会被保存
@@ -276,6 +281,7 @@ pri_out = 1.26
 
 #私聊PFC：需要开启PFC功能，默认三个模型均为硅基流动v3，如果需要支持多人同时私聊或频繁调用，建议把其中的一个或两个换成官方v3或其它模型，以免撞到429
 
+#PFC决策模型
 [model.llm_PFC_action_planner]
 name = "Pro/deepseek-ai/DeepSeek-V3"
 provider = "SILICONFLOW"
@@ -283,6 +289,7 @@ temp = 0.3
 pri_in = 2
 pri_out = 8
 
+#PFC聊天模型
 [model.llm_PFC_chat]
 name = "Pro/deepseek-ai/DeepSeek-V3"
 provider = "SILICONFLOW"
@@ -290,6 +297,7 @@ temp = 0.3
 pri_in = 2
 pri_out = 8
 
+#PFC检查模型
 [model.llm_PFC_reply_checker]
 name = "Pro/deepseek-ai/DeepSeek-V3"
 provider = "SILICONFLOW"

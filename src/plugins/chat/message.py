@@ -127,12 +127,12 @@ class MessageRecv(Message):
                 # 如果是base64图片数据
                 if isinstance(seg.data, str):
                     return await image_manager.get_image_description(seg.data)
-                return "[图片]"
+                return "[发了一张图片，网卡了加载不出来]"
             elif seg.type == "emoji":
                 self.is_emoji = True
                 if isinstance(seg.data, str):
                     return await image_manager.get_emoji_description(seg.data)
-                return "[表情]"
+                return "[发了一个表情包，网卡了加载不出来]"
             else:
                 return f"[{seg.type}:{str(seg.data)}]"
         except Exception as e:
@@ -141,14 +141,8 @@ class MessageRecv(Message):
 
     def _generate_detailed_text(self) -> str:
         """生成详细文本，包含时间和用户信息"""
-        # time_str = time.strftime("%m-%d %H:%M:%S", time.localtime(self.message_info.time))
         timestamp = self.message_info.time
         user_info = self.message_info.user_info
-        # name = (
-        #     f"{user_info.user_nickname}(ta的昵称:{user_info.user_cardname},ta的id:{user_info.user_id})"
-        #     if user_info.user_cardname != None
-        #     else f"{user_info.user_nickname}(ta的id:{user_info.user_id})"
-        # )
         name = f"<{self.message_info.platform}:{user_info.user_id}:{user_info.user_nickname}:{user_info.user_cardname}>"
         return f"[{timestamp}] {name}: {self.processed_plain_text}\n"
 
@@ -222,11 +216,11 @@ class MessageProcessBase(Message):
                 # 如果是base64图片数据
                 if isinstance(seg.data, str):
                     return await image_manager.get_image_description(seg.data)
-                return "[图片]"
+                return "[图片，网卡了加载不出来]"
             elif seg.type == "emoji":
                 if isinstance(seg.data, str):
                     return await image_manager.get_emoji_description(seg.data)
-                return "[表情]"
+                return "[表情，网卡了加载不出来]"
             elif seg.type == "at":
                 return f"[@{seg.data}]"
             elif seg.type == "reply":

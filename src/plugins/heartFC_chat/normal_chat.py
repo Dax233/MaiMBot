@@ -6,7 +6,7 @@ from typing import List, Optional  # 导入 Optional
 
 from ..moods.moods import MoodManager
 from ...config.config import global_config
-from ..chat.emoji_manager import emoji_manager
+from ..emoji_system.emoji_manager import emoji_manager
 from .normal_chat_generator import NormalChatGenerator
 from ..chat.message import MessageSending, MessageRecv, MessageThinking, MessageSet
 from ..chat.message_sender import message_manager
@@ -402,3 +402,17 @@ class NormalChat:
                 # 确保任务状态更新，即使等待出错 (回调函数也会尝试更新)
                 if self._chat_task is task:
                     self._chat_task = None
+
+        # 清理所有未处理的思考消息
+        try:
+            container = await message_manager.get_container(self.stream_id)
+            if container:
+                # 查找并移除所有 MessageThinking 类型的消息
+                thinking_messages = [msg for msg in container.messages[:] if isinstance(msg, MessageThinking)]
+                if thinking_messages:
+                    for msg in thinking_messages:
+                        container.messages.remove(msg)
+                    logger.info(f"[{self.stream_name}] 清理了 {len(thinking_messages)} 条未处理的思考消息。")
+        except Exception as e:
+            logger.error(f"[{self.stream_name}] 清理思考消息时出错: {e}")
+            logger.error(traceback.format_exc())

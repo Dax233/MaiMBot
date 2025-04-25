@@ -303,7 +303,9 @@ async def build_readable_messages(
         )
 
         readable_read_mark = translate_timestamp_to_human_readable(read_mark, mode=timestamp_mode)
-        read_mark_line = f"\n--- 以上消息已读 (标记时间: {readable_read_mark}) ---\n"
+        read_mark_line = (
+            f"\n\n--- 以上消息已读 (标记时间: {readable_read_mark}) ---\n--- 请关注你上次思考之后以下的新消息---\n"
+        )
 
         # 组合结果，确保空部分不引入多余的标记或换行
         if formatted_before and formatted_after:

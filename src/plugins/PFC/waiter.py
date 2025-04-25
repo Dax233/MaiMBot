@@ -1,6 +1,7 @@
 from src.common.logger import get_module_logger
 from .chat_observer import ChatObserver
 from .conversation_info import ConversationInfo
+
 # from src.individuality.individuality import Individuality # 不再需要
 from ...config.config import global_config
 import time
@@ -10,7 +11,8 @@ logger = get_module_logger("waiter")
 
 # --- 在这里设定你想要的超时时间（秒） ---
 # 例如： 120 秒 = 2 分钟
-DESIRED_TIMEOUT_SECONDS = 300 
+DESIRED_TIMEOUT_SECONDS = 300
+
 
 class Waiter:
     """等待处理类"""
@@ -29,7 +31,7 @@ class Waiter:
             # 检查是否有新消息
             if self.chat_observer.new_message_after(wait_start_time):
                 logger.info("等待结束，收到新消息")
-                return False # 返回 False 表示不是超时
+                return False  # 返回 False 表示不是超时
 
             # 检查是否超时
             elapsed_time = time.time() - wait_start_time
@@ -41,10 +43,10 @@ class Waiter:
                 }
                 conversation_info.goal_list.append(wait_goal)
                 logger.info(f"添加目标: {wait_goal}")
-                return True # 返回 True 表示超时
+                return True  # 返回 True 表示超时
 
-            await asyncio.sleep(5) # 每 5 秒检查一次
-            logger.info("等待中...") # 可以考虑把这个频繁日志注释掉，只在超时或收到消息时输出
+            await asyncio.sleep(5)  # 每 5 秒检查一次
+            logger.info("等待中...")  # 可以考虑把这个频繁日志注释掉，只在超时或收到消息时输出
 
     async def wait_listening(self, conversation_info: ConversationInfo) -> bool:
         """倾听用户发言或超时"""
@@ -55,7 +57,7 @@ class Waiter:
             # 检查是否有新消息
             if self.chat_observer.new_message_after(wait_start_time):
                 logger.info("倾听等待结束，收到新消息")
-                return False # 返回 False 表示不是超时
+                return False  # 返回 False 表示不是超时
 
             # 检查是否超时
             elapsed_time = time.time() - wait_start_time
@@ -63,12 +65,12 @@ class Waiter:
                 logger.info(f"倾听等待超过 {DESIRED_TIMEOUT_SECONDS} 秒...添加思考目标。")
                 wait_goal = {
                     # 保持 goal 文本一致
-                    "goal": f"你等待了{elapsed_time / 60:.1f}分钟，注意可能在对方看来聊天已经结束，思考接下来要做什么", 
+                    "goal": f"你等待了{elapsed_time / 60:.1f}分钟，注意可能在对方看来聊天已经结束，思考接下来要做什么",
                     "reason": "对方话说一半消失了，很久没有回复",
                 }
                 conversation_info.goal_list.append(wait_goal)
                 logger.info(f"添加目标: {wait_goal}")
-                return True # 返回 True 表示超时
+                return True  # 返回 True 表示超时
 
-            await asyncio.sleep(5) # 每 5 秒检查一次
-            logger.info("倾听等待中...") # 同上，可以考虑注释掉
+            await asyncio.sleep(5)  # 每 5 秒检查一次
+            logger.info("倾听等待中...")  # 同上，可以考虑注释掉

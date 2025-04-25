@@ -171,6 +171,7 @@ response_language = "Recommend Chinese"
                 build_mode="normal",
                 reason="",
                 current_mind_info="",
+                structured_info="",
                 message_txt=message.processed_plain_text,
                 sender_name=sender_name,
                 chat_stream=message.chat_stream,

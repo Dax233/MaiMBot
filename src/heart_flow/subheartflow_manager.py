@@ -456,7 +456,7 @@ class SubHeartflowManager:
         for subheartflow in self.subheartflows.values():
             # 检查子心流是否活跃(非ABSENT状态)
             if subheartflow.chat_state.chat_status != ChatState.ABSENT:
-                minds.append(subheartflow.current_mind)
+                minds.append(subheartflow.sub_mind.current_mind)
         return minds
 
     def update_main_mind_in_subflows(self, main_mind: str):

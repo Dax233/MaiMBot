@@ -19,7 +19,7 @@ class CompareNumbersTool(BaseTool):
         "required": ["num1", "num2"],
     }
 
-    async def execute(self, function_args: Dict[str, Any], message_txt: str = "") -> Dict[str, Any]:
+    async def execute(self, function_args: Dict[str, Any]) -> Dict[str, Any]:
         """执行比较两个数的大小
 
         Args:

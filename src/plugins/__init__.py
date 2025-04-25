@@ -4,7 +4,7 @@ MaiMBot插件系统
 """
 
 from .chat.chat_stream import chat_manager
-from .chat.emoji_manager import emoji_manager
+from .emoji_system.emoji_manager import emoji_manager
 from .person_info.relationship_manager import relationship_manager
 from .moods.moods import MoodManager
 from .willing.willing_manager import willing_manager

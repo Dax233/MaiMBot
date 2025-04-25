@@ -78,15 +78,17 @@ class ChattingObservation(Observation):
             return self.talking_message_str
 
     async def observe(self):
+        # 自上一次观察的新消息
         new_messages_list = get_raw_msg_by_timestamp_with_chat(
             chat_id=self.chat_id,
             timestamp_start=self.last_observe_time,
-            timestamp_end=datetime.now().timestamp(),  # 使用当前时间作为结束时间戳
+            timestamp_end=datetime.now().timestamp(),
             limit=self.max_now_obs_len,
             limit_mode="latest",
         )
-        if new_messages_list:  # 检查列表是否为空
-            last_obs_time_mark = self.last_observe_time
+
+        last_obs_time_mark = self.last_observe_time
+        if new_messages_list:
             self.last_observe_time = new_messages_list[-1]["time"]
             self.talking_message.extend(new_messages_list)
 
@@ -97,9 +99,7 @@ class ChattingObservation(Observation):
             self.talking_message = self.talking_message[messages_to_remove_count:]  # 保留后半部分，即最新的
 
             oldest_messages_str = await build_readable_messages(
-                messages=oldest_messages,
-                timestamp_mode="normal",
-                read_mark=last_obs_time_mark,
+                messages=oldest_messages, timestamp_mode="normal", read_mark=0
             )
 
             # 调用 LLM 总结主题
@@ -224,7 +224,11 @@ response_language = "Recommend Chinese"
                 )
             self.mid_memory_info = mid_memory_str
 
-        self.talking_message_str = await build_readable_messages(messages=self.talking_message, timestamp_mode="normal")
+        self.talking_message_str = await build_readable_messages(
+            messages=self.talking_message,
+            timestamp_mode="normal",
+            read_mark=last_obs_time_mark,
+        )
 
         logger.trace(
             f"Chat {self.chat_id} - 压缩早期记忆：{self.mid_memory_info}\n现在聊天内容：{self.talking_message_str}"

@@ -1,7 +1,7 @@
 import traceback
 from typing import TYPE_CHECKING
 
-from src.common.logger import get_module_logger
+from src.common.logger import get_module_logger, LogConfig, SUB_HEARTFLOW_MIND_STYLE_CONFIG
 from src.plugins.models.utils_model import LLMRequest
 from src.individuality.individuality import Individuality
 from src.plugins.utils.prompt_builder import global_prompt_manager
@@ -12,7 +12,12 @@ if TYPE_CHECKING:
     from src.heart_flow.subheartflow_manager import SubHeartflowManager
     from src.heart_flow.mai_state_manager import MaiStateInfo
 
-logger = get_module_logger("mind")
+mind_log_config = LogConfig(
+    console_format=SUB_HEARTFLOW_MIND_STYLE_CONFIG["console_format"],
+    file_format=SUB_HEARTFLOW_MIND_STYLE_CONFIG["file_format"],
+)
+
+logger = get_module_logger("mind", config=mind_log_config)
 
 
 class Mind:
@@ -22,9 +27,6 @@ class Mind:
         self.subheartflow_manager = subheartflow_manager
         self.llm_model = llm_model
         self.individuality = Individuality.get_instance()
-        # Main mind state is still managed by Heartflow for now
-        # self.current_mind = "你什么也没想"
-        # self.past_mind = []
 
     async def do_a_thinking(self, current_main_mind: str, mai_state_info: "MaiStateInfo", schedule_info: str):
         """

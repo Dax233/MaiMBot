@@ -1,4 +1,4 @@
-from .emoji_manager import emoji_manager
+from ..emoji_system.emoji_manager import emoji_manager
 from ..person_info.relationship_manager import relationship_manager
 from .chat_stream import chat_manager
 from .message_sender import message_manager

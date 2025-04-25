@@ -20,7 +20,7 @@ class GetMemoryTool(BaseTool):
         "required": ["topic"],
     }
 
-    async def execute(self, function_args: Dict[str, Any], message_txt: str = "") -> Dict[str, Any]:
+    async def execute(self, function_args: Dict[str, Any]) -> Dict[str, Any]:
         """执行记忆获取
 
         Args:
@@ -31,7 +31,7 @@ class GetMemoryTool(BaseTool):
             Dict: 工具执行结果
         """
         try:
-            topic = function_args.get("topic", message_txt)
+            topic = function_args.get("topic")
             max_memory_num = function_args.get("max_memory_num", 2)
 
             # 将主题字符串转换为列表
