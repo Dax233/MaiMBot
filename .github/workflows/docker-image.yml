@@ -24,6 +24,9 @@ jobs:
       - name: Clone maim_message
         run: git clone https://github.com/MaiM-with-u/maim_message maim_message
 
+      - name: Clone lpmm
+        run: git clone https://github.com/MaiM-with-u/MaiMBot-LPMM.git MaiMBot-LPMM
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

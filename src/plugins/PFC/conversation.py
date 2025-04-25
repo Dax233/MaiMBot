@@ -248,54 +248,72 @@ class Conversation:
 
         # --- 根据不同的 action 执行 ---
         if action == "direct_reply":
-            # --- 这个 if 块内部的所有代码都需要正确缩进 ---
-            self.waiter.wait_accumulated_time = 0  # 重置等待时间
-
-            self.state = ConversationState.GENERATING
-            # 生成回复
-            self.generated_reply = await self.reply_generator.generate(observation_info, conversation_info)
-            logger.info(f"生成回复: {self.generated_reply}")  # 使用 logger
-
-            # --- 调用 ReplyChecker 检查回复 ---
-            is_suitable = False  # 先假定不合适，检查通过再改为 True
-            check_reason = "检查未执行"  # 用不同的变量名存储检查原因
+            max_reply_attempts = 3  # 设置最大尝试次数（与 reply_checker.py 中的 max_retries 保持一致或稍大）
+            reply_attempt_count = 0
+            is_suitable = False
             need_replan = False
-            try:
-                # 尝试获取当前主要目标
-                current_goal_str = conversation_info.goal_list[0][0] if conversation_info.goal_list else ""
+            check_reason = "未进行尝试"
+            final_reply_to_send = ""
 
-                # 调用检查器
-                is_suitable, check_reason, need_replan = await self.reply_generator.check_reply(
-                    reply=self.generated_reply,
-                    goal=current_goal_str,
-                    chat_history=observation_info.chat_history,  # 传入最新的历史记录！
-                    retry_count=0,
-                )
-                logger.info(f"回复检查结果: 合适={is_suitable}, 原因='{check_reason}', 需重新规划={need_replan}")
+            while reply_attempt_count < max_reply_attempts and not is_suitable:
+                reply_attempt_count += 1
+                logger.info(f"尝试生成回复 (第 {reply_attempt_count}/{max_reply_attempts} 次)...")
+                self.state = ConversationState.GENERATING
 
-            except Exception as check_err:
-                logger.error(f"调用 ReplyChecker 时出错: {check_err}")
-                check_reason = f"检查过程出错: {check_err}"  # 记录错误原因
-                # is_suitable 保持 False
+                # 1. 生成回复
+                self.generated_reply = await self.reply_generator.generate(observation_info, conversation_info)
+                logger.info(f"第 {reply_attempt_count} 次生成的回复: {self.generated_reply}")
 
-            # --- 处理检查结果 ---
+                # 2. 检查回复
+                self.state = ConversationState.CHECKING
+                try:
+                    current_goal_str = conversation_info.goal_list[0][0] if conversation_info.goal_list else ""
+                    # 注意：这里传递的是 reply_attempt_count - 1 作为 retry_count 给 checker
+                    is_suitable, check_reason, need_replan = await self.reply_generator.check_reply(
+                        reply=self.generated_reply,
+                        goal=current_goal_str,
+                        chat_history=observation_info.chat_history,
+                        retry_count=reply_attempt_count - 1,  # 传递当前尝试次数（从0开始计数）
+                    )
+                    logger.info(
+                        f"第 {reply_attempt_count} 次检查结果: 合适={is_suitable}, 原因='{check_reason}', 需重新规划={need_replan}"
+                    )
+
+                    if is_suitable:
+                        final_reply_to_send = self.generated_reply  # 保存合适的回复
+                        break  # 回复合适，跳出循环
+
+                    elif need_replan:
+                        logger.warning(f"第 {reply_attempt_count} 次检查建议重新规划，停止尝试。原因: {check_reason}")
+                        break  # 如果检查器建议重新规划，也停止尝试
+
+                    # 如果不合适但不需要重新规划，循环会继续进行下一次尝试
+                except Exception as check_err:
+                    logger.error(f"第 {reply_attempt_count} 次调用 ReplyChecker 时出错: {check_err}")
+                    check_reason = f"第 {reply_attempt_count} 次检查过程出错: {check_err}"
+                    # 如果检查本身出错，可以选择跳出循环或继续尝试
+                    # 这里选择跳出循环，避免无限循环在检查错误上
+                    break
+
+            # 循环结束，处理最终结果
             if is_suitable:
-                # 回复合适，继续执行
-                # 检查是否有新消息进来
+                # 回复合适且已保存在 final_reply_to_send 中
+                # 检查是否有新消息进来 (在所有尝试结束后再检查一次)
                 if self._check_new_messages_after_planning():
-                    logger.info("检查到新消息，取消发送已生成的回复，重新规划行动")
-                    # 更新 action 状态为 recall
+                    logger.info("生成回复期间收到新消息，取消发送，重新规划行动")
                     conversation_info.done_action[action_index].update(
                         {
                             "status": "recall",
-                            "reason": f"有新消息，取消发送: {self.generated_reply}",  # 更新原因
+                            "final_reason": f"有新消息，取消发送: {final_reply_to_send}",
                             "time": datetime.datetime.now().strftime("%H:%M:%S"),
                         }
                     )
-                    return None  # 退出 _handle_action
+                    # 这里直接返回，不执行后续发送和wait
+                    return
 
-                # 发送回复
-                await self._send_reply()  # 这个函数内部会处理自己的错误
+                # 发送合适的回复
+                self.generated_reply = final_reply_to_send  # 确保 self.generated_reply 是最终要发送的内容
+                await self._send_reply()
 
                 # 更新 action 历史状态为 done
                 conversation_info.done_action[action_index].update(
@@ -306,26 +324,30 @@ class Conversation:
                 )
 
             else:
-                # 回复不合适
-                logger.warning(f"生成的回复被 ReplyChecker 拒绝: '{self.generated_reply}'. 原因: {check_reason}")
-                # 更新 action 状态为 recall (因为没执行发送)
+                # 循环结束但没有找到合适的回复（达到最大次数或检查出错/建议重规划）
+                logger.warning(f"经过 {reply_attempt_count} 次尝试，未能生成合适的回复。最终原因: {check_reason}")
                 conversation_info.done_action[action_index].update(
                     {
-                        "status": "recall",
-                        "final_reason": check_reason,
+                        "status": "recall",  # 标记为 recall 因为没有成功发送
+                        "final_reason": f"尝试{reply_attempt_count}次后失败: {check_reason}",
                         "time": datetime.datetime.now().strftime("%H:%M:%S"),
                     }
                 )
 
-                # 如果检查器建议重新规划
-                if need_replan:
-                    logger.info("ReplyChecker 建议重新规划目标。")
-                    # 可选：在此处清空目标列表以强制重新规划
-                    # conversation_info.goal_list = []
-
-                # 注意：不发送消息，也不执行后面的代码
-
-            # --- 之前重复的代码块已被删除 ---
+                # 执行 Wait 操作
+                logger.info("由于无法生成合适回复，执行 'wait' 操作...")
+                self.state = ConversationState.WAITING
+                # 直接调用 wait 方法
+                await self.waiter.wait(self.conversation_info)
+                # 可以选择添加一条新的 action 记录来表示这个 wait
+                wait_action_record = {
+                    "action": "wait",
+                    "plan_reason": "因 direct_reply 多次尝试失败而执行的后备等待",
+                    "status": "done",  # wait 完成后可以认为是 done
+                    "time": datetime.datetime.now().strftime("%H:%M:%S"),
+                    "final_reason": None,
+                }
+                conversation_info.done_action.append(wait_action_record)
 
         elif action == "fetch_knowledge":
             self.waiter.wait_accumulated_time = 0

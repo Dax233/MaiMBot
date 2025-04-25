@@ -4,7 +4,7 @@
 # 适用于Arch/Ubuntu 24.10/Debian 12/CentOS 9
 # 请小心使用任何一键脚本！
 
-INSTALLER_VERSION="0.0.3-refactor"
+INSTALLER_VERSION="0.0.4-refactor"
 LANG=C.UTF-8
 
 # 如无法访问GitHub请修改此处镜像地址
@@ -19,10 +19,10 @@ RESET="\e[0m"
 
 declare -A REQUIRED_PACKAGES=(
     ["common"]="git sudo python3 curl gnupg"
-    ["debian"]="python3-venv python3-pip"
-    ["ubuntu"]="python3-venv python3-pip"
-    ["centos"]="python3-pip"
-    ["arch"]="python-virtualenv python-pip"
+    ["debian"]="python3-venv python3-pip build-essential"
+    ["ubuntu"]="python3-venv python3-pip build-essential"
+    ["centos"]="epel-release python3-pip python3-devel gcc gcc-c++ make"
+    ["arch"]="python-virtualenv python-pip base-devel"
 )
 
 # 默认项目目录

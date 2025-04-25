@@ -15,11 +15,11 @@ class ReplyChecker:
 
     def __init__(self, stream_id: str):
         self.llm = LLMRequest(
-            model=global_config.llm_PFC_reply_checker, temperature=0.55, max_tokens=1000, request_type="reply_check"
+            model=global_config.llm_PFC_reply_checker, temperature=0.50, max_tokens=1000, request_type="reply_check"
         )
         self.name = global_config.BOT_NICKNAME
         self.chat_observer = ChatObserver.get_instance(stream_id)
-        self.max_retries = 2  # 最大重试次数
+        self.max_retries = 3  # 最大重试次数
 
     async def check(
         self, reply: str, goal: str, chat_history: List[Dict[str, Any]], retry_count: int = 0
@@ -76,8 +76,11 @@ class ReplyChecker:
                         False,
                     )
 
-        except Exception as self_check_err:
-            logger.error(f"检查自身重复发言时出错: {self_check_err}")
+        except Exception as e:
+            import traceback
+
+            logger.error(f"检查回复时出错: 类型={type(e)}, 值={e}")
+            logger.error(traceback.format_exc())  # 打印详细的回溯信息
 
         for msg in chat_history[-20:]:
             time_str = datetime.datetime.fromtimestamp(msg["time"]).strftime("%H:%M:%S")
