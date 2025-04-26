@@ -69,11 +69,6 @@ class ReplyGenerator:
             goals_str = f"目标：{goal}，产生该对话目标的原因：{reasoning}\n"
 
         # 获取聊天历史记录
-        chat_history_list = (
-            observation_info.chat_history[-20:]
-            if len(observation_info.chat_history) >= 20
-            else observation_info.chat_history
-        )
         chat_history_text = observation_info.chat_history_str
 
         if observation_info.new_messages_count > 0:
