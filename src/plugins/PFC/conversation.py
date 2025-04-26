@@ -77,7 +77,7 @@ class Conversation:
             raise
         try:
             logger.info(f"为 {self.stream_id} 加载初始聊天记录...")
-            initial_messages = await get_raw_msg_before_timestamp_with_chat(  #
+            initial_messages = get_raw_msg_before_timestamp_with_chat(  #
                 chat_id=self.stream_id,
                 timestamp=time.time(),
                 limit=30,  # 加载最近30条作为初始上下文，可以调整
