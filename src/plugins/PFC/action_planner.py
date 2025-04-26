@@ -8,6 +8,7 @@ from .pfc_utils import get_items_from_json
 from src.individuality.individuality import Individuality
 from .observation_info import ObservationInfo
 from .conversation_info import ConversationInfo
+from src.plugins.utils.chat_message_builder import build_readable_messages
 
 pfc_action_log_config = LogConfig(
     console_format=PFC_ACTION_PLANNER_STYLE_CONFIG["console_format"],
@@ -132,12 +133,7 @@ class ActionPlanner:
         chat_history_text = ""
         try:
             if hasattr(observation_info, "chat_history") and observation_info.chat_history:
-                chat_history_list = observation_info.chat_history[-20:]
-                for msg in chat_history_list:
-                    if isinstance(msg, dict) and "detailed_plain_text" in msg:
-                        chat_history_text += f"{msg.get('detailed_plain_text', '')}\n"
-                    elif isinstance(msg, str):
-                        chat_history_text += f"{msg}\n"
+                chat_history_text = observation_info.chat_history_str
                 if not chat_history_text:  # 如果历史记录是空列表
                     chat_history_text = "还没有聊天记录。\n"
             else:
@@ -146,12 +142,14 @@ class ActionPlanner:
             if hasattr(observation_info, "new_messages_count") and observation_info.new_messages_count > 0:
                 if hasattr(observation_info, "unprocessed_messages") and observation_info.unprocessed_messages:
                     new_messages_list = observation_info.unprocessed_messages
-                    chat_history_text += f"--- 以下是 {observation_info.new_messages_count} 条新消息 ---\n"
-                    for msg in new_messages_list:
-                        if isinstance(msg, dict) and "detailed_plain_text" in msg:
-                            chat_history_text += f"{msg.get('detailed_plain_text', '')}\n"
-                        elif isinstance(msg, str):
-                            chat_history_text += f"{msg}\n"
+                    new_messages_str = await build_readable_messages(
+                        new_messages_list,
+                        replace_bot_name=True,
+                        merge_messages=False,
+                        timestamp_mode="relative",
+                        read_mark=0.0,
+                    )
+                    chat_history_text += f"\n--- 以下是 {observation_info.new_messages_count} 条新消息 ---\n{new_messages_str}"
                     # 清理消息应该由调用者或 observation_info 内部逻辑处理，这里不再调用 clear
                     # if hasattr(observation_info, 'clear_unprocessed_messages'):
                     #    observation_info.clear_unprocessed_messages()
@@ -242,7 +240,7 @@ class ActionPlanner:
                             last_action_context += "- 【重要】失败/取消原因未明确记录。\n"
                     else:
                         last_action_context += f"- 该行动当前状态: {status}\n"
-
+        print(f"chat_history_text:\n{chat_history_text}")
         # --- 构建最终的 Prompt ---
         prompt = """
 ## Base Configuration

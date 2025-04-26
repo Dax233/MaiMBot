@@ -7,6 +7,7 @@ from .reply_checker import ReplyChecker
 from src.individuality.individuality import Individuality
 from .observation_info import ObservationInfo
 from .conversation_info import ConversationInfo
+from src.plugins.utils.chat_message_builder import build_readable_messages
 
 logger = get_module_logger("reply_generator")
 
@@ -73,18 +74,19 @@ class ReplyGenerator:
             if len(observation_info.chat_history) >= 20
             else observation_info.chat_history
         )
-        chat_history_text = ""
-        for msg in chat_history_list:
-            chat_history_text += f"{msg.get('detailed_plain_text', '')}\n"
+        chat_history_text = observation_info.chat_history_str
 
         if observation_info.new_messages_count > 0:
             new_messages_list = observation_info.unprocessed_messages
-
-            chat_history_text += f"有{observation_info.new_messages_count}条新消息：\n"
-            for msg in new_messages_list:
-                chat_history_text += f"{msg.get('detailed_plain_text', '')}\n"
-
-            observation_info.clear_unprocessed_messages()
+            new_messages_str = await build_readable_messages(
+                new_messages_list,
+                replace_bot_name=True,
+                merge_messages=False,
+                timestamp_mode="relative",
+                read_mark=0.0,
+            )
+            chat_history_text += f"\n--- 以下是 {observation_info.new_messages_count} 条新消息 ---\n{new_messages_str}"
+            # await observation_info.clear_unprocessed_messages()
 
         identity_details_only = self.identity_detail_info
         identity_addon = ""

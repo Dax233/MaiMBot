@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from src.common.logger import get_module_logger
 from .chat_observer import ChatObserver
 from .chat_states import NotificationHandler, NotificationType
+from src.plugins.utils.chat_message_builder import build_readable_messages
 
 logger = get_module_logger("observation_info")
 
@@ -97,6 +98,7 @@ class ObservationInfo:
 
     # data_list
     chat_history: List[str] = field(default_factory=list)
+    chat_history_str: str = ""
     unprocessed_messages: List[Dict[str, Any]] = field(default_factory=list)
     active_users: Set[str] = field(default_factory=set)
 
@@ -223,11 +225,18 @@ class ObservationInfo:
             return None
         return time.time() - self.last_bot_speak_time
 
-    def clear_unprocessed_messages(self):
+    async def clear_unprocessed_messages(self):
         """清空未处理消息列表"""
         # 将未处理消息添加到历史记录中
         for message in self.unprocessed_messages:
             self.chat_history.append(message)
+        self.chat_history_str = await build_readable_messages(
+            self.chat_history[-20:] if len(self.chat_history) > 20 else self.chat_history,
+            replace_bot_name=True,
+            merge_messages=False,
+            timestamp_mode="relative",
+            read_mark=0.0,
+        )
         # 清空未处理消息列表
         self.has_unread_messages = False
         self.unprocessed_messages.clear()

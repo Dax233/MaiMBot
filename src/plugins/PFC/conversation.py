@@ -92,6 +92,7 @@ class Conversation:
             if initial_messages:
                 # 将加载的消息填充到 ObservationInfo 的 chat_history
                 self.observation_info.chat_history = initial_messages
+                self.observation_info.chat_history_str = chat_talking_prompt + "\n"
                 self.observation_info.chat_history_count = len(initial_messages)
 
                 # 更新 ObservationInfo 中的时间戳等信息
@@ -169,7 +170,7 @@ class Conversation:
                     if hasattr(self.observation_info, "clear_unprocessed_messages"):
                         # 确保 clear_unprocessed_messages 方法存在
                         logger.debug(f"准备执行 direct_reply，清理 {initial_new_message_count} 条规划时已知的新消息。")
-                        self.observation_info.clear_unprocessed_messages()
+                        await self.observation_info.clear_unprocessed_messages()
                         # 手动重置计数器，确保状态一致性（理想情况下 clear 方法会做这个）
                         if hasattr(self.observation_info, "new_messages_count"):
                             self.observation_info.new_messages_count = 0
