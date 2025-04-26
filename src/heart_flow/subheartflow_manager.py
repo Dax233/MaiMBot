@@ -12,11 +12,13 @@ from src.plugins.chat.chat_stream import chat_manager
 # 导入心流相关类
 from src.heart_flow.sub_heartflow import SubHeartflow, ChatState
 from src.heart_flow.mai_state_manager import MaiStateInfo
-from .observation import ChattingObservation, Observation
+from .observation import ChattingObservation
 
 # 导入LLM请求工具
 from src.plugins.models.utils_model import LLMRequest
 from src.config.config import global_config
+
+import traceback
 
 # 初始化日志记录器
 
@@ -41,10 +43,10 @@ class SubHeartflowManager:
         # 为 LLM 状态评估创建一个 LLMRequest 实例
         # 使用与 Heartflow 相同的模型和参数
         self.llm_state_evaluator = LLMRequest(
-            model=global_config.llm_heartflow, # 与 Heartflow 一致
-            temperature=0.6, # 与 Heartflow 一致
-            max_tokens=1000, # 与 Heartflow 一致 (虽然可能不需要这么多)
-            request_type="subheartflow_state_eval" # 保留特定的请求类型
+            model=global_config.llm_heartflow,  # 与 Heartflow 一致
+            temperature=0.6,  # 与 Heartflow 一致
+            max_tokens=1000,  # 与 Heartflow 一致 (虽然可能不需要这么多)
+            request_type="subheartflow_state_eval",  # 保留特定的请求类型
         )
 
     def get_all_subheartflows(self) -> List["SubHeartflow"]:
@@ -87,7 +89,7 @@ class SubHeartflowManager:
                 # 注册子心流
                 self.subheartflows[subheartflow_id] = new_subflow
                 heartflow_name = chat_manager.get_stream_name(subheartflow_id) or subheartflow_id
-                logger.info(f"[{heartflow_name}] 开始看消息")
+                logger.info(f"[{heartflow_name}] 开始接收消息")
 
                 # 启动后台任务
                 asyncio.create_task(new_subflow.subheartflow_start_working())
@@ -179,7 +181,6 @@ class SubHeartflowManager:
             logger.info(f"[限制] 已停止{stopped}个子心流, 剩余:{len(self.subheartflows)}")
         else:
             logger.debug(f"[限制] 无需停止, 当前总数:{len(self.subheartflows)}")
-
 
     async def deactivate_all_subflows(self):
         """将所有子心流的状态更改为 ABSENT (例如主状态变为OFFLINE时调用)"""
@@ -343,7 +344,6 @@ class SubHeartflowManager:
         else:
             logger.debug(f"{log_prefix_manager} 随机停用周期结束, 未停用任何子心流。")
 
-
     async def evaluate_and_transition_subflows_by_llm(self):
         """
         使用LLM评估每个子心流的状态，并根据LLM的判断执行状态转换（ABSENT <-> CHAT）。
@@ -359,7 +359,7 @@ class SubHeartflowManager:
         transitioned_to_chat = 0
         transitioned_to_absent = 0
 
-        async with self._lock: # 在锁内获取快照并迭代
+        async with self._lock:  # 在锁内获取快照并迭代
             subflows_snapshot = list(self.subheartflows.values())
             # 使用不上锁的版本，因为我们已经在锁内
             current_chat_count = self.count_subflows_by_state_nolock(ChatState.CHAT)
@@ -375,25 +375,23 @@ class SubHeartflowManager:
 
                 # --- 获取观察内容 ---
                 # 从 sub_hf.observations 获取 ChattingObservation 并提取信息
-                observation_summary = "没有可用的观察信息。" # 默认值
+                _observation_summary = "没有可用的观察信息。"  # 默认值
                 try:
                     # 检查 observations 列表是否存在且不为空
 
-                        # 假设第一个观察者是 ChattingObservation
+                    # 假设第一个观察者是 ChattingObservation
                     first_observation = sub_hf.observations[0]
                     if isinstance(first_observation, ChattingObservation):
                         # 组合中期记忆和当前聊天内容
                         current_chat = first_observation.talking_message_str or "当前无聊天内容。"
                         combined_summary = f"当前聊天内容:\n{current_chat}"
                     else:
-                            logger.warning(f"{log_prefix} [{stream_name}] 第一个观察者不是 ChattingObservation 类型。")
-
+                        logger.warning(f"{log_prefix} [{stream_name}] 第一个观察者不是 ChattingObservation 类型。")
 
                 except Exception as e:
                     logger.warning(f"{log_prefix} [{stream_name}] 获取观察信息失败: {e}", exc_info=True)
                     # 保留默认值或错误信息
                     combined_summary = f"获取观察信息时出错: {e}"
-
 
                 # --- 获取麦麦状态 ---
                 mai_state_description = f"麦麦当前状态: {current_mai_state.value}。"
@@ -417,18 +415,23 @@ class SubHeartflowManager:
                         if should_activate:
                             # 检查CHAT限额
                             if current_chat_count < chat_limit:
-                                logger.info(f"{log_prefix} [{stream_name}] LLM建议激活到CHAT状态，且未达上限({current_chat_count}/{chat_limit})。正在尝试转换...")
+                                logger.info(
+                                    f"{log_prefix} [{stream_name}] LLM建议激活到CHAT状态，且未达上限({current_chat_count}/{chat_limit})。正在尝试转换..."
+                                )
                                 await sub_hf.change_chat_state(ChatState.CHAT)
                                 if sub_hf.chat_state.chat_status == ChatState.CHAT:
                                     transitioned_to_chat += 1
-                                    current_chat_count += 1 # 更新计数器
+                                    current_chat_count += 1  # 更新计数器
                                 else:
                                     logger.warning(f"{log_prefix} [{stream_name}] 尝试激活到CHAT失败。")
                             else:
-                                logger.info(f"{log_prefix} [{stream_name}] LLM建议激活到CHAT状态，但已达到上限({current_chat_count}/{chat_limit})。跳过转换。")
+                                logger.info(
+                                    f"{log_prefix} [{stream_name}] LLM建议激活到CHAT状态，但已达到上限({current_chat_count}/{chat_limit})。跳过转换。"
+                                )
                     except Exception as e:
-                        logger.error(f"{log_prefix} [{stream_name}] LLM评估或状态转换(ABSENT->CHAT)时出错: {e}", exc_info=True)
-
+                        logger.error(
+                            f"{log_prefix} [{stream_name}] LLM评估或状态转换(ABSENT->CHAT)时出错: {e}", exc_info=True
+                        )
 
                 # --- 针对 CHAT 状态 ---
                 elif current_subflow_state == ChatState.CHAT:
@@ -451,11 +454,13 @@ class SubHeartflowManager:
                             await sub_hf.change_chat_state(ChatState.ABSENT)
                             if sub_hf.chat_state.chat_status == ChatState.ABSENT:
                                 transitioned_to_absent += 1
-                                current_chat_count -= 1 # 更新计数器
+                                current_chat_count -= 1  # 更新计数器
                             else:
                                 logger.warning(f"{log_prefix} [{stream_name}] 尝试转换为ABSENT失败。")
                     except Exception as e:
-                        logger.error(f"{log_prefix} [{stream_name}] LLM评估或状态转换(CHAT->ABSENT)时出错: {e}", exc_info=True)
+                        logger.error(
+                            f"{log_prefix} [{stream_name}] LLM评估或状态转换(CHAT->ABSENT)时出错: {e}", exc_info=True
+                        )
 
                 # 可以选择性地为 FOCUSED 状态添加评估逻辑，例如判断是否降级回 CHAT 或 ABSENT
 
@@ -464,7 +469,6 @@ class SubHeartflowManager:
             f" 成功转换到CHAT: {transitioned_to_chat}."
             f" 成功转换到ABSENT: {transitioned_to_absent}."
         )
-
 
     async def _llm_evaluate_state_transition(self, prompt: str) -> bool:
         """
@@ -479,8 +483,8 @@ class SubHeartflowManager:
         log_prefix = "[LLM状态评估]"
         try:
             # --- 真实的 LLM 调用 ---
-            response_text, _, model_name = await self.llm_state_evaluator.generate_response_async(prompt)
-            logger.debug(f"{log_prefix} 使用模型 {model_name} 评估，原始响应: {response_text}")
+            response_text, _ = await self.llm_state_evaluator.generate_response_async(prompt)
+            logger.debug(f"{log_prefix} 使用模型 {self.llm_state_evaluator.model_name} 评估，原始响应: {response_text}")
             # 解析响应 - 这里需要根据你的LLM的确切输出来调整逻辑
             # 假设 LLM 会明确回答 "是" 或 "否"
             if response_text and "是" in response_text.strip():
@@ -493,19 +497,11 @@ class SubHeartflowManager:
                 logger.warning(f"{log_prefix} LLM 未明确回答 '是' 或 '否'，响应: {response_text}")
                 # 可以设定一个默认行为，例如默认不转换
                 return False
-            # --- 真实的 LLM 调用结束 ---
-
-            # # --- 占位符逻辑：随机返回 True/False ---
-            # # 请在接入真实 LLM 后移除此部分
-            # await asyncio.sleep(0.1) # 模拟LLM调用延迟
-            # result = random.choice([True, False])
-            # logger.debug(f"{log_prefix} (占位符) LLM评估结果: {'建议转换' if result else '建议不转换'}")
-            # return result
-            # # --- 占位符逻辑结束 ---
 
         except Exception as e:
             logger.error(f"{log_prefix} 调用 LLM 进行状态评估时出错: {e}", exc_info=True)
-
+            traceback.print_exc()
+            return False
 
     def count_subflows_by_state(self, state: ChatState) -> int:
         """统计指定状态的子心流数量"""

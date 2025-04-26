@@ -57,7 +57,7 @@ class BackgroundTaskManager:
         self._logging_task: Optional[asyncio.Task] = None
         self._interest_eval_task: Optional[asyncio.Task] = None  # 新增兴趣评估任务引用
         self._random_deactivation_task: Optional[asyncio.Task] = None  # 新增随机停用任务引用
-        self._hf_judge_state_update_task: Optional[asyncio.Task] = None # 新增状态评估任务引用
+        self._hf_judge_state_update_task: Optional[asyncio.Task] = None  # 新增状态评估任务引用
         self._tasks: List[Optional[asyncio.Task]] = []  # Keep track of all tasks
 
     async def start_tasks(self):
@@ -81,10 +81,10 @@ class BackgroundTaskManager:
             ),
             (
                 self._hf_judge_state_update_task,
-                lambda: self._run_hf_judge_state_update_cycle(300),
+                lambda: self._run_hf_judge_state_update_cycle(60),
                 "hf_judge_state_update",
                 "debug",
-                f"状态评估任务已启动 间隔:{300}s",
+                f"状态评估任务已启动 间隔:{60}s",
                 "_hf_judge_state_update_task",
             ),
             (
@@ -221,7 +221,7 @@ class BackgroundTaskManager:
             ):
                 logger.info("检测到离线，停用所有子心流")
                 await self.subheartflow_manager.deactivate_all_subflows()
-    
+
     async def _perform_hf_judge_state_update_work(self):
         """调用llm检测是否转换ABSENT-CHAT状态"""
         logger.info("[状态评估任务] 开始基于LLM评估子心流状态...")
@@ -276,7 +276,7 @@ class BackgroundTaskManager:
         await self._run_periodic_loop(
             task_name="State Update", interval=interval, task_func=self._perform_state_update_work
         )
-    
+
     async def _run_hf_judge_state_update_cycle(self, interval: int):
         await self._run_periodic_loop(
             task_name="State Update", interval=interval, task_func=self._perform_hf_judge_state_update_work
