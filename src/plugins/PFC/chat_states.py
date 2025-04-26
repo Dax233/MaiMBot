@@ -98,7 +98,7 @@ class NotificationManager:
             notification_type: 要处理的通知类型
             handler: 处理器实例
         """
-        print(1145145511114445551111444)
+        # print(1145145511114445551111444)
         if target not in self._handlers:
             # print("没11有target")
             self._handlers[target] = {}
@@ -146,9 +146,9 @@ class NotificationManager:
         if target in self._handlers:
             handlers = self._handlers[target].get(notification.type, [])
             # print(1111111)
-            print(handlers)
+            # print(handlers)
             for handler in handlers:
-                print(f"调用处理器: {handler}")
+                # print(f"调用处理器: {handler}")
                 await handler.handle_notification(notification)
 
     def get_active_states(self) -> Set[NotificationType]:
