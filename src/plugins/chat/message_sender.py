@@ -62,20 +62,10 @@ class MessageSender:
         # logger.trace(f"{message.processed_plain_text},{typing_time},等待输入时间结束") # 减少日志
         # --- 结束打字延迟 ---
 
-        message_json = message.to_dict()
         message_preview = truncate_message(message.processed_plain_text)
 
         try:
-            end_point = global_config.api_urls.get(message.message_info.platform, None)
-            if end_point:
-                try:
-                    await global_api.send_message_rest(end_point, message_json)
-                except Exception as e:
-                    logger.error(f"REST发送失败: {str(e)}")
-                    logger.info(f"[{message.chat_stream.stream_id}] 尝试使用WS发送")
-                    await self.send_via_ws(message)
-            else:
-                await self.send_via_ws(message)
+            await self.send_via_ws(message)
             logger.success(f"发送消息   '{message_preview}'   成功")  # 调整日志格式
         except Exception as e:
             logger.error(f"发送消息   '{message_preview}'   失败: {str(e)}")

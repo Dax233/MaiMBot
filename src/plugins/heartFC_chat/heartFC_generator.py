@@ -8,7 +8,7 @@ from .heartflow_prompt_builder import prompt_builder
 from ..chat.utils import process_llm_response
 from src.common.logger import get_module_logger, LogConfig, LLM_STYLE_CONFIG
 from src.plugins.respon_info_catcher.info_catcher import info_catcher_manager
-from ..utils.timer_calculater import Timer
+from ..utils.timer_calculator import Timer
 
 from src.plugins.moods.moods import MoodManager
 
@@ -49,17 +49,13 @@ class HeartFCGenerator:
 
         arousal_multiplier = MoodManager.get_instance().get_arousal_multiplier()
 
-        with Timer() as t_generate_response:
-            current_model = self.model_normal
-            current_model.temperature = global_config.llm_normal["temp"] * arousal_multiplier  # 激活度越高，温度越高
-            model_response = await self._generate_response_with_model(
-                structured_info, current_mind_info, reason, message, current_model, thinking_id
-            )
+        current_model = self.model_normal
+        current_model.temperature = global_config.llm_normal["temp"] * arousal_multiplier  # 激活度越高，温度越高
+        model_response = await self._generate_response_with_model(
+            structured_info, current_mind_info, reason, message, current_model, thinking_id
+        )
 
         if model_response:
-            logger.info(
-                f"{global_config.BOT_NICKNAME}的回复是：{model_response},生成回复时间: {t_generate_response.human_readable}"
-            )
             model_processed_response = await self._process_response(model_response)
 
             return model_processed_response

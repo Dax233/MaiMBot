@@ -4,6 +4,7 @@ from src.plugins.memory_system.Hippocampus import HippocampusManager
 from ..models.utils_model import LLMRequest
 from ...config.config import global_config
 from ..chat.message import Message
+from ..knowledge.knowledge_lib import qa_manager
 
 logger = get_module_logger("knowledge_fetcher")
 
@@ -18,6 +19,25 @@ class KnowledgeFetcher:
             max_tokens=1000,
             request_type="knowledge_fetch",
         )
+
+    def _lpmm_get_knowledge(self, query: str) -> str:
+        """获取相关知识
+
+        Args:
+            query: 查询内容
+
+        Returns:
+            str: 构造好的,带相关度的知识
+        """
+
+        logger.debug("正在从LPMM知识库中获取知识")
+        try:
+            knowledge_info = qa_manager.get_knowledge(query)
+            logger.debug(f"LPMM知识库查询结果: {knowledge_info:150}")
+            return knowledge_info
+        except Exception as e:
+            logger.error(f"LPMM知识库搜索工具执行失败: {str(e)}")
+            return "未找到匹配的知识"
 
     async def fetch(self, query: str, chat_history: List[Message]) -> Tuple[str, str]:
         """获取相关知识
@@ -43,13 +63,16 @@ class KnowledgeFetcher:
             max_depth=3,
             fast_retrieval=False,
         )
-
+        knowledge = ""
         if related_memory:
-            knowledge = ""
             sources = []
             for memory in related_memory:
                 knowledge += memory[1] + "\n"
                 sources.append(f"记忆片段{memory[0]}")
-            return knowledge.strip(), "，".join(sources)
+            knowledge = knowledge.strip(), "，".join(sources)
+
+        knowledge += "现在有以下**知识**可供参考：\n "
+        knowledge += self._lpmm_get_knowledge(query)
+        knowledge += "请记住这些**知识**，并根据**知识**回答问题。\n"
 
         return "未找到相关知识", "无记忆匹配"

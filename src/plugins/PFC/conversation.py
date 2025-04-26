@@ -13,7 +13,7 @@ from .observation_info import ObservationInfo
 from .conversation_info import ConversationInfo
 from .reply_generator import ReplyGenerator
 from ..chat.chat_stream import ChatStream
-from ..message.message_base import UserInfo
+from maim_message import UserInfo
 from src.plugins.chat.chat_stream import chat_manager
 from .pfc_KnowledgeFetcher import KnowledgeFetcher
 from .waiter import Waiter

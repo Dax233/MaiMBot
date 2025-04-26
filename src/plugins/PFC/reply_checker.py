@@ -5,7 +5,7 @@ from src.common.logger import get_module_logger
 from ..models.utils_model import LLMRequest
 from ...config.config import global_config
 from .chat_observer import ChatObserver
-from ..message.message_base import UserInfo
+from maim_message import UserInfo
 
 logger = get_module_logger("reply_checker")
 
@@ -193,11 +193,11 @@ response_language = "Recommend Chinese"
 4. 回复是否包含血腥恐怖暴力内容
 5. 回复是否以你的角度发言,不要把"你"说的话当做对方说的话，这是你自己说的话（不要自己回复自己的消息）
 6. 回复是否通俗易懂
-7. 回复是否有些多余，例如在对方没有回复的情况下，依然连续多次“消息轰炸”
+7. 回复是否有些多余，例如在对方没有回复的情况下，依然连续多次“消息轰炸”（尤其是已经连续发送3条信息的情况，这很可能不合理，需要着重判断）
 8. 回复是否使用了完全没必要的修辞
 9. 回复是否逻辑通顺
 10. 回复是否太过冗长了（通常私聊的每条消息长度在20字以内，除非特殊情况）
-11. 在连续多次发送消息的情况下，当前回复是否衔接自然，会不会显得奇怪
+11. 在连续多次发送消息的情况下，当前回复是否衔接自然，会不会显得奇怪（例如连续两条消息中部分内容重叠）
 
 请以JSON格式输出，包含以下字段：
 1. suitable: 是否合适 (true/false)

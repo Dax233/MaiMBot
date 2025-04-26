@@ -12,12 +12,12 @@ from ..chat.message import MessageSending, MessageRecv, MessageThinking, Message
 from ..chat.message_sender import message_manager
 from ..chat.utils_image import image_path_to_base64
 from ..willing.willing_manager import willing_manager
-from ..message import UserInfo, Seg
+from maim_message import UserInfo, Seg
 from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
 from src.plugins.chat.chat_stream import ChatStream, chat_manager
 from src.plugins.person_info.relationship_manager import relationship_manager
 from src.plugins.respon_info_catcher.info_catcher import info_catcher_manager
-from src.plugins.utils.timer_calculater import Timer
+from src.plugins.utils.timer_calculator import Timer
 
 # 定义日志配置
 chat_config = LogConfig(

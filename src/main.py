@@ -154,7 +154,7 @@ class MainSystem:
         """打印情绪状态"""
         while True:
             self.mood_manager.print_mood_status()
-            await asyncio.sleep(30)
+            await asyncio.sleep(60)
 
     @staticmethod
     async def remove_recalled_message_task():

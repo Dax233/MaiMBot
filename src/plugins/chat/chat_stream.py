@@ -6,7 +6,7 @@ from typing import Dict, Optional
 
 
 from ...common.database import db
-from ..message.message_base import GroupInfo, UserInfo
+from maim_message import GroupInfo, UserInfo
 
 from src.common.logger import get_module_logger, LogConfig, CHAT_STREAM_STYLE_CONFIG
 

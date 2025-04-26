@@ -10,7 +10,8 @@ from ..plugins.utils.prompt_builder import Prompt, global_prompt_manager
 from src.do_tool.tool_use import ToolUser
 from src.plugins.utils.json_utils import safe_json_dumps, normalize_llm_response, process_llm_tool_calls
 from src.heart_flow.chat_state_info import ChatStateInfo
-
+from src.plugins.chat.chat_stream import chat_manager
+from src.plugins.heartFC_chat.heartFC_Cycleinfo import CycleInfo
 
 subheartflow_config = LogConfig(
     console_format=SUB_HEARTFLOW_STYLE_CONFIG["console_format"],
@@ -23,19 +24,31 @@ def init_prompt():
     prompt = ""
     prompt += "{extra_info}\n"
     prompt += "{prompt_personality}\n"
-    prompt += "刚刚你的内心想法是：{current_thinking_info}\n"
-    prompt += "-----------------------------------\n"
+    prompt += "{last_loop_prompt}\n"
     prompt += "现在是{time_now}，你正在上网，和qq群里的网友们聊天，以下是正在进行的聊天内容：\n{chat_observe_info}\n"
     prompt += "\n你现在{mood_info}\n"
-    prompt += "现在请你生成你的内心想法，要求思考群里正在进行的话题，之前大家聊过的话题，群里成员的关系。"
-    prompt += "请你思考，要不要对群里的话题进行回复，以及如何对群聊内容进行回复\n"
-    prompt += "回复的要求是：不要总是重复自己提到过的话题，如果你要回复，最好只回复一个人的一个话题\n"
-    prompt += "请注意不要输出多余内容(包括前后缀，冒号和引号，括号， 表情，等)，不要回复自己的发言\n"
-    prompt += "现在请你先输出想法，{hf_do_next}，不要分点输出,文字不要浮夸"
-    prompt += "在输出完想法后，请你思考应该使用什么工具。工具可以帮你取得一些你不知道的信息，或者进行一些操作。"
-    prompt += "如果你需要做某件事，来对消息和你的回复进行处理，请使用工具。\n"
+    prompt += (
+        "请仔细阅读当前群聊内容，分析讨论话题和群成员关系，分析你刚刚发言和别人对你的发言的反应，思考你要不要回复。"
+    )
+    prompt += "思考并输出你的内心想法\n"
+    prompt += "输出要求：\n"
+    prompt += "1. 根据聊天内容生成你的想法，{hf_do_next}\n"
+    prompt += "2. 不要分点、不要使用表情符号\n"
+    prompt += "3. 避免多余符号(冒号、引号、括号等)\n"
+    prompt += "4. 语言简洁自然，不要浮夸\n"
+    prompt += "5. 如果你刚发言，并且没有人回复你，不要回复\n"
+    prompt += "工具使用说明：\n"
+    prompt += "1. 输出想法后考虑是否需要使用工具\n"
+    prompt += "2. 工具可获取信息或执行操作\n"
+    prompt += "3. 如需处理消息或回复，请使用工具\n"
 
     Prompt(prompt, "sub_heartflow_prompt_before")
+
+    prompt = ""
+    prompt += "刚刚你的内心想法是：{current_thinking_info}\n"
+    prompt += "{if_replan_prompt}\n"
+
+    Prompt(prompt, "last_loop")
 
 
 class SubMind:
@@ -56,7 +69,7 @@ class SubMind:
         self.past_mind = []
         self.structured_info = {}
 
-    async def do_thinking_before_reply(self):
+    async def do_thinking_before_reply(self, last_cycle: CycleInfo = None):
         """
         在回复前进行思考，生成内心想法并收集工具调用结果
 
@@ -114,11 +127,32 @@ class SubMind:
 
         # 思考指导选项和权重
         hf_options = [
-            ("继续生成你在这个聊天中的想法，在原来想法的基础上继续思考，但是不要纠结于同一个话题", 0.6),
-            ("生成你在这个聊天中的想法，在原来的想法上尝试新的话题", 0.1),
-            ("生成你在这个聊天中的想法，不要太深入", 0.2),
-            ("继续生成你在这个聊天中的想法，进行深入思考", 0.1),
+            ("可以参考之前的想法，在原来想法的基础上继续思考", 0.2),
+            ("可以参考之前的想法，在原来的想法上尝试新的话题", 0.4),
+            ("不要太深入", 0.2),
+            ("进行深入思考", 0.2),
         ]
+
+        # 上一次决策信息
+        if last_cycle != None:
+            last_action = last_cycle.action_type
+            last_reasoning = last_cycle.reasoning
+            is_replan = last_cycle.replanned
+            if is_replan:
+                if_replan_prompt = f"但是你有了上述想法之后，有了新消息，你决定重新思考后，你做了：{last_action}\n因为：{last_reasoning}\n"
+            else:
+                if_replan_prompt = f"出于这个想法，你刚才做了：{last_action}\n因为：{last_reasoning}\n"
+        else:
+            last_action = ""
+            last_reasoning = ""
+            is_replan = False
+            if_replan_prompt = ""
+        if current_thinking_info:
+            last_loop_prompt = (await global_prompt_manager.get_prompt_async("last_loop")).format(
+                current_thinking_info=current_thinking_info, if_replan_prompt=if_replan_prompt
+            )
+        else:
+            last_loop_prompt = ""
 
         # 加权随机选择思考指导
         hf_do_next = local_random.choices(
@@ -217,14 +251,14 @@ response_language = "Recommend Chinese"
 """,  # 可以在这里添加额外信息
             prompt_personality=prompt_personality,
             bot_name=individuality.personality.bot_nickname,
-            current_thinking_info=current_thinking_info,
             time_now=time_now,
             chat_observe_info=chat_observe_info,
             mood_info=mood_info,
             hf_do_next=hf_do_next,
+            last_loop_prompt=last_loop_prompt,
         )
 
-        logger.debug(f"[{self.subheartflow_id}] 心流思考提示词构建完成")
+        # logger.debug(f"[{self.subheartflow_id}] 心流思考提示词构建完成")
 
         # ---------- 5. 执行LLM请求并处理响应 ----------
         content = ""  # 初始化内容变量
@@ -276,7 +310,8 @@ response_language = "Recommend Chinese"
             content = "思考过程中出现错误"
 
         # 记录最终思考结果
-        logger.debug(f"[{self.subheartflow_id}] 心流思考结果:\n{content}\n")
+        name = chat_manager.get_stream_name(self.subheartflow_id)
+        logger.debug(f"[{name}] \nPrompt:\n{prompt}\n\n心流思考结果:\n{content}\n")
 
         # 处理空响应情况
         if not content:
