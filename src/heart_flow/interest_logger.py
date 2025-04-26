@@ -58,7 +58,7 @@ class InterestLogger:
             return results
 
         for subheartflow in all_flows:
-            if self.subheartflow_manager.get_or_create_subheartflow(subheartflow.subheartflow_id):
+            if await self.subheartflow_manager.get_or_create_subheartflow(subheartflow.subheartflow_id):
                 tasks.append(
                     asyncio.create_task(subheartflow.get_full_state(), name=f"get_state_{subheartflow.subheartflow_id}")
                 )

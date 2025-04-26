@@ -34,7 +34,6 @@ class BackgroundTaskManager:
         update_interval: int,
         cleanup_interval: int,
         log_interval: int,
-        inactive_threshold: int,
         # 新增兴趣评估间隔参数
         interest_eval_interval: int = INTEREST_EVAL_INTERVAL_SECONDS,
         # 新增随机停用间隔参数
@@ -58,6 +57,7 @@ class BackgroundTaskManager:
         self._logging_task: Optional[asyncio.Task] = None
         self._interest_eval_task: Optional[asyncio.Task] = None  # 新增兴趣评估任务引用
         self._random_deactivation_task: Optional[asyncio.Task] = None  # 新增随机停用任务引用
+        self._hf_judge_state_update_task: Optional[asyncio.Task] = None # 新增状态评估任务引用
         self._tasks: List[Optional[asyncio.Task]] = []  # Keep track of all tasks
 
     async def start_tasks(self):
@@ -80,11 +80,19 @@ class BackgroundTaskManager:
                 "_state_update_task",
             ),
             (
+                self._hf_judge_state_update_task,
+                lambda: self._run_hf_judge_state_update_cycle(300),
+                "hf_judge_state_update",
+                "debug",
+                f"状态评估任务已启动 间隔:{300}s",
+                "_hf_judge_state_update_task",
+            ),
+            (
                 self._cleanup_task,
                 self._run_cleanup_cycle,
                 "hf_cleanup",
                 "info",
-                f"清理任务已启动 间隔:{self.cleanup_interval}s 阈值:{self.inactive_threshold}s",
+                f"清理任务已启动 间隔:{self.cleanup_interval}s",
                 "_cleanup_task",
             ),
             (
@@ -203,21 +211,21 @@ class BackgroundTaskManager:
 
         if state_changed:
             current_state = self.mai_state_info.get_current_state()
-            await self.subheartflow_manager.enforce_subheartflow_limits(current_state)
+            await self.subheartflow_manager.enforce_subheartflow_limits()
 
             # 状态转换处理
+
             if (
-                previous_status == self.mai_state_info.mai_status.OFFLINE
-                and current_state != self.mai_state_info.mai_status.OFFLINE
-            ):
-                logger.info("[后台任务] 主状态激活，触发子流激活")
-                await self.subheartflow_manager.activate_random_subflows_to_chat(current_state)
-            elif (
                 current_state == self.mai_state_info.mai_status.OFFLINE
                 and previous_status != self.mai_state_info.mai_status.OFFLINE
             ):
                 logger.info("检测到离线，停用所有子心流")
                 await self.subheartflow_manager.deactivate_all_subflows()
+    
+    async def _perform_hf_judge_state_update_work(self):
+        """调用llm检测是否转换ABSENT-CHAT状态"""
+        logger.info("[状态评估任务] 开始基于LLM评估子心流状态...")
+        await self.subheartflow_manager.evaluate_and_transition_subflows_by_llm()
 
     async def _perform_cleanup_work(self):
         """执行子心流清理任务
@@ -252,7 +260,7 @@ class BackgroundTaskManager:
     async def _perform_interest_eval_work(self):
         """执行一轮子心流兴趣评估与提升检查。"""
         # 直接调用 subheartflow_manager 的方法，并传递当前状态信息
-        await self.subheartflow_manager.evaluate_interest_and_promote(self.mai_state_info)
+        await self.subheartflow_manager.evaluate_interest_and_promote()
 
     # --- 结束新增 ---
 
@@ -267,6 +275,11 @@ class BackgroundTaskManager:
     async def _run_state_update_cycle(self, interval: int):
         await self._run_periodic_loop(
             task_name="State Update", interval=interval, task_func=self._perform_state_update_work
+        )
+    
+    async def _run_hf_judge_state_update_cycle(self, interval: int):
+        await self._run_periodic_loop(
+            task_name="State Update", interval=interval, task_func=self._perform_hf_judge_state_update_work
         )
 
     async def _run_cleanup_cycle(self):

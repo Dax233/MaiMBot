@@ -72,7 +72,6 @@ class Heartflow:
             update_interval=STATE_UPDATE_INTERVAL_SECONDS,
             cleanup_interval=CLEANUP_INTERVAL_SECONDS,
             log_interval=3,  # Example: Using value directly, ideally get from config
-            inactive_threshold=INACTIVE_THRESHOLD_SECONDS,
         )
 
     async def get_or_create_subheartflow(self, subheartflow_id: Any) -> Optional["SubHeartflow"]:

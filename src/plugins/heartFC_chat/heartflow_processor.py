@@ -167,7 +167,7 @@ class HeartFCProcessor:
             # 6. 兴趣度计算与更新
             interested_rate, is_mentioned = await self._calculate_interest(message)
             await subheartflow.interest_chatting.increase_interest(value=interested_rate)
-            await subheartflow.interest_chatting.add_interest_dict(message, interested_rate, is_mentioned)
+            subheartflow.interest_chatting.add_interest_dict(message, interested_rate, is_mentioned)
 
             # 7. 日志记录
             mes_name = chat.group_info.group_name if chat.group_info else "私聊"

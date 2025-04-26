@@ -481,7 +481,7 @@ class SubHeartflow:
             "interest_state": interest_state,
             "current_mind": self.sub_mind.current_mind,
             "chat_state": self.chat_state.chat_status.value,
-            "last_changed_state_time": self.last_changed_state_time,
+            "chat_state_changed_time": self.chat_state_changed_time,
         }
 
     async def shutdown(self):
