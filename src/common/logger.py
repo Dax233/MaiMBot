@@ -337,7 +337,7 @@ REMOTE_STYLE_CONFIG = {
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 远程 | {message}",
     },
     "simple": {
-        "console_format": "<level>{time:MM-DD HH:mm}</level> | <light-yellow>远程</light-yellow> | {message}",
+        "console_format": "<level>{time:MM-DD HH:mm}</level> | <fg #00788A>远程| {message}</fg #00788A>",
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 远程 | {message}",
     },
 }

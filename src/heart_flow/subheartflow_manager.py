@@ -3,6 +3,7 @@ import time
 import random
 from typing import Dict, Any, Optional, List
 import json  # 导入 json 模块
+import functools  # <-- 新增导入
 
 # 导入日志模块
 from src.common.logger import get_module_logger, LogConfig, SUBHEARTFLOW_MANAGER_STYLE_CONFIG
@@ -18,8 +19,9 @@ from .observation import ChattingObservation
 # 导入LLM请求工具
 from src.plugins.models.utils_model import LLMRequest
 from src.config.config import global_config
-
+from src.individuality.individuality import Individuality
 import traceback
+
 
 # 初始化日志记录器
 
@@ -77,8 +79,17 @@ class SubHeartflowManager:
                 return subflow
 
             try:
-                # 初始化子心流, 传入存储的 mai_state_info
-                new_subflow = SubHeartflow(subheartflow_id, self.mai_state_info)
+                # --- 使用 functools.partial 创建 HFC 回调 --- #
+                # 将 manager 的 _handle_hfc_no_reply 方法与当前的 subheartflow_id 绑定
+                hfc_callback = functools.partial(self._handle_hfc_no_reply, subheartflow_id)
+                # --- 结束创建回调 --- #
+
+                # 初始化子心流, 传入 mai_state_info 和 partial 创建的回调
+                new_subflow = SubHeartflow(
+                    subheartflow_id,
+                    self.mai_state_info,
+                    hfc_callback,  # <-- 传递 partial 创建的回调
+                )
 
                 # 异步初始化
                 await new_subflow.initialize()
@@ -100,24 +111,56 @@ class SubHeartflowManager:
                 logger.error(f"创建子心流 {subheartflow_id} 失败: {e}", exc_info=True)
                 return None
 
+    # --- 新增：内部方法，用于尝试将单个子心流设置为 ABSENT ---
+    async def _try_set_subflow_absent_internal(self, subflow: "SubHeartflow", log_prefix: str) -> bool:
+        """
+        尝试将给定的子心流对象状态设置为 ABSENT (内部方法，不处理锁)。
+
+        Args:
+            subflow: 子心流对象。
+            log_prefix: 用于日志记录的前缀 (例如 "[子心流管理]" 或 "[停用]")。
+
+        Returns:
+            bool: 如果状态成功变为 ABSENT 或原本就是 ABSENT，返回 True；否则返回 False。
+        """
+        flow_id = subflow.subheartflow_id
+        stream_name = chat_manager.get_stream_name(flow_id) or flow_id
+
+        if subflow.chat_state.chat_status != ChatState.ABSENT:
+            logger.debug(f"{log_prefix} 设置 {stream_name} 状态为 ABSENT")
+            try:
+                await subflow.change_chat_state(ChatState.ABSENT)
+                # 再次检查以确认状态已更改 (change_chat_state 内部应确保)
+                if subflow.chat_state.chat_status == ChatState.ABSENT:
+                    return True
+                else:
+                    logger.warning(
+                        f"{log_prefix} 调用 change_chat_state 后，{stream_name} 状态仍为 {subflow.chat_state.chat_status.value}"
+                    )
+                    return False
+            except Exception as e:
+                logger.error(f"{log_prefix} 设置 {stream_name} 状态为 ABSENT 时失败: {e}", exc_info=True)
+                return False
+        else:
+            logger.debug(f"{log_prefix} {stream_name} 已是 ABSENT 状态")
+            return True  # 已经是目标状态，视为成功
+
+    # --- 结束新增 ---
+
     async def sleep_subheartflow(self, subheartflow_id: Any, reason: str) -> bool:
-        """停止指定的子心流并清理资源"""
-        subheartflow = self.subheartflows.get(subheartflow_id)
-        if not subheartflow:
-            return False
+        """停止指定的子心流并将其状态设置为 ABSENT"""
+        log_prefix = "[子心流管理]"
+        async with self._lock:  # 加锁以安全访问字典
+            subheartflow = self.subheartflows.get(subheartflow_id)
 
-        stream_name = chat_manager.get_stream_name(subheartflow_id) or subheartflow_id
-        logger.info(f"[子心流管理] 正在停止 {stream_name}, 原因: {reason}")
+            stream_name = chat_manager.get_stream_name(subheartflow_id) or subheartflow_id
+            logger.info(f"{log_prefix} 正在停止 {stream_name}, 原因: {reason}")
 
-        try:
-            # 设置状态为ABSENT释放资源
-            if subheartflow.chat_state.chat_status != ChatState.ABSENT:
-                logger.debug(f"[子心流管理] 设置 {stream_name} 状态为ABSENT")
-                await subheartflow.change_chat_state(ChatState.ABSENT)
-            else:
-                logger.debug(f"[子心流管理] {stream_name} 已是ABSENT状态")
-        except Exception as e:
-            logger.error(f"[子心流管理] 设置ABSENT状态失败: {e}")
+            # 调用内部方法处理状态变更
+            success = await self._try_set_subflow_absent_internal(subheartflow, log_prefix)
+
+            return success
+        # 锁在此处自动释放
 
     def get_inactive_subheartflows(self, max_age_seconds=INACTIVE_THRESHOLD_SECONDS):
         """识别并返回需要清理的不活跃(处于ABSENT状态超过一小时)子心流(id, 原因)"""
@@ -185,174 +228,107 @@ class SubHeartflowManager:
 
     async def deactivate_all_subflows(self):
         """将所有子心流的状态更改为 ABSENT (例如主状态变为OFFLINE时调用)"""
-        # logger.info("[停用] 开始将所有子心流状态设置为 ABSENT")
-        # 使用 list() 创建一个当前值的快照，防止在迭代时修改字典
-        flows_to_update = list(self.subheartflows.values())
-
-        if not flows_to_update:
-            logger.debug("[停用] 无活跃子心流，无需操作")
-            return
-
+        log_prefix = "[停用]"
         changed_count = 0
-        for subflow in flows_to_update:
-            flow_id = subflow.subheartflow_id
-            stream_name = chat_manager.get_stream_name(flow_id) or flow_id
-            # 再次检查子心流是否仍然存在于管理器中，以防万一在迭代过程中被移除
+        processed_count = 0
 
-            if subflow.chat_state.chat_status != ChatState.ABSENT:
-                logger.debug(
-                    f"正在将子心流 {stream_name} 的状态从 {subflow.chat_state.chat_status.value} 更改为 ABSENT"
-                )
-                try:
-                    # 调用 change_chat_state 将状态设置为 ABSENT
-                    await subflow.change_chat_state(ChatState.ABSENT)
-                    # 验证状态是否真的改变了
-                    if (
-                        flow_id in self.subheartflows
-                        and self.subheartflows[flow_id].chat_state.chat_status == ChatState.ABSENT
-                    ):
+        async with self._lock:  # 获取锁以安全迭代
+            # 使用 list() 创建一个当前值的快照，防止在迭代时修改字典
+            flows_to_update = list(self.subheartflows.values())
+            processed_count = len(flows_to_update)
+            if not flows_to_update:
+                logger.debug(f"{log_prefix} 无活跃子心流，无需操作")
+                return
+
+            for subflow in flows_to_update:
+                # 记录原始状态，以便统计实际改变的数量
+                original_state_was_absent = subflow.chat_state.chat_status == ChatState.ABSENT
+
+                success = await self._try_set_subflow_absent_internal(subflow, log_prefix)
+
+                # 如果成功设置为 ABSENT 且原始状态不是 ABSENT，则计数
+                if success and not original_state_was_absent:
+                    if subflow.chat_state.chat_status == ChatState.ABSENT:
                         changed_count += 1
                     else:
-                        logger.warning(
-                            f"[停用] 尝试更改子心流 {stream_name} 状态后，状态仍未变为 ABSENT 或子心流已消失。"
-                        )
-                except Exception as e:
-                    logger.error(f"[停用] 更改子心流 {stream_name} 状态为 ABSENT 时出错: {e}", exc_info=True)
-            else:
-                logger.debug(f"[停用] 子心流 {stream_name} 已处于 ABSENT 状态，无需更改。")
+                        # 这种情况理论上不应发生，如果内部方法返回 True 的话
+                        stream_name = chat_manager.get_stream_name(subflow.subheartflow_id) or subflow.subheartflow_id
+                        logger.warning(f"{log_prefix} 内部方法声称成功但 {stream_name} 状态未变为 ABSENT。")
+        # 锁在此处自动释放
 
         logger.info(
-            f"下限完成，共处理 {len(flows_to_update)} 个子心流，成功将 {changed_count} 个子心流的状态更改为 ABSENT。"
+            f"{log_prefix} 完成，共处理 {processed_count} 个子心流，成功将 {changed_count} 个非 ABSENT 子心流的状态更改为 ABSENT。"
         )
 
     async def evaluate_interest_and_promote(self):
         """评估子心流兴趣度，满足条件且未达上限则提升到FOCUSED状态（基于start_hfc_probability）"""
-        log_prefix = "[兴趣评估]"
-        # 使用 self.mai_state_info 获取当前状态和限制
-        current_state = self.mai_state_info.get_current_state()
-        focused_limit = current_state.get_focused_chat_max_num()
-
-        if int(time.time()) % 20 == 0:  # 每20秒输出一次
-            logger.debug(f"{log_prefix} 当前状态 ({current_state.value}) 可以在{focused_limit}个群激情聊天")
-
-        if focused_limit <= 0:
-            # logger.debug(f"{log_prefix} 当前状态 ({current_state.value}) 不允许 FOCUSED 子心流")
-            return
-
-        current_focused_count = self.count_subflows_by_state(ChatState.FOCUSED)
-        if current_focused_count >= focused_limit:
-            logger.debug(f"{log_prefix} 已达专注上限 ({current_focused_count}/{focused_limit})")
-            return
-
-        for sub_hf in list(self.subheartflows.values()):
-            flow_id = sub_hf.subheartflow_id
-            stream_name = chat_manager.get_stream_name(flow_id) or flow_id
-
-            # 跳过非CHAT状态或已经是FOCUSED状态的子心流
-            if sub_hf.chat_state.chat_status == ChatState.FOCUSED:
-                continue
-
-            from .mai_state_manager import enable_unlimited_hfc_chat
-
-            if not enable_unlimited_hfc_chat:
-                if sub_hf.chat_state.chat_status != ChatState.CHAT:
-                    continue
-
-            # 检查是否满足提升概率
-            if random.random() >= sub_hf.interest_chatting.start_hfc_probability:
-                continue
-
-            # 再次检查是否达到上限
-            if current_focused_count >= focused_limit:
-                logger.debug(f"{log_prefix} [{stream_name}] 已达专注上限")
-                break
-
-            # 获取最新状态并执行提升
-            current_subflow = self.subheartflows.get(flow_id)
-            if not current_subflow:
-                continue
-
-            logger.info(
-                f"{log_prefix} [{stream_name}] 触发 认真水群 (概率={current_subflow.interest_chatting.start_hfc_probability:.2f})"
-            )
-
-            # 执行状态提升
-            await current_subflow.change_chat_state(ChatState.FOCUSED)
-
-            # 验证提升结果
-            if (
-                final_subflow := self.subheartflows.get(flow_id)
-            ) and final_subflow.chat_state.chat_status == ChatState.FOCUSED:
-                current_focused_count += 1
-
-    async def randomly_deactivate_subflows(self, deactivation_probability: float = 0.1):
-        """以一定概率将 FOCUSED 或 CHAT 状态的子心流回退到 ABSENT 状态。"""
-        log_prefix_manager = "[子心流管理器-随机停用]"
-        logger.debug(f"{log_prefix_manager} 开始随机停用检查... (概率: {deactivation_probability:.0%})")
-
-        # 使用快照安全遍历
-        subflows_snapshot = list(self.subheartflows.values())
-        deactivated_count = 0
-
         try:
-            for sub_hf in subflows_snapshot:
+            log_prefix = "[兴趣评估]"
+            # 使用 self.mai_state_info 获取当前状态和限制
+            current_state = self.mai_state_info.get_current_state()
+            focused_limit = current_state.get_focused_chat_max_num()
+            logger.debug(f"{log_prefix} 当前状态 ({current_state.value}) 开始尝试提升到FOCUSED状态")
+
+            if int(time.time()) % 20 == 0:  # 每20秒输出一次
+                logger.debug(f"{log_prefix} 当前状态 ({current_state.value}) 可以在{focused_limit}个群激情聊天")
+
+            if focused_limit <= 0:
+                # logger.debug(f"{log_prefix} 当前状态 ({current_state.value}) 不允许 FOCUSED 子心流")
+                return
+
+            current_focused_count = self.count_subflows_by_state(ChatState.FOCUSED)
+            if current_focused_count >= focused_limit:
+                logger.debug(f"{log_prefix} 已达专注上限 ({current_focused_count}/{focused_limit})")
+                return
+
+            for sub_hf in list(self.subheartflows.values()):
                 flow_id = sub_hf.subheartflow_id
                 stream_name = chat_manager.get_stream_name(flow_id) or flow_id
-                log_prefix_flow = f"[{stream_name}]"
-                current_state = sub_hf.chat_state.chat_status
 
-                # 只处理 FOCUSED 或 CHAT 状态
-                if current_state not in [ChatState.FOCUSED, ChatState.CHAT]:
+                # 跳过非CHAT状态或已经是FOCUSED状态的子心流
+                if sub_hf.chat_state.chat_status == ChatState.FOCUSED:
                     continue
 
-                # 检查随机概率
-                if random.random() < deactivation_probability:
-                    logger.info(
-                        f"{log_prefix_manager} {log_prefix_flow} 随机触发停用 (从 {current_state.value}) -> ABSENT"
-                    )
+                from .mai_state_manager import enable_unlimited_hfc_chat
 
-                    # 获取当前实例以检查最新状态
-                    current_subflow = self.subheartflows.get(flow_id)
-                    if not current_subflow or current_subflow.chat_state.chat_status != current_state:
-                        logger.warning(f"{log_prefix_manager} {log_prefix_flow} 尝试停用时状态已改变或实例消失，跳过。")
+                if not enable_unlimited_hfc_chat:
+                    if sub_hf.chat_state.chat_status != ChatState.CHAT:
                         continue
 
-                    # --- 状态设置 --- #
-                    # 注意：这里传递的状态数量是 *停用前* 的状态数量
-                    await current_subflow.change_chat_state(ChatState.ABSENT)
+                # 检查是否满足提升概率
+                if random.random() >= sub_hf.interest_chatting.start_hfc_probability:
+                    continue
 
-                    # --- 状态验证 (可选) ---
-                    final_subflow = self.subheartflows.get(flow_id)
-                    if final_subflow:
-                        final_state = final_subflow.chat_state.chat_status
-                        if final_state == ChatState.ABSENT:
-                            logger.debug(
-                                f"{log_prefix_manager} {log_prefix_flow} 成功从 {current_state.value} 停用到 ABSENT 状态"
-                            )
-                            deactivated_count += 1
-                        else:
-                            logger.warning(
-                                f"{log_prefix_manager} {log_prefix_flow} 尝试停用到 ABSENT 后状态仍为 {final_state.value}"
-                            )
-                    else:
-                        logger.warning(f"{log_prefix_manager} {log_prefix_flow} 停用后验证时子心流 {flow_id} 消失")
+                # 再次检查是否达到上限
+                if current_focused_count >= focused_limit:
+                    logger.debug(f"{log_prefix} [{stream_name}] 已达专注上限")
+                    break
 
+                # 获取最新状态并执行提升
+                current_subflow = self.subheartflows.get(flow_id)
+                if not current_subflow:
+                    continue
+
+                logger.info(
+                    f"{log_prefix} [{stream_name}] 触发 认真水群 (概率={current_subflow.interest_chatting.start_hfc_probability:.2f})"
+                )
+
+                # 执行状态提升
+                await current_subflow.change_chat_state(ChatState.FOCUSED)
+
+                # 验证提升结果
+                if (
+                    final_subflow := self.subheartflows.get(flow_id)
+                ) and final_subflow.chat_state.chat_status == ChatState.FOCUSED:
+                    current_focused_count += 1
         except Exception as e:
-            logger.error(f"{log_prefix_manager} 随机停用周期出错: {e}", exc_info=True)
-
-        if deactivated_count > 0:
-            logger.info(f"{log_prefix_manager} 随机停用周期结束, 成功停用 {deactivated_count} 个子心流。")
-        else:
-            logger.debug(f"{log_prefix_manager} 随机停用周期结束, 未停用任何子心流。")
+            logger.error(f"启动HFC 兴趣评估失败: {e}", exc_info=True)
 
     async def evaluate_and_transition_subflows_by_llm(self):
         """
         使用LLM评估每个子心流的状态，并根据LLM的判断执行状态转换（ABSENT <-> CHAT）。
         注意：此函数包含对假设的LLM函数的调用。
         """
-        log_prefix = "[LLM状态评估]"
-        logger.info(f"{log_prefix} 开始基于LLM评估子心流状态...")
-
         # 获取当前状态和限制，用于CHAT激活检查
         current_mai_state = self.mai_state_info.get_current_state()
         chat_limit = current_mai_state.get_normal_chat_max_num()
@@ -366,55 +342,67 @@ class SubHeartflowManager:
             current_chat_count = self.count_subflows_by_state_nolock(ChatState.CHAT)
 
             if not subflows_snapshot:
-                logger.info(f"{log_prefix} 当前没有子心流需要评估。")
+                logger.info("当前没有子心流需要评估。")
                 return
 
             for sub_hf in subflows_snapshot:
                 flow_id = sub_hf.subheartflow_id
                 stream_name = chat_manager.get_stream_name(flow_id) or flow_id
+                log_prefix = f"[{stream_name}]"
                 current_subflow_state = sub_hf.chat_state.chat_status
 
-                # --- 获取观察内容 ---
-                # 从 sub_hf.observations 获取 ChattingObservation 并提取信息
                 _observation_summary = "没有可用的观察信息。"  # 默认值
-                try:
-                    # 检查 observations 列表是否存在且不为空
 
-                    # 假设第一个观察者是 ChattingObservation
-                    first_observation = sub_hf.observations[0]
-                    if isinstance(first_observation, ChattingObservation):
-                        # 组合中期记忆和当前聊天内容
-                        current_chat = first_observation.talking_message_str or "当前无聊天内容。"
-                        combined_summary = f"当前聊天内容:\n{current_chat}"
-                    else:
-                        logger.warning(f"{log_prefix} [{stream_name}] 第一个观察者不是 ChattingObservation 类型。")
-
-                except Exception as e:
-                    logger.warning(f"{log_prefix} [{stream_name}] 获取观察信息失败: {e}", exc_info=True)
-                    # 保留默认值或错误信息
-                    combined_summary = f"获取观察信息时出错: {e}"
+                first_observation = sub_hf.observations[0]
+                if isinstance(first_observation, ChattingObservation):
+                    # 组合中期记忆和当前聊天内容
+                    await first_observation.observe()
+                    current_chat = first_observation.talking_message_str or "当前无聊天内容。"
+                    combined_summary = f"当前聊天内容:\n{current_chat}"
+                else:
+                    logger.warning(f"{log_prefix} [{stream_name}] 第一个观察者不是 ChattingObservation 类型。")
 
                 # --- 获取麦麦状态 ---
-                mai_state_description = f"麦麦当前状态: {current_mai_state.value}。"
+                mai_state_description = f"你当前状态: {current_mai_state.value}。"
+
+                # 获取个性化信息
+                individuality = Individuality.get_instance()
+
+                # 构建个性部分
+                prompt_personality = f"你正在扮演名为{individuality.personality.bot_nickname}的人类，你"
+                prompt_personality += individuality.personality.personality_core
+
+                # 随机添加个性侧面
+                if individuality.personality.personality_sides:
+                    random_side = random.choice(individuality.personality.personality_sides)
+                    prompt_personality += f"，{random_side}"
+
+                # 随机添加身份细节
+                if individuality.identity.identity_detail:
+                    random_detail = random.choice(individuality.identity.identity_detail)
+                    prompt_personality += f"，{random_detail}"
 
                 # --- 针对 ABSENT 状态 ---
                 if current_subflow_state == ChatState.ABSENT:
                     # 构建Prompt
                     prompt = (
-                        f"子心流 [{stream_name}] 当前处于非活跃(ABSENT)状态.\n"
+                        f"{prompt_personality}\n"
+                        f"你当前没有在： [{stream_name}] 群中聊天。\n"
                         f"{mai_state_description}\n"
-                        f"最近观察到的内容摘要:\n---\n{combined_summary}\n---\n"
-                        f"基于以上信息，该子心流是否表现出足够的活跃迹象或重要性，"
-                        f"值得将其唤醒并进入常规聊天(CHAT)状态？\n"
-                        f"请以 JSON 格式回答，包含一个键 'decision'，其值为 true 或 false.\n"
-                        f'例如：{{"decision": true}}\n'
+                        f"这个群里最近的聊天内容是:\n---\n{combined_summary}\n---\n"
+                        f"基于以上信息，请判断你是否愿意在这个群开始闲聊，"
+                        f"进入常规聊天(CHAT)状态？\n"
+                        f"给出你的判断，和理由，然后以 JSON 格式回答"
+                        f"包含键 'decision'，如果要开始聊天，值为 true ，否则为 false.\n"
+                        f"包含键 'reason'，其值为你的理由。\n"
+                        f'例如：{{"decision": true, "reason": "因为我想聊天"}}\n'
                         f"请只输出有效的 JSON 对象。"
                     )
 
                     # 调用LLM评估
                     should_activate = await self._llm_evaluate_state_transition(prompt)
                     if should_activate is None:  # 处理解析失败或意外情况
-                        logger.warning(f"{log_prefix} [{stream_name}] LLM评估返回无效结果，跳过。")
+                        logger.warning(f"{log_prefix}LLM评估返回无效结果，跳过。")
                         continue
 
                     if should_activate:
@@ -423,49 +411,50 @@ class SubHeartflowManager:
                         current_chat_count = self.count_subflows_by_state_nolock(ChatState.CHAT)
                         if current_chat_count < chat_limit:
                             logger.info(
-                                f"{log_prefix} [{stream_name}] LLM建议激活到CHAT状态，且未达上限({current_chat_count}/{chat_limit})。正在尝试转换..."
+                                f"{log_prefix}LLM建议激活到CHAT状态，且未达上限({current_chat_count}/{chat_limit})。正在尝试转换..."
                             )
                             await sub_hf.change_chat_state(ChatState.CHAT)
                             if sub_hf.chat_state.chat_status == ChatState.CHAT:
                                 transitioned_to_chat += 1
                             else:
-                                logger.warning(f"{log_prefix} [{stream_name}] 尝试激活到CHAT失败。")
+                                logger.warning(f"{log_prefix}尝试激活到CHAT失败。")
                         else:
                             logger.info(
-                                f"{log_prefix} [{stream_name}] LLM建议激活到CHAT状态，但已达到上限({current_chat_count}/{chat_limit})。跳过转换。"
+                                f"{log_prefix}LLM建议激活到CHAT状态，但已达到上限({current_chat_count}/{chat_limit})。跳过转换。"
                             )
+                    else:
+                        logger.info(f"{log_prefix}LLM建议不激活到CHAT状态。")
 
                 # --- 针对 CHAT 状态 ---
                 elif current_subflow_state == ChatState.CHAT:
                     # 构建Prompt
                     prompt = (
-                        f"子心流 [{stream_name}] 当前处于常规聊天(CHAT)状态.\n"
+                        f"{prompt_personality}\n"
+                        f"你正在在： [{stream_name}] 群中聊天。\n"
                         f"{mai_state_description}\n"
-                        f"最近观察到的内容摘要:\n---\n{combined_summary}\n---\n"
-                        f"基于以上信息，该子心流是否表现出不活跃、对话结束或不再需要关注的迹象，"
-                        f"应该让其进入休眠(ABSENT)状态？\n"
-                        f"请以 JSON 格式回答，包含一个键 'decision'，其值为 true (表示应休眠) 或 false (表示不应休眠).\n"
-                        f'例如：{{"decision": true}}\n'
+                        f"这个群里最近的聊天内容是:\n---\n{combined_summary}\n---\n"
+                        f"基于以上信息，请判断你是否愿意在这个群继续闲聊，"
+                        f"还是暂时离开聊天，进入休眠状态？\n"
+                        f"给出你的判断，和理由，然后以 JSON 格式回答"
+                        f"包含键 'decision'，如果要离开聊天，值为 true ，否则为 false.\n"
+                        f"包含键 'reason'，其值为你的理由。\n"
+                        f'例如：{{"decision": true, "reason": "因为我想休息"}}\n'
                         f"请只输出有效的 JSON 对象。"
                     )
 
                     # 调用LLM评估
                     should_deactivate = await self._llm_evaluate_state_transition(prompt)
                     if should_deactivate is None:  # 处理解析失败或意外情况
-                        logger.warning(f"{log_prefix} [{stream_name}] LLM评估返回无效结果，跳过。")
+                        logger.warning(f"{log_prefix}LLM评估返回无效结果，跳过。")
                         continue
 
                     if should_deactivate:
-                        logger.info(f"{log_prefix} [{stream_name}] LLM建议进入ABSENT状态。正在尝试转换...")
+                        logger.info(f"{log_prefix}LLM建议进入ABSENT状态。正在尝试转换...")
                         await sub_hf.change_chat_state(ChatState.ABSENT)
                         if sub_hf.chat_state.chat_status == ChatState.ABSENT:
                             transitioned_to_absent += 1
-
-        logger.info(
-            f"{log_prefix} LLM评估周期结束。"
-            f" 成功转换到CHAT: {transitioned_to_chat}."
-            f" 成功转换到ABSENT: {transitioned_to_absent}."
-        )
+                    else:
+                        logger.info(f"{log_prefix}LLM建议不进入ABSENT状态。")
 
     async def _llm_evaluate_state_transition(self, prompt: str) -> Optional[bool]:
         """
@@ -482,9 +471,9 @@ class SubHeartflowManager:
         try:
             # --- 真实的 LLM 调用 ---
             response_text, _ = await self.llm_state_evaluator.generate_response_async(prompt)
-            logger.debug(
-                f"{log_prefix} 使用模型 {self.llm_state_evaluator.model_name} 评估，原始响应: ```{response_text}```"
-            )
+            # logger.debug(f"{log_prefix} 使用模型 {self.llm_state_evaluator.model_name} 评估")
+            logger.debug(f"{log_prefix} 原始输入: {prompt}")
+            logger.debug(f"{log_prefix} 原始响应: {response_text}")
 
             # --- 解析 JSON 响应 ---
             try:
@@ -577,3 +566,48 @@ class SubHeartflowManager:
                     logger.error(f"删除 SubHeartflow {subheartflow_id} 时出错: {e}", exc_info=True)
             else:
                 logger.warning(f"尝试删除不存在的 SubHeartflow: {subheartflow_id}")
+
+    # --- 新增：处理 HFC 无回复回调的专用方法 --- #
+    async def _handle_hfc_no_reply(self, subheartflow_id: Any):
+        """处理来自 HeartFChatting 的连续无回复信号 (通过 partial 绑定 ID)"""
+        # 注意：这里不需要再获取锁，因为 request_absent_transition 内部会处理锁
+        logger.debug(f"[管理器 HFC 处理器] 接收到来自 {subheartflow_id} 的 HFC 无回复信号")
+        await self.request_absent_transition(subheartflow_id)
+
+    # --- 结束新增 --- #
+
+    # --- 新增：处理来自 HeartFChatting 的状态转换请求 --- #
+    async def request_absent_transition(self, subflow_id: Any):
+        """
+        接收来自 HeartFChatting 的请求，将特定子心流的状态转换为 ABSENT。
+        通常在连续多次 "no_reply" 后被调用。
+
+        Args:
+            subflow_id: 需要转换状态的子心流 ID。
+        """
+        async with self._lock:
+            subflow = self.subheartflows.get(subflow_id)
+            if not subflow:
+                logger.warning(f"[状态转换请求] 尝试转换不存在的子心流 {subflow_id} 到 ABSENT")
+                return
+
+            stream_name = chat_manager.get_stream_name(subflow_id) or subflow_id
+            current_state = subflow.chat_state.chat_status
+
+            # 仅当子心流处于 FOCUSED 状态时才进行转换
+            # 因为 HeartFChatting 只在 FOCUSED 状态下运行
+            if current_state == ChatState.FOCUSED:
+                logger.info(f"[状态转换请求] 接收到请求，将 {stream_name} (当前: {current_state.value}) 转换为 ABSENT")
+                try:
+                    await subflow.change_chat_state(ChatState.ABSENT)
+                    logger.info(f"[状态转换请求] {stream_name} 状态已成功转换为 ABSENT")
+                except Exception as e:
+                    logger.error(f"[状态转换请求] 转换 {stream_name} 到 ABSENT 时出错: {e}", exc_info=True)
+            elif current_state == ChatState.ABSENT:
+                logger.debug(f"[状态转换请求] {stream_name} 已处于 ABSENT 状态，无需转换")
+            else:
+                logger.warning(
+                    f"[状态转换请求] 收到对 {stream_name} 的请求，但其状态为 {current_state.value} (非 FOCUSED)，不执行转换"
+                )
+
+    # --- 结束新增 --- #

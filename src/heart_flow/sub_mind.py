@@ -103,7 +103,7 @@ class SubMind:
         individuality = Individuality.get_instance()
 
         # 构建个性部分
-        prompt_personality = f"你的名字是{individuality.personality.bot_nickname}，你"
+        prompt_personality = f"你正在扮演名为{individuality.personality.bot_nickname}的人类，你"
         prompt_personality += individuality.personality.personality_core
 
         # 随机添加个性侧面

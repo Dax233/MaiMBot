@@ -2,7 +2,7 @@ from .observation import Observation, ChattingObservation
 import asyncio
 from src.config.config import global_config
 import time
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, Callable, Coroutine
 import traceback
 from src.common.logger import get_module_logger, LogConfig, SUB_HEARTFLOW_STYLE_CONFIG  # noqa: E402
 import random
@@ -14,6 +14,11 @@ from src.plugins.heartFC_chat.normal_chat import NormalChat
 from src.heart_flow.mai_state_manager import MaiStateInfo
 from src.heart_flow.chat_state_info import ChatState, ChatStateInfo
 from src.heart_flow.sub_mind import SubMind
+
+# # --- REMOVE: Conditional import --- #
+# if TYPE_CHECKING:
+#     from src.heart_flow.subheartflow_manager import SubHeartflowManager
+# # --- END REMOVE --- #
 
 
 # 定义常量 (从 interest.py 移动过来)
@@ -234,16 +239,23 @@ class InterestChatting:
 
 
 class SubHeartflow:
-    def __init__(self, subheartflow_id, mai_states: MaiStateInfo):
+    def __init__(
+        self,
+        subheartflow_id,
+        mai_states: MaiStateInfo,
+        hfc_no_reply_callback: Callable[[], Coroutine[None, None, None]],
+    ):
         """子心流初始化函数
 
         Args:
             subheartflow_id: 子心流唯一标识符
-            parent_heartflow: 父级心流实例
+            mai_states: 麦麦状态信息实例
+            hfc_no_reply_callback: HFChatting 连续不回复时触发的回调
         """
         # 基础属性，两个值是一样的
         self.subheartflow_id = subheartflow_id
         self.chat_id = subheartflow_id
+        self.hfc_no_reply_callback = hfc_no_reply_callback
 
         # 麦麦的状态
         self.mai_states = mai_states
@@ -364,12 +376,18 @@ class SubHeartflow:
         # 如果实例不存在，则创建并启动
         logger.info(f"{log_prefix} 枫准备开始专注聊天 (创建新实例)...")
         try:
+            # 创建 HeartFChatting 实例，并传递 从构造函数传入的 回调函数
             self.heart_fc_instance = HeartFChatting(
-                chat_id=self.chat_id, sub_mind=self.sub_mind, observations=self.observations
+                chat_id=self.subheartflow_id,
+                sub_mind=self.sub_mind,
+                observations=self.observations,  # 传递所有观察者
+                on_consecutive_no_reply_callback=self.hfc_no_reply_callback,  # <-- Use stored callback
             )
+
+            # 初始化并启动 HeartFChatting
             if await self.heart_fc_instance._initialize():
-                await self.heart_fc_instance.start()  # 初始化成功后启动循环
-                logger.info(f"{log_prefix} 枫已成功进入专注聊天模式 (新实例已启动)。")
+                await self.heart_fc_instance.start()
+                logger.info(f"{log_prefix} 麦麦已成功进入专注聊天模式 (新实例已启动)。")
                 return True
             else:
                 logger.error(f"{log_prefix} HeartFChatting 初始化失败，无法进入专注模式。")
