@@ -257,7 +257,7 @@ response_language = "Recommend Chinese"
             return "抱歉，我现在有点混乱，让我重新思考一下..."
 
     async def check_reply(
-        self, reply: str, goal: str, chat_history: List[Dict[str, Any]], retry_count: int = 0
+        self, reply: str, goal: str, chat_history: List[Dict[str, Any]], chat_history_str: str, retry_count: int = 0
     ) -> Tuple[bool, str, bool]:
         """检查回复是否合适
 
@@ -269,4 +269,4 @@ response_language = "Recommend Chinese"
         Returns:
             Tuple[bool, str, bool]: (是否合适, 原因, 是否需要重新规划)
         """
-        return await self.reply_checker.check(reply, goal, chat_history, retry_count)
+        return await self.reply_checker.check(reply, goal, chat_history, chat_history_str, retry_count)

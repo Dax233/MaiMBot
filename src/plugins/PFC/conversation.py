@@ -4,6 +4,7 @@ import datetime
 
 # from .message_storage import MongoDBMessageStorage
 from src.plugins.utils.chat_message_builder import build_readable_messages, get_raw_msg_before_timestamp_with_chat
+
 # from ...config.config import global_config
 from typing import Dict, Any
 from ..chat.message import Message
@@ -280,6 +281,7 @@ class Conversation:
                         reply=self.generated_reply,
                         goal=current_goal_str,
                         chat_history=observation_info.chat_history,
+                        chat_history_str=observation_info.chat_history_str,
                         retry_count=reply_attempt_count - 1,  # 传递当前尝试次数（从0开始计数）
                     )
                     logger.info(
@@ -444,7 +446,7 @@ class Conversation:
 
         try:
             # 外层 try: 捕获发送消息和后续处理中的主要错误
-            current_time = time.time()  # 获取当前时间戳
+            _current_time = time.time()  # 获取当前时间戳
             reply_content = self.generated_reply  # 获取要发送的内容
 
             # 发送消息

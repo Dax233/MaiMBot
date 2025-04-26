@@ -404,10 +404,10 @@ class HeartFChatting:
                 return False, ""
 
             # execute:执行
-            with Timer("执行动作", cycle_timers):
-                return await self._handle_action(
-                    action, reasoning, planner_result.get("emoji_query", ""), cycle_timers, planner_start_db_time
-                )
+
+            return await self._handle_action(
+                action, reasoning, planner_result.get("emoji_query", ""), cycle_timers, planner_start_db_time
+            )
 
         except PlannerError as e:
             logger.error(f"{self.log_prefix} 规划错误: {e}")
@@ -560,7 +560,7 @@ class HeartFChatting:
         observation = self.observations[0] if self.observations else None
 
         try:
-            with Timer("Wait New Msg", cycle_timers):
+            with Timer("等待新消息", cycle_timers):
                 return await self._wait_for_new_message(observation, planner_start_db_time, self.log_prefix)
         except asyncio.CancelledError:
             logger.info(f"{self.log_prefix} 等待被中断")
@@ -584,8 +584,8 @@ class HeartFChatting:
                 logger.info(f"{log_prefix} 检测到新消息")
                 return True
 
-            if time.monotonic() - wait_start_time > 300:
-                logger.warning(f"{log_prefix} 等待超时(300秒)")
+            if time.monotonic() - wait_start_time > 120:
+                logger.warning(f"{log_prefix} 等待超时(120秒)")
                 return False
 
             await asyncio.sleep(1.5)
@@ -604,8 +604,6 @@ class HeartFChatting:
     async def _handle_cycle_delay(self, action_taken_this_cycle: bool, cycle_start_time: float, log_prefix: str):
         """处理循环延迟"""
         cycle_duration = time.monotonic() - cycle_start_time
-        # if cycle_duration > 0.1:
-        # logger.debug(f"{log_prefix} HeartFChatting: 周期耗时 {cycle_duration:.2f}s.")
 
         try:
             sleep_duration = 0.0

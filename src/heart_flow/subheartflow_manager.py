@@ -2,6 +2,7 @@ import asyncio
 import time
 import random
 from typing import Dict, Any, Optional, List
+import json  # 导入 json 模块
 
 # 导入日志模块
 from src.common.logger import get_module_logger, LogConfig, SUBHEARTFLOW_MANAGER_STYLE_CONFIG
@@ -400,69 +401,65 @@ class SubHeartflowManager:
                 if current_subflow_state == ChatState.ABSENT:
                     # 构建Prompt
                     prompt = (
-                        f"子心流 [{stream_name}] 当前处于非活跃(ABSENT)状态。\n"
+                        f"子心流 [{stream_name}] 当前处于非活跃(ABSENT)状态.\n"
                         f"{mai_state_description}\n"
                         f"最近观察到的内容摘要:\n---\n{combined_summary}\n---\n"
                         f"基于以上信息，该子心流是否表现出足够的活跃迹象或重要性，"
-                        f"值得将其唤醒并进入常规聊天(CHAT)状态？"
-                        f"请回答 '是' 或 '否'。"
+                        f"值得将其唤醒并进入常规聊天(CHAT)状态？\n"
+                        f"请以 JSON 格式回答，包含一个键 'decision'，其值为 true 或 false.\n"
+                        f'例如：{{"decision": true}}\n'
+                        f"请只输出有效的 JSON 对象。"
                     )
 
                     # 调用LLM评估
-                    try:
-                        # 使用 self._llm_evaluate_state_transition
-                        should_activate = await self._llm_evaluate_state_transition(prompt)
-                        if should_activate:
-                            # 检查CHAT限额
-                            if current_chat_count < chat_limit:
-                                logger.info(
-                                    f"{log_prefix} [{stream_name}] LLM建议激活到CHAT状态，且未达上限({current_chat_count}/{chat_limit})。正在尝试转换..."
-                                )
-                                await sub_hf.change_chat_state(ChatState.CHAT)
-                                if sub_hf.chat_state.chat_status == ChatState.CHAT:
-                                    transitioned_to_chat += 1
-                                    current_chat_count += 1  # 更新计数器
-                                else:
-                                    logger.warning(f"{log_prefix} [{stream_name}] 尝试激活到CHAT失败。")
+                    should_activate = await self._llm_evaluate_state_transition(prompt)
+                    if should_activate is None:  # 处理解析失败或意外情况
+                        logger.warning(f"{log_prefix} [{stream_name}] LLM评估返回无效结果，跳过。")
+                        continue
+
+                    if should_activate:
+                        # 检查CHAT限额
+                        # 使用不上锁的版本，因为我们已经在锁内
+                        current_chat_count = self.count_subflows_by_state_nolock(ChatState.CHAT)
+                        if current_chat_count < chat_limit:
+                            logger.info(
+                                f"{log_prefix} [{stream_name}] LLM建议激活到CHAT状态，且未达上限({current_chat_count}/{chat_limit})。正在尝试转换..."
+                            )
+                            await sub_hf.change_chat_state(ChatState.CHAT)
+                            if sub_hf.chat_state.chat_status == ChatState.CHAT:
+                                transitioned_to_chat += 1
                             else:
-                                logger.info(
-                                    f"{log_prefix} [{stream_name}] LLM建议激活到CHAT状态，但已达到上限({current_chat_count}/{chat_limit})。跳过转换。"
-                                )
-                    except Exception as e:
-                        logger.error(
-                            f"{log_prefix} [{stream_name}] LLM评估或状态转换(ABSENT->CHAT)时出错: {e}", exc_info=True
-                        )
+                                logger.warning(f"{log_prefix} [{stream_name}] 尝试激活到CHAT失败。")
+                        else:
+                            logger.info(
+                                f"{log_prefix} [{stream_name}] LLM建议激活到CHAT状态，但已达到上限({current_chat_count}/{chat_limit})。跳过转换。"
+                            )
 
                 # --- 针对 CHAT 状态 ---
                 elif current_subflow_state == ChatState.CHAT:
                     # 构建Prompt
                     prompt = (
-                        f"子心流 [{stream_name}] 当前处于常规聊天(CHAT)状态。\n"
+                        f"子心流 [{stream_name}] 当前处于常规聊天(CHAT)状态.\n"
                         f"{mai_state_description}\n"
                         f"最近观察到的内容摘要:\n---\n{combined_summary}\n---\n"
                         f"基于以上信息，该子心流是否表现出不活跃、对话结束或不再需要关注的迹象，"
-                        f"应该让其进入休眠(ABSENT)状态？"
-                        f"请回答 '是' 或 '否'。"
+                        f"应该让其进入休眠(ABSENT)状态？\n"
+                        f"请以 JSON 格式回答，包含一个键 'decision'，其值为 true (表示应休眠) 或 false (表示不应休眠).\n"
+                        f'例如：{{"decision": true}}\n'
+                        f"请只输出有效的 JSON 对象。"
                     )
 
                     # 调用LLM评估
-                    try:
-                        # 使用 self._llm_evaluate_state_transition
-                        should_deactivate = await self._llm_evaluate_state_transition(prompt)
-                        if should_deactivate:
-                            logger.info(f"{log_prefix} [{stream_name}] LLM建议进入ABSENT状态。正在尝试转换...")
-                            await sub_hf.change_chat_state(ChatState.ABSENT)
-                            if sub_hf.chat_state.chat_status == ChatState.ABSENT:
-                                transitioned_to_absent += 1
-                                current_chat_count -= 1  # 更新计数器
-                            else:
-                                logger.warning(f"{log_prefix} [{stream_name}] 尝试转换为ABSENT失败。")
-                    except Exception as e:
-                        logger.error(
-                            f"{log_prefix} [{stream_name}] LLM评估或状态转换(CHAT->ABSENT)时出错: {e}", exc_info=True
-                        )
+                    should_deactivate = await self._llm_evaluate_state_transition(prompt)
+                    if should_deactivate is None:  # 处理解析失败或意外情况
+                        logger.warning(f"{log_prefix} [{stream_name}] LLM评估返回无效结果，跳过。")
+                        continue
 
-                # 可以选择性地为 FOCUSED 状态添加评估逻辑，例如判断是否降级回 CHAT 或 ABSENT
+                    if should_deactivate:
+                        logger.info(f"{log_prefix} [{stream_name}] LLM建议进入ABSENT状态。正在尝试转换...")
+                        await sub_hf.change_chat_state(ChatState.ABSENT)
+                        if sub_hf.chat_state.chat_status == ChatState.ABSENT:
+                            transitioned_to_absent += 1
 
         logger.info(
             f"{log_prefix} LLM评估周期结束。"
@@ -470,38 +467,62 @@ class SubHeartflowManager:
             f" 成功转换到ABSENT: {transitioned_to_absent}."
         )
 
-    async def _llm_evaluate_state_transition(self, prompt: str) -> bool:
+    async def _llm_evaluate_state_transition(self, prompt: str) -> Optional[bool]:
         """
-        使用 LLM 评估是否应进行状态转换。
+        使用 LLM 评估是否应进行状态转换，期望 LLM 返回 JSON 格式。
 
         Args:
-            prompt: 提供给 LLM 的提示信息。
+            prompt: 提供给 LLM 的提示信息，要求返回 {"decision": true/false}。
 
         Returns:
-            bool: True 表示应该转换，False 表示不应该转换。
+            Optional[bool]: 如果成功解析 LLM 的 JSON 响应并提取了 'decision' 键的值，则返回该布尔值。
+                        如果 LLM 调用失败、返回无效 JSON 或 JSON 中缺少 'decision' 键或其值不是布尔型，则返回 None。
         """
         log_prefix = "[LLM状态评估]"
         try:
             # --- 真实的 LLM 调用 ---
             response_text, _ = await self.llm_state_evaluator.generate_response_async(prompt)
-            logger.debug(f"{log_prefix} 使用模型 {self.llm_state_evaluator.model_name} 评估，原始响应: {response_text}")
-            # 解析响应 - 这里需要根据你的LLM的确切输出来调整逻辑
-            # 假设 LLM 会明确回答 "是" 或 "否"
-            if response_text and "是" in response_text.strip():
-                logger.debug(f"{log_prefix} LLM评估结果: 建议转换 (响应包含 '是')")
-                return True
-            elif response_text and "否" in response_text.strip():
-                logger.debug(f"{log_prefix} LLM评估结果: 建议不转换 (响应包含 '否')")
-                return False
-            else:
-                logger.warning(f"{log_prefix} LLM 未明确回答 '是' 或 '否'，响应: {response_text}")
-                # 可以设定一个默认行为，例如默认不转换
-                return False
+            logger.debug(
+                f"{log_prefix} 使用模型 {self.llm_state_evaluator.model_name} 评估，原始响应: ```{response_text}```"
+            )
+
+            # --- 解析 JSON 响应 ---
+            try:
+                # 尝试去除可能的Markdown代码块标记
+                cleaned_response = response_text.strip().strip("`").strip()
+                if cleaned_response.startswith("json"):
+                    cleaned_response = cleaned_response[4:].strip()
+
+                data = json.loads(cleaned_response)
+                decision = data.get("decision")  # 使用 .get() 避免 KeyError
+
+                if isinstance(decision, bool):
+                    logger.debug(f"{log_prefix} LLM评估结果 (来自JSON): {'建议转换' if decision else '建议不转换'}")
+                    return decision
+                else:
+                    logger.warning(
+                        f"{log_prefix} LLM 返回的 JSON 中 'decision' 键的值不是布尔型: {decision}。响应: {response_text}"
+                    )
+                    return None  # 值类型不正确
+
+            except json.JSONDecodeError as json_err:
+                logger.warning(f"{log_prefix} LLM 返回的响应不是有效的 JSON: {json_err}。响应: {response_text}")
+                # 尝试在非JSON响应中查找关键词作为后备方案 (可选)
+                if "true" in response_text.lower():
+                    logger.debug(f"{log_prefix} 在非JSON响应中找到 'true'，解释为建议转换")
+                    return True
+                if "false" in response_text.lower():
+                    logger.debug(f"{log_prefix} 在非JSON响应中找到 'false'，解释为建议不转换")
+                    return False
+                return None  # JSON 解析失败，也未找到关键词
+            except Exception as parse_err:  # 捕获其他可能的解析错误
+                logger.warning(f"{log_prefix} 解析 LLM JSON 响应时发生意外错误: {parse_err}。响应: {response_text}")
+                return None
 
         except Exception as e:
-            logger.error(f"{log_prefix} 调用 LLM 进行状态评估时出错: {e}", exc_info=True)
+            logger.error(f"{log_prefix} 调用 LLM 或处理其响应时出错: {e}", exc_info=True)
             traceback.print_exc()
-            return False
+            return None  # LLM 调用或处理失败
 
     def count_subflows_by_state(self, state: ChatState) -> int:
         """统计指定状态的子心流数量"""

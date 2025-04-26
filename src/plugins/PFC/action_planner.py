@@ -149,7 +149,9 @@ class ActionPlanner:
                         timestamp_mode="relative",
                         read_mark=0.0,
                     )
-                    chat_history_text += f"\n--- 以下是 {observation_info.new_messages_count} 条新消息 ---\n{new_messages_str}"
+                    chat_history_text += (
+                        f"\n--- 以下是 {observation_info.new_messages_count} 条新消息 ---\n{new_messages_str}"
+                    )
                     # 清理消息应该由调用者或 observation_info 内部逻辑处理，这里不再调用 clear
                     # if hasattr(observation_info, 'clear_unprocessed_messages'):
                     #    observation_info.clear_unprocessed_messages()
