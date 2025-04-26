@@ -1,7 +1,9 @@
 import time
 import asyncio
 import datetime
-from .message_storage import MongoDBMessageStorage
+
+# from .message_storage import MongoDBMessageStorage
+from src.plugins.utils.chat_message_builder import get_raw_msg_before_timestamp_with_chat
 from ...config.config import global_config
 from typing import Dict, Any
 from ..chat.message import Message
@@ -75,13 +77,10 @@ class Conversation:
             raise
         try:
             logger.info(f"为 {self.stream_id} 加载初始聊天记录...")
-            storage = MongoDBMessageStorage()  # 创建存储实例
-            # 获取当前时间点之前最多 N 条消息 (比如 30 条)
-            # get_messages_before 返回的是按时间正序排列的列表
-            initial_messages = await storage.get_messages_before(
+            initial_messages = await get_raw_msg_before_timestamp_with_chat(  #
                 chat_id=self.stream_id,
-                time_point=time.time(),
-                limit=30,  # 加载最近20条作为初始上下文，可以调整
+                timestamp=time.time(),
+                limit=30,  # 加载最近30条作为初始上下文，可以调整
             )
             if initial_messages:
                 # 将加载的消息填充到 ObservationInfo 的 chat_history

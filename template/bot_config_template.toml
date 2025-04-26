@@ -252,7 +252,7 @@ provider = "SILICONFLOW"
 pri_in = 0
 pri_out = 0
 
-[model.llm_sub_heartflow] #子心流：激情水群时,生成麦麦的内心想法
+[model.llm_sub_heartflow] #子心流：认真水群时,生成麦麦的内心想法
 name = "Qwen/Qwen2.5-72B-Instruct"
 provider = "SILICONFLOW"
 pri_in = 4.13
@@ -260,7 +260,7 @@ pri_out = 4.13
 temp = 0.7 #模型的温度，新V3建议0.1-0.3
 
 
-[model.llm_plan] #决策模型：激情水群时,负责决定麦麦该做什么
+[model.llm_plan] #决策模型：认真水群时,负责决定麦麦该做什么
 name = "Qwen/Qwen2.5-32B-Instruct"
 provider = "SILICONFLOW"
 pri_in = 1.26

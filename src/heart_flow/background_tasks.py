@@ -49,7 +49,6 @@ class BackgroundTaskManager:
         self.update_interval = update_interval
         self.cleanup_interval = cleanup_interval
         self.log_interval = log_interval
-        self.inactive_threshold = inactive_threshold  # For cleanup task
         self.interest_eval_interval = interest_eval_interval  # 存储兴趣评估间隔
         self.random_deactivation_interval = random_deactivation_interval  # 存储随机停用间隔
 
@@ -217,21 +216,33 @@ class BackgroundTaskManager:
                 current_state == self.mai_state_info.mai_status.OFFLINE
                 and previous_status != self.mai_state_info.mai_status.OFFLINE
             ):
-                logger.info("[后台任务] 主状态离线，触发子流停用")
+                logger.info("检测到离线，停用所有子心流")
                 await self.subheartflow_manager.deactivate_all_subflows()
 
     async def _perform_cleanup_work(self):
-        """执行一轮子心流清理操作。"""
-        flows_to_stop = self.subheartflow_manager.cleanup_inactive_subheartflows(self.inactive_threshold)
-        if flows_to_stop:
-            logger.info(f"[Background Task Cleanup] Attempting to stop {len(flows_to_stop)} inactive flows...")
-            stopped_count = 0
-            for flow_id, reason in flows_to_stop:
-                if await self.subheartflow_manager.stop_subheartflow(flow_id, f"定期清理: {reason}"):
-                    stopped_count += 1
-            logger.info(f"[Background Task Cleanup] Cleanup cycle finished. Stopped {stopped_count} inactive flows.")
-        # else:
-        # logger.debug("[Background Task Cleanup] Cleanup cycle finished. No inactive flows found.")
+        """执行子心流清理任务
+        1. 获取需要清理的不活跃子心流列表
+        2. 逐个停止这些子心流
+        3. 记录清理结果
+        """
+        # 获取需要清理的子心流列表(包含ID和原因)
+        flows_to_stop = self.subheartflow_manager.get_inactive_subheartflows()
+
+        if not flows_to_stop:
+            return  # 没有需要清理的子心流直接返回
+
+        logger.info(f"准备删除 {len(flows_to_stop)} 个不活跃(1h)子心流")
+        stopped_count = 0
+
+        # 逐个停止子心流
+        for flow_id in flows_to_stop:
+            success = await self.subheartflow_manager.delete_subflow(flow_id)
+            if success:
+                stopped_count += 1
+                logger.debug(f"[清理任务] 已停止子心流 {flow_id}")
+
+        # 记录最终清理结果
+        logger.info(f"[清理任务] 清理完成, 共停止 {stopped_count}/{len(flows_to_stop)} 个子心流")
 
     async def _perform_logging_work(self):
         """执行一轮状态日志记录。"""

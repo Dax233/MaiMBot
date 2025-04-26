@@ -47,8 +47,8 @@ class Heartflow:
         self.current_state: MaiStateInfo = MaiStateInfo()  # 当前状态信息
         self.mai_state_manager: MaiStateManager = MaiStateManager()  # 状态决策管理器
 
-        # 子心流管理
-        self.subheartflow_manager: SubHeartflowManager = SubHeartflowManager()  # 子心流管理器
+        # 子心流管理 (在初始化时传入 current_state)
+        self.subheartflow_manager: SubHeartflowManager = SubHeartflowManager(self.current_state)
 
         # LLM模型配置
         self.llm_model = LLMRequest(
@@ -75,23 +75,17 @@ class Heartflow:
             inactive_threshold=INACTIVE_THRESHOLD_SECONDS,
         )
 
-    async def create_subheartflow(self, subheartflow_id: Any) -> Optional["SubHeartflow"]:
+    async def get_or_create_subheartflow(self, subheartflow_id: Any) -> Optional["SubHeartflow"]:
         """获取或创建一个新的SubHeartflow实例 - 委托给 SubHeartflowManager"""
-        return await self.subheartflow_manager.create_or_get_subheartflow(subheartflow_id, self.current_state)
-
-    def get_subheartflow(self, subheartflow_id: Any) -> Optional["SubHeartflow"]:
-        """获取指定ID的SubHeartflow实例"""
-        return self.subheartflow_manager.get_subheartflow(subheartflow_id)
-
-    def get_all_subheartflows_streams_ids(self) -> list[Any]:
-        """获取当前所有活跃的子心流的 ID 列表 - 委托给 SubHeartflowManager"""
-        return self.subheartflow_manager.get_all_subheartflows_ids()
+        # 不再需要传入 self.current_state
+        return await self.subheartflow_manager.get_or_create_subheartflow(subheartflow_id)
 
     async def heartflow_start_working(self):
         """启动后台任务"""
         await self.background_task_manager.start_tasks()
         logger.info("[Heartflow] 后台任务已启动")
 
+    # 根本不会用到这个函数吧，那样麦麦直接死了
     async def stop_working(self):
         """停止所有任务和子心流"""
         logger.info("[Heartflow] 正在停止任务和子心流...")

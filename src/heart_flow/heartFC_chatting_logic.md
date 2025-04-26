@@ -118,7 +118,3 @@
     -   是否发生了重新规划 (`replanned`)
     -   详细的响应信息 (`response_info`)，包括生成的文本、表情查询、锚点消息 ID、实际发送的消息 ID 列表以及 `SubMind` 的思考内容。
 -   `HeartFChatting` 维护一个 `_cycle_history` 队列来保存最近的循环记录，方便调试和分析。
-
-## 8. 总结
-
-`HeartFChatting` 通过精密的循环控制、阶段分离（思考、规划、执行）、与 `SubMind` 和 `Observation` 的紧密协作，以及对 `HeartFCSender` 和 `HeartFCGenerator` 等专用组件的依赖，实现了在 FOCUSED 状态下的主动、深入且有状态的对话逻辑。它能够根据上下文和内部思考动态调整回复策略，并通过 `ActionManager` 灵活控制可执行的动作范围。 

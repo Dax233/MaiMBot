@@ -5,7 +5,7 @@ import enum
 class ChatState(enum.Enum):
     ABSENT = "没在看群"
     CHAT = "随便水群"
-    FOCUSED = "激情水群"
+    FOCUSED = "认真水群"
 
 
 class ChatStateInfo:

@@ -13,8 +13,8 @@ mai_state_config = LogConfig(
 logger = get_module_logger("mai_state_manager", config=mai_state_config)
 
 
-enable_unlimited_hfc_chat = True
-# enable_unlimited_hfc_chat = False
+# enable_unlimited_hfc_chat = True
+enable_unlimited_hfc_chat = False
 
 
 class MaiState(enum.Enum):

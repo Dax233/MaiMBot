@@ -216,7 +216,7 @@ class HeartFChatting:
         self.log_prefix = f"[{chat_manager.get_stream_name(self.stream_id) or self.stream_id}]"
 
         self._initialized = True
-        logger.info(f"感觉到了，可以开始激情水群{self.log_prefix} ")
+        logger.info(f"麦麦感觉到了，可以开始认真水群{self.log_prefix} ")
         return True
 
     async def start(self):
@@ -224,7 +224,7 @@ class HeartFChatting:
         启动 HeartFChatting 的主循环。
         注意：调用此方法前必须确保已经成功初始化。
         """
-        logger.info(f"{self.log_prefix} 开始激情水群(HFC)...")
+        logger.info(f"{self.log_prefix} 开始认真水群(HFC)...")
         await self._start_loop_if_needed()
 
     async def _start_loop_if_needed(self):
@@ -247,7 +247,7 @@ class HeartFChatting:
                 pass  # 忽略取消或超时错误
             self._loop_task = None  # 清理旧任务引用
 
-        logger.info(f"{self.log_prefix} 启动激情水群(HFC)主循环...")
+        logger.info(f"{self.log_prefix} 启动认真水群(HFC)主循环...")
         # 创建新的循环任务
         self._loop_task = asyncio.create_task(self._hfc_loop())
         # 添加完成回调
@@ -320,7 +320,7 @@ class HeartFChatting:
                 )
 
         except asyncio.CancelledError:
-            logger.info(f"{self.log_prefix} HeartFChatting: 激情水群(HFC)被取消了")
+            logger.info(f"{self.log_prefix} HeartFChatting: 麦麦的认真水群(HFC)被取消了")
         except Exception as e:
             logger.error(f"{self.log_prefix} HeartFChatting: 意外错误: {e}")
             logger.error(traceback.format_exc())

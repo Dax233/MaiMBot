@@ -1,12 +1,71 @@
 # 心流系统 (Heart Flow System)
 
-## 通俗易懂的工作流程介绍
+## 一条消息是怎么到最终回复的？简明易懂的介绍
 
-心流系统就像一个智能聊天管家，它的工作方式可以这样理解：
+1 接受消息，由HeartHC_processor处理消息，存储消息
 
-心流系统由主控中心(Heartflow)作为大脑协调全局，它通过场景管家(SubHeartflowManager)管理各个聊天场景的"小管家"(SubHeartflow)。当收到消息时，系统会先进行过滤和基础分析（如屏蔽词检查和兴趣度计算），然后将处理好的消息分发给对应场景的小管家。每个小管家会根据当前状态决定回复方式：不参与(ABSENT)时完全不看不回，普通模式(CHAT)进行简单回复，专注模式(FOCUSED)则深入交流。系统会根据聊天活跃度和兴趣度自动调整各场景的参与程度，同时主控中心也能手动调整整体参与度（如在离线、轻度参与和专注聊天之间切换）。整个系统就像一个拥有多个聊天助手的智能管家，能够智能地动态调整参与聊天的深度和范围。
+    1.1 process_message()函数，接受消息
 
-## 1. 系统架构 (System Architecture)
+    1.2 创建消息对应的聊天流(chat_stream)和子心流(sub_heartflow)
+
+    1.3 进行常规消息处理
+
+    1.4 存储消息 store_message()
+
+    1.5 计算兴趣度Interest
+
+    1.6 将消息连同兴趣度，存储到内存中的interest_dict(SubHeartflow的属性)
+
+2 根据 sub_heartflow 的聊天状态，决定后续处理流程
+
+    2a ABSENT状态：不做任何处理
+
+    2b CHAT状态：送入NormalChat 实例
+
+    2c FOCUS状态：送入HeartFChatting 实例
+
+b NormalChat工作方式
+
+    b.1 启动后台任务 _reply_interested_message，持续运行。
+    b.2 该任务轮询 InterestChatting 提供的 interest_dict
+    b.3 对每条消息，结合兴趣度、是否被提及(@)、意愿管理器(WillingManager)计算回复概率。（这部分要改，目前还是用willing计算的，之后要和Interest合并）
+    b.4 若概率通过：
+        b.4.1 创建"思考中"消息 (MessageThinking)。
+        b.4.2 调用 NormalChatGenerator 生成文本回复。
+        b.4.3 通过 message_manager 发送回复 (MessageSending)。
+        b.4.4 可能根据配置和文本内容，额外发送一个匹配的表情包。
+        b.4.5 更新关系值和全局情绪。
+    b.5 处理完成后，从 interest_dict 中移除该消息。
+
+c HeartFChatting工作方式
+
+    c.1 启动主循环 _hfc_loop
+    c.2 每个循环称为一个周期 (Cycle)，执行 think_plan_execute 流程。
+    c.3 Think (思考) 阶段:
+        c.3.1 观察 (Observe): 通过 ChattingObservation，使用 observe() 获取最新的聊天消息。
+        c.3.2 思考 (Think): 调用 SubMind 的 do_thinking_before_reply 方法。
+            c.3.2.1 SubMind 结合观察到的内容、个性、情绪、上周期动作等信息，生成当前的内心想法 (current_mind)。
+            c.3.2.2 在此过程中 SubMind 的LLM可能请求调用工具 (ToolUser) 来获取额外信息或执行操作，结果存储在 structured_info 中。
+    c.4 Plan (规划/决策) 阶段:
+        c.4.1 结合观察到的消息文本、`SubMind` 生成的 `current_mind` 和 `structured_info`、以及 `ActionManager` 提供的可用动作，决定本次周期的行动 (`text_reply`/`emoji_reply`/`no_reply`) 和理由。
+        c.4.2 重新规划检查 (Re-plan Check): 如果在 c.3.1 到 c.4.1 期间检测到新消息，可能(有概率)触发重新执行 c.4.1 决策步骤。
+    c.5 Execute (执行/回复) 阶段:
+        c.5.1 如果决策是 text_reply:
+            c.5.1.1 获取锚点消息。
+            c.5.1.2 通过 HeartFCSender 注册"思考中"状态。
+            c.5.1.3 调用 HeartFCGenerator (gpt_instance) 生成回复文本。
+            c.5.1.4 通过 HeartFCSender 发送回复
+            c.5.1.5 如果规划时指定了表情查询 (emoji_query)，随后发送表情。
+        c.5.2 如果决策是 emoji_reply:
+            c.5.2.1 获取锚点消息。
+            c.5.2.2 通过 HeartFCSender 直接发送匹配查询 (emoji_query) 的表情。
+        c.5.3 如果决策是 no_reply:
+            c.5.3.1 进入等待状态，直到检测到新消息或超时。
+    c.6 循环结束后，记录周期信息 (CycleInfo)，并根据情况进行短暂休眠，防止CPU空转。
+
+
+
+## 1. 一条消息是怎么到最终回复的？复杂细致的介绍
 
 ### 1.1. 主心流 (Heartflow)
 - **文件**: `heartflow.py`
@@ -24,7 +83,7 @@
     - 维护特定场景下的思维状态和聊天流状态 (`ChatState`)。
     - 通过关联的 `Observation` 实例接收和处理信息。
     - 拥有独立的思考 (`SubMind`) 和回复判断能力。
-- **观察者**: 每个子心流可以拥有一个或多个 `Observation` 实例（目前每个子心流仅使用一个 `ChattingObservation`）。
+- **观察者**: 每个子心流可以拥有一个或多个 `Observation` 实例（目前每个子心流仅使用一个 `ChattingObservation`)。
 - **内部结构**:
     - **聊天流状态 (`ChatState`)**: 标记当前子心流的参与模式 (`ABSENT`, `CHAT`, `FOCUSED`)，决定是否观察、回复以及使用何种回复模式。
     - **聊天实例 (`NormalChatInstance` / `HeartFlowChatInstance`)**: 根据 `ChatState` 激活对应的实例来处理聊天逻辑。同一时间只有一个实例处于活动状态。
@@ -42,10 +101,12 @@
 - **文件**: `subheartflow_manager.py`
 - **职责**:
     - 作为 `Heartflow` 的成员变量存在。
+    - **在初始化时接收并持有 `Heartflow` 的 `MaiStateInfo` 实例。**
     - 负责所有 `SubHeartflow` 实例的生命周期管理，包括：
-        - 创建和获取 (`create_or_get_subheartflow`)。
-        - 停止和清理 (`stop_subheartflow`, `cleanup_inactive_subheartflows`)。
-        - 根据 `Heartflow` 的状态和限制条件，激活、停用或调整子心流的状态。
+        - 创建和获取 (`get_or_create_subheartflow`)。
+        - 停止和清理 (`sleep_subheartflow`, `cleanup_inactive_subheartflows`)。
+        - 根据 `Heartflow` 的状态 (`self.mai_state_info`) 和限制条件，激活、停用或调整子心流的状态（例如 `enforce_subheartflow_limits`, `activate_random_subflows_to_chat`, `evaluate_interest_and_promote`）。
+    - **清理机制**: 通过后台任务 (`BackgroundTaskManager`) 定期调用 `cleanup_inactive_subheartflows` 方法，此方法会识别并**删除**那些处于 `ABSENT` 状态超过一小时 (`INACTIVE_THRESHOLD_SECONDS`) 的子心流实例。
 
 ### 1.5. 消息处理与回复流程 (Message Processing vs. Replying Flow)
 - **关注点分离**: 系统严格区分了接收和处理传入消息的流程与决定和生成回复的流程。
@@ -66,14 +127,15 @@
 ### 2.1. Heart Flow 整体控制
 - **控制者**: 主心流 (`Heartflow`)
 - **核心职责**:
-    - 通过其成员 `SubHeartflowManager` 创建和管理子心流。
+    - 通过其成员 `SubHeartflowManager` 创建和管理子心流（**在创建 `SubHeartflowManager` 时会传入自身的 `MaiStateInfo`**）。
     - 通过其成员 `self.current_state: MaiStateInfo` 控制整体行为模式。
     - 管理系统级后台任务。
+    - **注意**: 不再提供直接获取所有子心流 ID (`get_all_subheartflows_streams_ids`) 的公共方法。
 
 ### 2.2. Heart Flow 状态 (`MaiStateInfo`)
 - **定义与管理**: `Heartflow` 持有 `MaiStateInfo` 的实例 (`self.current_state`) 来管理其状态。状态的枚举定义在 `my_state_manager.py` 中的 `MaiState`。
 - **状态及含义**:
-    - `MaiState.OFFLINE` (不在线): 不观察任何群消息，不进行主动交互，仅存储消息。
+    - `MaiState.OFFLINE` (不在线): 不观察任何群消息，不进行主动交互，仅存储消息。当主状态变为 `OFFLINE` 时，`SubHeartflowManager` 会将所有子心流的状态设置为 `ChatState.ABSENT`。
     - `MaiState.PEEKING` (看一眼手机): 有限度地参与聊天（由 `MaiStateInfo` 定义具体的普通/专注群数量限制）。
     - `MaiState.NORMAL_CHAT` (正常看手机): 正常参与聊天，允许 `SubHeartflow` 进入 `CHAT` 或 `FOCUSED` 状态（数量受限）。
     *   `MaiState.FOCUSED_CHAT` (专心看手机): 更积极地参与聊天，通常允许更多或更高优先级的 `FOCUSED` 状态子心流。
@@ -84,21 +146,25 @@
 - **状态及含义**:
     - `ChatState.ABSENT` (不参与/没在看): 初始或停用状态。子心流不观察新信息，不进行思考，也不回复。
     - `ChatState.CHAT` (随便看看/水群): 普通聊天模式。激活 `NormalChatInstance`。
-    *   `ChatState.FOCUSED` (专注/激情水群): 专注聊天模式。激活 `HeartFlowChatInstance`。
+    *   `ChatState.FOCUSED` (专注/认真水群): 专注聊天模式。激活 `HeartFlowChatInstance`。
 - **选择**: 子心流可以根据外部指令（来自 `SubHeartflowManager`）或内部逻辑（未来的扩展）选择进入 `ABSENT` 状态（不回复不观察），或进入 `CHAT` / `FOCUSED` 中的一种回复模式。
 - **状态转换机制** (由 `SubHeartflowManager` 驱动):
-    - **激活 `CHAT`**: 当 `Heartflow` 状态从 `OFFLINE` 变为允许聊天的状态时，`SubHeartflowManager` 会根据限制，选择部分 `ABSENT` 状态的子心流，调用其 `set_chat_state` 方法将其转换为 `CHAT`。
-    - **激活 `FOCUSED`**: `SubHeartflowManager` 会定期评估处于 `CHAT` 状态的子心流的兴趣度 (`InterestChatting.start_hfc_probability`)，若满足条件且未达上限，则调用 `set_chat_state` 将其提升为 `FOCUSED`。
-    - **停用/回退**: `SubHeartflowManager` 可能因 `Heartflow` 状态变化、达到数量限制、长时间不活跃或随机概率等原因，调用 `set_chat_state` 将子心流状态设置为 `ABSENT` 或从 `FOCUSED` 回退到 `CHAT`。
+    - **激活 `CHAT`**: 当 `Heartflow` 状态从 `OFFLINE` 变为允许聊天的状态时，`SubHeartflowManager` 会根据限制（通过 `self.mai_state_info` 获取），选择部分 `ABSENT` 状态的子心流，**检查当前 CHAT 状态数量是否达到上限**，如果未达上限，则调用其 `change_chat_state` 方法将其转换为 `CHAT`。
+    - **激活 `FOCUSED`**: `SubHeartflowManager` 会定期评估处于 `CHAT` 状态的子心流的兴趣度 (`InterestChatting.start_hfc_probability`)，若满足条件且**检查当前 FOCUSED 状态数量未达上限**（通过 `self.mai_state_info` 获取限制），则调用 `change_chat_state` 将其提升为 `FOCUSED`。
+    - **停用/回退**: `SubHeartflowManager` 可能因 `Heartflow` 状态变化、达到数量限制、长时间不活跃或随机概率等原因，调用 `change_chat_state` 将子心流状态设置为 `ABSENT` 或从 `FOCUSED` 回退到 `CHAT`。当子心流进入 `ABSENT` 状态后，如果持续一小时不活跃，才会被后台清理任务删除。
+    - **注意**: `change_chat_state` 方法本身只负责执行状态转换和管理内部聊天实例（`NormalChatInstance`/`HeartFlowChatInstance`），不再进行限额检查。限额检查的责任完全由调用方（即 `SubHeartflowManager` 中的相关方法，这些方法会使用内部存储的 `mai_state_info` 来获取限制）承担。
 
 ## 3. 聊天实例详解 (Chat Instances Explained)
 
 ### 3.1. NormalChatInstance
 - **激活条件**: 对应 `SubHeartflow` 的 `ChatState` 为 `CHAT`。
 - **工作流程**:
-    - 按照系统设定的普通聊天规则处理群消息。
-    - 定期检查新消息。
-    - 对简单询问、闲聊等进行及时回复。
+    - 当 `SubHeartflow` 进入 `CHAT` 状态时，`NormalChatInstance` 会被激活。
+    - 实例启动后，会创建一个后台任务 (`_reply_interested_message`)。
+    - 该任务持续监控由 `InterestChatting` 传入的、具有一定兴趣度的消息列表 (`interest_dict`)。
+    - 对列表中的每条消息，结合是否被提及 (`@`)、消息本身的兴趣度以及当前的回复意愿 (`WillingManager`)，计算出一个回复概率。
+    - 根据计算出的概率随机决定是否对该消息进行回复。
+    - 如果决定回复，则调用 `NormalChatGenerator` 生成回复内容，并可能附带表情包。
 - **行为特点**:
     - 回复相对常规、简单。
     - 不投入过多计算资源。
@@ -122,23 +188,24 @@
 
 1.  **启动**: `Heartflow` 启动，初始化 `MaiStateInfo` (例如 `OFFLINE`) 和 `SubHeartflowManager`。
 2.  **状态变化**: 用户操作或内部逻辑使 `Heartflow` 的 `current_state` 变为 `NORMAL_CHAT`。
-3.  **管理器响应**: `SubHeartflowManager` 检测到状态变化，根据 `NORMAL_CHAT` 的限制，调用 `create_or_get_subheartflow` 获取或创建子心流，并通过 `set_chat_state` 将部分子心流状态从 `ABSENT` 激活为 `CHAT`。
+3.  **管理器响应**: `SubHeartflowManager` 检测到状态变化，根据 `NORMAL_CHAT` 的限制，调用 `get_or_create_subheartflow` 获取或创建子心流，并通过 `change_chat_state` 将部分子心流状态从 `ABSENT` 激活为 `CHAT`。
 4.  **子心流激活**: 被激活的 `SubHeartflow` 启动其 `NormalChatInstance`。
 5.  **信息接收**: 该 `SubHeartflow` 的 `ChattingObservation` 开始从数据库拉取新消息。
 6.  **普通回复**: `NormalChatInstance` 处理观察到的信息，执行普通回复逻辑。
 7.  **兴趣评估**: `SubHeartflowManager` 定期评估该子心流的 `InterestChatting` 状态。
-8.  **提升状态**: 若兴趣度达标且 `Heartflow` 状态允许，`SubHeartflowManager` 调用该子心流的 `set_chat_state` 将其状态提升为 `FOCUSED`。
+8.  **提升状态**: 若兴趣度达标且 `Heartflow` 状态允许，`SubHeartflowManager` 调用该子心流的 `change_chat_state` 将其状态提升为 `FOCUSED`。
 9.  **子心流切换**: `SubHeartflow` 内部停止 `NormalChatInstance`，启动 `HeartFlowChatInstance`。
 10. **专注回复**: `HeartFlowChatInstance` 开始根据其逻辑进行更深入的交互。
-11. **状态回落/停用**: 若 `Heartflow` 状态变为 `OFFLINE`，`SubHeartflowManager` 会调用所有子心流的 `set_chat_state(ChatState.ABSENT)`，使其停止活动。
+11. **状态回落/停用**: 若 `Heartflow` 状态变为 `OFFLINE`，`SubHeartflowManager` 会调用所有活跃子心流的 `change_chat_state(ChatState.ABSENT)`，使其进入 `ABSENT` 状态（它们不会立即被删除，只有在 `ABSENT` 状态持续1小时后才会被清理）。
 
 ## 5. 使用与配置 (Usage and Configuration)
 
 ### 5.1. 使用说明 (Code Examples)
-- **(内部)创建/获取子心流** (由 `SubHeartflowManager` 调用):
+- **(内部)创建/获取子心流** (由 `SubHeartflowManager` 调用, 示例):
   ```python
-  # subheartflow_manager.py
-  new_subflow = SubHeartflow(subheartflow_id, mai_states)
+  # subheartflow_manager.py (get_or_create_subheartflow 内部)
+  # 注意：mai_states 现在是 self.mai_state_info
+  new_subflow = SubHeartflow(subheartflow_id, self.mai_state_info)
   await new_subflow.initialize()
   observation = ChattingObservation(chat_id=subheartflow_id)
   new_subflow.add_observation(observation)
@@ -150,22 +217,7 @@
   ```
 
 ### 5.2. 配置参数 (Key Parameters)
-- `sub_heart_flow_stop_time`: 子心流停止（标记为可清理）的不活跃时间阈值 (似乎由 `SubHeartflowManager.cleanup_inactive_subheartflows` 的参数 `inactive_threshold_seconds` 控制)。
+- `sub_heart_flow_stop_time`: (已废弃，现在由 `INACTIVE_THRESHOLD_SECONDS` in `subheartflow_manager.py` 控制) 子心流在 `ABSENT` 状态持续多久后被后台任务清理，默认为 3600 秒 (1 小时)。
 - `sub_heart_flow_freeze_time`: 子心流冻结时间 (当前文档未明确体现，可能需要审阅代码确认)。
 - `heart_flow_update_interval`: 主心流更新其状态或执行管理操作的频率 (需要审阅 `Heartflow` 代码确认)。
-- `MaiStateInfo` 内的限制: 定义了不同主状态下 `CHAT` 和 `FOCUSED` 子心流的数量上限。
-
-## 6. 注意事项 (Important Notes)
-
-1.  **自动清理**: `SubHeartflowManager` 会定期检查并清理长时间不活跃的子心流。
-2.  **性能平衡**: 主心流执行管理操作的频率（如检查状态、清理、评估兴趣）需要合理配置，以平衡系统性能和响应速度。
-3.  **信息过载**: 单个 `ChattingObservation` 会限制一次性从数据库拉取的消息数量 (`max_now_obs_len`)。
-
-## 7. 待办与未来方向 (TODOs and Future Directions)
-
-*   **更新 "与其他模块的交互" 部分**: 详细说明 `SubHeartflowManager`, `SubHeartflow`, `NormalChatInstance`, `HeartFlowChatInstance` 之间以及与 `MessageManager`, `ResponseGenerator`, `InterestManager` 等外部模块的具体交互。
-*   **明确 `sub_heart_flow_freeze_time`**: 确认该配置项的实际作用和实现位置。
-*   **明确 `heart_flow_update_interval`**: 确认主心流管理循环的实际间隔。
-*   **扩展观察类型**: 实现更多 `Observation` 类型（如私聊、系统事件等）。
-*   **子心流内部状态转换**: 探索允许子心流根据自身思考结果主动请求状态转换的可能性。
-*   **资源管理**: 优化子心流的资源占用和清理策略。
+- `

@@ -246,7 +246,9 @@ class InterestMonitorApp:
                             self.stream_sub_minds[stream_id] = subflow_entry.get("sub_mind", "N/A")
                             self.stream_chat_states[stream_id] = subflow_entry.get("sub_chat_state", "N/A")
                             self.stream_threshold_status[stream_id] = subflow_entry.get("is_above_threshold", False)
-                            self.stream_last_active[stream_id] = subflow_entry.get("last_active_time")  # 存储原始时间戳
+                            self.stream_last_active[stream_id] = subflow_entry.get(
+                                "last_changed_state_time"
+                            )  # 存储原始时间戳
                             self.stream_last_interaction[stream_id] = subflow_entry.get(
                                 "last_interaction_time"
                             )  # 存储原始时间戳

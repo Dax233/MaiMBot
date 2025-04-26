@@ -164,14 +164,13 @@ class NormalChat:
         )
         self.mood_manager.update_mood_from_emotion(emotion, global_config.mood_intensity_factor)
 
-    async def _find_interested_message(self) -> None:
+    async def _reply_interested_message(self) -> None:
         """
         后台任务方法，轮询当前实例关联chat的兴趣消息
         通常由start_monitoring_interest()启动
         """
         while True:
-            await asyncio.sleep(1)  # 每秒检查一次
-
+            await asyncio.sleep(0.5)  # 每秒检查一次
             # 检查任务是否已被取消
             if self._chat_task is None or self._chat_task.cancelled():
                 logger.info(f"[{self.stream_name}] 兴趣监控任务被取消或置空，退出")
@@ -353,36 +352,27 @@ class NormalChat:
     async def start_chat(self):
         """为此 NormalChat 实例关联的 ChatStream 启动聊天任务（如果尚未运行）。"""
         if self._chat_task is None or self._chat_task.done():
-            logger.info(f"[{self.stream_name}] 启动聊天任务...")
-            task = asyncio.create_task(self._find_interested_message())
+            task = asyncio.create_task(self._reply_interested_message())
             task.add_done_callback(lambda t: self._handle_task_completion(t))  # 回调现在是实例方法
             self._chat_task = task
 
-    # 改为实例方法, 移除 stream_id 参数
     def _handle_task_completion(self, task: asyncio.Task):
-        """兴趣监控任务完成时的回调函数。"""
-        # 检查完成的任务是否是当前实例的任务
+        """任务完成回调处理"""
         if task is not self._chat_task:
-            logger.warning(f"[{self.stream_name}] 收到一个未知或过时任务的完成回调。")
+            logger.warning(f"[{self.stream_name}] 收到未知任务回调")
             return
-
         try:
-            # 检查任务是否因异常而结束
-            exception = task.exception()
-            if exception:
-                logger.error(f"[{self.stream_name}] 兴趣监控任务因异常结束: {exception}")
-                logger.error(traceback.format_exc())  # 记录完整的 traceback
-            # else: # 减少日志
-            # logger.info(f"[{self.stream_name}] 兴趣监控任务正常结束。")
+            if exc := task.exception():
+                logger.error(f"[{self.stream_name}] 任务异常: {exc}")
+                logger.error(traceback.format_exc())
         except asyncio.CancelledError:
-            logger.info(f"[{self.stream_name}] 兴趣监控任务被取消。")
+            logger.info(f"[{self.stream_name}] 任务已取消")
         except Exception as e:
-            logger.error(f"[{self.stream_name}] 处理任务完成回调时出错: {e}")
+            logger.error(f"[{self.stream_name}] 回调处理错误: {e}")
         finally:
-            # 标记任务已完成/移除
-            if self._chat_task is task:  # 再次确认是当前任务
+            if self._chat_task is task:
                 self._chat_task = None
-                logger.debug(f"[{self.stream_name}] 聊天任务已被标记为完成/移除。")
+                logger.debug(f"[{self.stream_name}] 任务清理完成")
 
     # 改为实例方法, 移除 stream_id 参数
     async def stop_chat(self):
