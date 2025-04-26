@@ -550,6 +550,7 @@ class DirectMessageSender:
         # 发送消息
         try:
             await self.send_via_ws(message)
+            await self.storage.store_message(message, chat_stream)
             logger.success(f"PFC消息已发送: {content}")
         except Exception as e:
             logger.error(f"PFC消息发送失败: {str(e)}")

@@ -3,7 +3,7 @@ import asyncio
 import datetime
 
 # from .message_storage import MongoDBMessageStorage
-from src.plugins.utils.chat_message_builder import get_raw_msg_before_timestamp_with_chat
+from src.plugins.utils.chat_message_builder import build_readable_messages, get_raw_msg_before_timestamp_with_chat
 from ...config.config import global_config
 from typing import Dict, Any
 from ..chat.message import Message
@@ -81,6 +81,13 @@ class Conversation:
                 chat_id=self.stream_id,
                 timestamp=time.time(),
                 limit=30,  # 加载最近30条作为初始上下文，可以调整
+            )
+            chat_talking_prompt = await build_readable_messages(
+                initial_messages,
+                replace_bot_name=True,
+                merge_messages=False,
+                timestamp_mode="relative",
+                read_mark=0.0,
             )
             if initial_messages:
                 # 将加载的消息填充到 ObservationInfo 的 chat_history
@@ -441,37 +448,6 @@ class Conversation:
 
             # 发送消息
             await self.direct_sender.send_message(chat_stream=self.chat_stream, content=reply_content)
-            logger.info(f"消息已发送: {reply_content}")  # 可以在发送后加个日志确认
-
-            # --- 添加的立即更新状态逻辑开始 ---
-            try:
-                # 内层 try: 专门捕获手动更新状态时可能出现的错误
-                # 创建一个代表刚刚发送的消息的字典
-                bot_message_info = {
-                    "message_id": f"bot_sent_{current_time}",  # 创建一个简单的唯一ID
-                    "time": current_time,
-                    "user_info": UserInfo(  # 使用 UserInfo 类构建用户信息
-                        user_id=str(global_config.BOT_QQ),
-                        user_nickname=global_config.BOT_NICKNAME,
-                        platform=self.chat_stream.platform,  # 从 chat_stream 获取平台信息
-                    ).to_dict(),  # 转换为字典格式存储
-                    "processed_plain_text": reply_content,  # 使用发送的内容
-                    "detailed_plain_text": f"{int(current_time)},{global_config.BOT_NICKNAME}:{reply_content}",  # 构造一个简单的详细文本, 时间戳取整
-                    # 可以根据需要添加其他字段，保持与 observation_info.chat_history 中其他消息结构一致
-                }
-
-                # 直接更新 ObservationInfo 实例
-                if self.observation_info:
-                    self.observation_info.chat_history.append(bot_message_info)  # 将消息添加到历史记录末尾
-                    self.observation_info.last_bot_speak_time = current_time  # 更新 Bot 最后发言时间
-                    self.observation_info.last_message_time = current_time  # 更新最后消息时间
-                    logger.debug("已手动将Bot发送的消息添加到 ObservationInfo")
-                else:
-                    logger.warning("无法手动更新 ObservationInfo：实例不存在")
-
-            except Exception as update_err:
-                logger.error(f"手动更新 ObservationInfo 时出错: {update_err}")
-            # --- 添加的立即更新状态逻辑结束 ---
 
             # 原有的触发更新和等待代码
             self.chat_observer.trigger_update()
