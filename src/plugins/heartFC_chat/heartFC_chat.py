@@ -320,7 +320,7 @@ class HeartFChatting:
                 )
 
         except asyncio.CancelledError:
-            logger.info(f"{self.log_prefix} HeartFChatting: 麦麦的激情水群(HFC)被取消了")
+            logger.info(f"{self.log_prefix} HeartFChatting: 激情水群(HFC)被取消了")
         except Exception as e:
             logger.error(f"{self.log_prefix} HeartFChatting: 意外错误: {e}")
             logger.error(traceback.format_exc())
@@ -385,7 +385,7 @@ class HeartFChatting:
             # 在获取规划结果后检查新消息
             if await self._check_new_messages(planner_start_db_time):
                 if random.random() < 0.3:
-                    logger.info(f"{self.log_prefix} 看到了新消息，麦麦决定重新观察和规划...")
+                    logger.info(f"{self.log_prefix} 看到了新消息，决定重新观察和规划...")
                     # 重新规划
                     with Timer("重新决策", cycle_timers):
                         self._current_cycle.replanned = True
