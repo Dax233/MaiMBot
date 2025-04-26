@@ -5,13 +5,14 @@ from ...config.config import global_config
 from ..chat.message import MessageRecv
 from ..storage.storage import MessageStorage
 from ..chat.utils import is_mentioned_bot_in_message
-from ..message import Seg
+from maim_message import Seg
 from src.heart_flow.heartflow import heartflow
 from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
 from ..chat.chat_stream import chat_manager
 from ..chat.message_buffer import message_buffer
-from ..utils.timer_calculater import Timer
+from ..utils.timer_calculator import Timer
 from src.plugins.person_info.relationship_manager import relationship_manager
+from typing import Optional, Tuple
 
 # 定义日志配置
 processor_config = LogConfig(
@@ -22,45 +23,115 @@ logger = get_module_logger("heartflow_processor", config=processor_config)
 
 
 class HeartFCProcessor:
+    """心流处理器，负责处理接收到的消息并计算兴趣度"""
+
     def __init__(self):
+        """初始化心流处理器，创建消息存储实例"""
         self.storage = MessageStorage()
 
-    async def process_message(self, message_data: str) -> None:
-        """处理接收到的原始消息数据，完成消息解析、缓冲、过滤、存储、兴趣度计算与更新等核心流程。
-
-        此函数是消息处理的核心入口，负责接收原始字符串格式的消息数据，并将其转化为结构化的 `MessageRecv` 对象。
-        主要执行步骤包括：
-        1. 解析 `message_data` 为 `MessageRecv` 对象，提取用户信息、群组信息等。
-        2. 将消息加入 `message_buffer` 进行缓冲处理，以应对消息轰炸或者某些人一条消息分几次发等情况。
-        3. 获取或创建对应的 `chat_stream` 和 `subheartflow` 实例，用于管理会话状态和心流。
-        4. 对消息内容进行初步处理（如提取纯文本）。
-        5. 应用全局配置中的过滤词和正则表达式，过滤不符合规则的消息。
-        6. 查询消息缓冲结果，如果消息被缓冲器拦截（例如，判断为消息轰炸的一部分），则中止后续处理。
-        7. 对于通过缓冲的消息，将其存储到 `MessageStorage` 中。
-
-        8. 调用海马体（`HippocampusManager`）计算消息内容的记忆激活率。（这部分算法后续会进行优化）
-        9. 根据是否被提及（@）和记忆激活率，计算最终的兴趣度增量。(提及的额外兴趣增幅)
-        10. 使用计算出的增量更新 `InterestManager` 中对应会话的兴趣度。
-        11. 记录处理后的消息信息及当前的兴趣度到日志。
-
-        注意：此函数本身不负责生成和发送回复。回复的决策和生成逻辑被移至 `HeartFC_Chat` 类中的监控任务，
-        该任务会根据 `InterestManager` 中的兴趣度变化来决定何时触发回复。
+    async def _handle_error(self, error: Exception, context: str, message: Optional[MessageRecv] = None) -> None:
+        """统一的错误处理函数
 
         Args:
-            message_data: str: 从消息源接收到的原始消息字符串。
+            error: 捕获到的异常
+            context: 错误发生的上下文描述
+            message: 可选的消息对象，用于记录相关消息内容
         """
-        timing_results = {}  # 初始化 timing_results
+        logger.error(f"{context}: {error}")
+        logger.error(traceback.format_exc())
+        if message and hasattr(message, "raw_message"):
+            logger.error(f"相关消息原始内容: {message.raw_message}")
+
+    async def _process_relationship(self, message: MessageRecv) -> None:
+        """处理用户关系逻辑
+
+        Args:
+            message: 消息对象，包含用户信息
+        """
+        platform = message.message_info.platform
+        user_id = message.message_info.user_info.user_id
+        nickname = message.message_info.user_info.user_nickname
+        cardname = message.message_info.user_info.user_cardname or nickname
+
+        is_known = await relationship_manager.is_known_some_one(platform, user_id)
+
+        if not is_known:
+            logger.info(f"首次认识用户: {nickname}")
+            await relationship_manager.first_knowing_some_one(platform, user_id, nickname, cardname, "")
+        elif not await relationship_manager.is_qved_name(platform, user_id):
+            logger.info(f"给用户({nickname},{cardname})取名: {nickname}")
+            await relationship_manager.first_knowing_some_one(platform, user_id, nickname, cardname, "")
+
+    async def _calculate_interest(self, message: MessageRecv) -> Tuple[float, bool]:
+        """计算消息的兴趣度
+
+        Args:
+            message: 待处理的消息对象
+
+        Returns:
+            Tuple[float, bool]: (兴趣度, 是否被提及)
+        """
+        is_mentioned, _ = is_mentioned_bot_in_message(message)
+        interested_rate = 0.0
+
+        with Timer("记忆激活"):
+            interested_rate = await HippocampusManager.get_instance().get_activate_from_text(
+                message.processed_plain_text,
+                fast_retrieval=True,
+            )
+            logger.trace(f"记忆激活率: {interested_rate:.2f}")
+
+        if is_mentioned:
+            interest_increase_on_mention = 1
+            interested_rate += interest_increase_on_mention
+
+        return interested_rate, is_mentioned
+
+    def _get_message_type(self, message: MessageRecv) -> str:
+        """获取消息类型
+
+        Args:
+            message: 消息对象
+
+        Returns:
+            str: 消息类型
+        """
+        if message.message_segment.type != "seglist":
+            return message.message_segment.type
+
+        if (
+            isinstance(message.message_segment.data, list)
+            and all(isinstance(x, Seg) for x in message.message_segment.data)
+            and len(message.message_segment.data) == 1
+        ):
+            return message.message_segment.data[0].type
+
+        return "seglist"
+
+    async def process_message(self, message_data: str) -> None:
+        """处理接收到的原始消息数据
+
+        主要流程:
+        1. 消息解析与初始化
+        2. 消息缓冲处理
+        3. 过滤检查
+        4. 兴趣度计算
+        5. 关系处理
+
+        Args:
+            message_data: 原始消息字符串
+        """
         message = None
         try:
+            # 1. 消息解析与初始化
             message = MessageRecv(message_data)
             groupinfo = message.message_info.group_info
             userinfo = message.message_info.user_info
             messageinfo = message.message_info
 
-            # 消息加入缓冲池
+            # 2. 消息缓冲与流程序化
             await message_buffer.start_caching_messages(message)
 
-            # 创建聊天流
             chat = await chat_manager.get_or_create_stream(
                 platform=messageinfo.platform,
                 user_info=userinfo,
@@ -68,147 +139,87 @@ class HeartFCProcessor:
             )
 
             subheartflow = await heartflow.create_subheartflow(chat.stream_id)
-
             message.update_chat_stream(chat)
-
-            await heartflow.create_subheartflow(chat.stream_id)
-
             await message.process()
-            logger.trace(f"消息处理成功: {message.processed_plain_text}")
 
-            # 过滤词/正则表达式过滤
+            # 3. 过滤检查
             if self._check_ban_words(message.processed_plain_text, chat, userinfo) or self._check_ban_regex(
                 message.raw_message, chat, userinfo
             ):
                 return
 
-            # 查询缓冲器结果
+            # 4. 缓冲检查
             buffer_result = await message_buffer.query_buffer_result(message)
-
-            # 处理缓冲器结果 (Bombing logic)
             if not buffer_result:
-                f_type = "seglist"
-                if message.message_segment.type != "seglist":
-                    f_type = message.message_segment.type
-                else:
-                    if (
-                        isinstance(message.message_segment.data, list)
-                        and all(isinstance(x, Seg) for x in message.message_segment.data)
-                        and len(message.message_segment.data) == 1
-                    ):
-                        f_type = message.message_segment.data[0].type
-                if f_type == "text":
-                    logger.debug(f"触发缓冲，消息：{message.processed_plain_text}")
-                elif f_type == "image":
-                    logger.debug("触发缓冲，表情包/图片等待中")
-                elif f_type == "seglist":
-                    logger.debug("触发缓冲，消息列表等待中")
-                return  # 被缓冲器拦截，不生成回复
-
-            # ---- 只有通过缓冲的消息才进行存储和后续处理 ----
-
-            # 存储消息 (使用可能被缓冲器更新过的 message)
-            try:
-                await self.storage.store_message(message, chat)
-                logger.trace(f"存储成功 (通过缓冲后): {message.processed_plain_text}")
-            except Exception as e:
-                logger.error(f"存储消息失败: {e}")
-                logger.error(traceback.format_exc())
-                # 存储失败可能仍需考虑是否继续，暂时返回
+                msg_type = self._get_message_type(message)
+                type_messages = {
+                    "text": f"触发缓冲，消息：{message.processed_plain_text}",
+                    "image": "触发缓冲，表情包/图片等待中",
+                    "seglist": "触发缓冲，消息列表等待中",
+                }
+                logger.debug(type_messages.get(msg_type, "触发未知类型缓冲"))
                 return
 
-            # 激活度计算 (使用可能被缓冲器更新过的 message.processed_plain_text)
-            is_mentioned, _ = is_mentioned_bot_in_message(message)
-            interested_rate = 0.0  # 默认值
-            try:
-                with Timer("记忆激活", timing_results):
-                    interested_rate = await HippocampusManager.get_instance().get_activate_from_text(
-                        message.processed_plain_text,
-                        fast_retrieval=True,  # 使用更新后的文本
-                    )
-                logger.trace(f"记忆激活率 (通过缓冲后): {interested_rate:.2f}")
-            except Exception as e:
-                logger.error(f"计算记忆激活率失败: {e}")
-                logger.error(traceback.format_exc())
+            # 5. 消息存储
+            await self.storage.store_message(message, chat)
+            logger.trace(f"存储成功: {message.processed_plain_text}")
 
-            # --- 修改：兴趣度更新逻辑 --- #
-            if is_mentioned:
-                interest_increase_on_mention = 1
-                mentioned_boost = interest_increase_on_mention  # 从配置获取提及增加值
-                interested_rate += mentioned_boost
-
-            # 更新兴趣度 (调用 SubHeartflow 的方法)
+            # 6. 兴趣度计算与更新
+            interested_rate, is_mentioned = await self._calculate_interest(message)
             current_time = time.time()
             await subheartflow.interest_chatting.increase_interest(current_time, value=interested_rate)
-
-            # 添加到 SubHeartflow 的 interest_dict，给normal_chat处理
             await subheartflow.add_interest_dict_entry(message, interested_rate, is_mentioned)
 
-            # 打印消息接收和处理信息
+            # 7. 日志记录
             mes_name = chat.group_info.group_name if chat.group_info else "私聊"
-            current_time = time.strftime("%H:%M:%S", time.localtime(message.message_info.time))
+            current_time = time.strftime("%H点%M分%S秒", time.localtime(message.message_info.time))
             logger.info(
                 f"[{current_time}][{mes_name}]"
-                f"{message.message_info.user_info.user_nickname}:"
+                f"{userinfo.user_nickname}:"
                 f"{message.processed_plain_text}"
                 f"[兴趣度: {interested_rate:.2f}]"
             )
 
-            try:
-                is_known = await relationship_manager.is_known_some_one(
-                    message.message_info.platform, message.message_info.user_info.user_id
-                )
-                if not is_known:
-                    logger.info(f"首次认识用户: {message.message_info.user_info.user_nickname}")
-                    await relationship_manager.first_knowing_some_one(
-                        message.message_info.platform,
-                        message.message_info.user_info.user_id,
-                        message.message_info.user_info.user_nickname,
-                        message.message_info.user_info.user_cardname or message.message_info.user_info.user_nickname,
-                        "",
-                    )
-                else:
-                    # logger.debug(f"已认识用户: {message.message_info.user_info.user_nickname}")
-                    if not await relationship_manager.is_qved_name(
-                        message.message_info.platform, message.message_info.user_info.user_id
-                    ):
-                        logger.info(f"更新已认识但未取名的用户: {message.message_info.user_info.user_nickname}")
-                        await relationship_manager.first_knowing_some_one(
-                            message.message_info.platform,
-                            message.message_info.user_info.user_id,
-                            message.message_info.user_info.user_nickname,
-                            message.message_info.user_info.user_cardname
-                            or message.message_info.user_info.user_nickname,
-                            "",
-                        )
-            except Exception as e:
-                logger.error(f"处理认识关系失败: {e}")
-                logger.error(traceback.format_exc())
+            # 8. 关系处理
+            await self._process_relationship(message)
 
         except Exception as e:
-            logger.error(f"消息处理失败 (process_message V3): {e}")
-            logger.error(traceback.format_exc())
-            if message:  # 记录失败的消息内容
-                logger.error(f"失败消息原始内容: {message.raw_message}")
+            await self._handle_error(e, "消息处理失败", message)
 
     def _check_ban_words(self, text: str, chat, userinfo) -> bool:
-        """检查消息中是否包含过滤词"""
+        """检查消息是否包含过滤词
+
+        Args:
+            text: 待检查的文本
+            chat: 聊天对象
+            userinfo: 用户信息
+
+        Returns:
+            bool: 是否包含过滤词
+        """
         for word in global_config.ban_words:
             if word in text:
-                logger.info(
-                    f"[{chat.group_info.group_name if chat.group_info else '私聊'}]{userinfo.user_nickname}:{text}"
-                )
+                chat_name = chat.group_info.group_name if chat.group_info else "私聊"
+                logger.info(f"[{chat_name}]{userinfo.user_nickname}:{text}")
                 logger.info(f"[过滤词识别]消息中含有{word}，filtered")
                 return True
         return False
 
     def _check_ban_regex(self, text: str, chat, userinfo) -> bool:
-        """检查消息是否匹配过滤正则表达式"""
+        """检查消息是否匹配过滤正则表达式
+
+        Args:
+            text: 待检查的文本
+            chat: 聊天对象
+            userinfo: 用户信息
+
+        Returns:
+            bool: 是否匹配过滤正则
+        """
         for pattern in global_config.ban_msgs_regex:
             if pattern.search(text):
-                logger.info(
-                    f"[{chat.group_info.group_name if chat.group_info else '私聊'}]{userinfo.user_nickname}:{text}"
-                )
+                chat_name = chat.group_info.group_name if chat.group_info else "私聊"
+                logger.info(f"[{chat_name}]{userinfo.user_nickname}:{text}")
                 logger.info(f"[正则表达式过滤]消息匹配到{pattern}，filtered")
                 return True
         return False

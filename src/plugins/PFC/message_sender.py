@@ -2,7 +2,7 @@ from typing import Optional
 from src.common.logger import get_module_logger
 from ..chat.chat_stream import ChatStream
 from ..chat.message import Message
-from ..message.message_base import Seg
+from maim_message import Seg
 from src.plugins.chat.message import MessageSending, MessageSet
 from src.plugins.chat.message_sender import message_manager
 

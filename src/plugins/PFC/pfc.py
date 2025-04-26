@@ -6,7 +6,7 @@ import datetime
 from typing import List, Optional, Tuple, TYPE_CHECKING
 from src.common.logger import get_module_logger
 from ..chat.chat_stream import ChatStream
-from ..message.message_base import UserInfo, Seg
+from maim_message import UserInfo, Seg
 from ..chat.message import Message
 from ..models.utils_model import LLMRequest
 from ...config.config import global_config
@@ -545,22 +545,11 @@ class DirectMessageSender:
         # 处理消息
         await message.process()
 
-        message_json = message.to_dict()
+        _message_json = message.to_dict()
 
         # 发送消息
         try:
-            end_point = global_config.api_urls.get(message.message_info.platform, None)
-            if end_point:
-                # logger.info(f"发送消息到{end_point}")
-                # logger.info(message_json)
-                try:
-                    await global_api.send_message_REST(end_point, message_json)
-                except Exception as e:
-                    logger.error(f"REST方式发送失败，出现错误: {str(e)}")
-                    logger.info("尝试使用ws发送")
-                    await self.send_via_ws(message)
-            else:
-                await self.send_via_ws(message)
+            await self.send_via_ws(message)
             logger.success(f"PFC消息已发送: {content}")
         except Exception as e:
             logger.error(f"PFC消息发送失败: {str(e)}")

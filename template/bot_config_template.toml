@@ -1,5 +1,5 @@
 [inner]
-version = "1.4.2"
+version = "1.5.0"
 
 #----以下是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 #如果你想要修改配置文件，请在修改后将version的值进行变更
@@ -81,12 +81,8 @@ model_normal_probability = 0.3 # 麦麦回答时选择一般模型 模型的概�
 reply_trigger_threshold = 3.0 # 心流聊天触发阈值，越低越容易进入心流聊天
 probability_decay_factor_per_second = 0.2 # 概率衰减因子，越大衰减越快，越高越容易退出心流聊天
 default_decay_rate_per_second = 0.98 # 默认衰减率，越大衰减越快，越高越难进入心流聊天
-initial_duration = 60 # 初始持续时间，越大心流聊天持续的时间越长
 
 sub_heart_flow_stop_time = 500 # 子心流停止时间，超过这个时间没有回复，子心流会停止，间隔 单位秒
-# sub_heart_flow_update_interval = 60 
-# sub_heart_flow_freeze_time = 100 
-# heart_flow_update_interval = 600 
 
 observation_context_size = 20 # 心流观察到的最长上下文大小，超过这个值的上下文会被压缩
 compressed_length = 5 # 不能大于observation_context_size,心流上下文压缩的最短压缩长度，超过心流观察到的上下文长度，会压缩，最短压缩长度为5
@@ -122,16 +118,12 @@ mentioned_bot_inevitable_reply = false # 提及 bot 必然回复
 at_bot_inevitable_reply = false # @bot 必然回复
 
 [emoji]
-max_emoji_num = 90 # 表情包最大数量
+max_emoji_num = 40 # 表情包最大数量
 max_reach_deletion = true # 开启则在达到最大数量时删除表情包，关闭则达到最大数量时不删除，只是不会继续收集表情包
-check_interval = 30 # 检查表情包（注册，破损，删除）的时间间隔(分钟)
-
-auto_save = true  # 是否保存表情包和图片
-
+check_interval = 10 # 检查表情包（注册，破损，删除）的时间间隔(分钟)
 save_pic = false # 是否保存图片
 save_emoji = false # 是否保存表情包
 steal_emoji = true # 是否偷取表情包，让麦麦可以发送她保存的这些表情包
-
 enable_check = false  # 是否启用表情包过滤，只有符合该要求的表情包才会被保存
 check_prompt = "符合公序良俗" # 表情包过滤要求，只有符合该要求的表情包才会被保存
 
@@ -185,6 +177,7 @@ word_replace_rate=0.006 # 整词替换概率
 enable_response_splitter = true # 是否启用回复分割器
 response_max_length = 256 # 回复允许的最大长度
 response_max_sentence_num = 4 # 回复允许的最大句子数
+enable_kaomoji_protection = false # 是否启用颜文字保护
 
 [remote] #发送统计信息，主要是看全球有多少只麦麦
 enable = true
@@ -250,6 +243,29 @@ provider = "SILICONFLOW"
 pri_in = 0.35
 pri_out = 0.35
 
+
+
+[model.llm_observation] #观察模型，压缩聊天内容，建议用免费的
+# name = "Pro/Qwen/Qwen2.5-7B-Instruct"
+name = "Qwen/Qwen2.5-7B-Instruct"
+provider = "SILICONFLOW"
+pri_in = 0
+pri_out = 0
+
+[model.llm_sub_heartflow] #子心流：激情水群时,生成麦麦的内心想法
+name = "Qwen/Qwen2.5-72B-Instruct"
+provider = "SILICONFLOW"
+pri_in = 4.13
+pri_out = 4.13
+temp = 0.7 #模型的温度，新V3建议0.1-0.3
+
+
+[model.llm_plan] #决策模型：激情水群时,负责决定麦麦该做什么
+name = "Qwen/Qwen2.5-32B-Instruct"
+provider = "SILICONFLOW"
+pri_in = 1.26
+pri_out = 1.26
+
 #嵌入模型
 
 [model.embedding] #嵌入
@@ -258,26 +274,6 @@ provider = "SILICONFLOW"
 pri_in = 0
 pri_out = 0
 
-[model.llm_observation] #观察模型，建议用免费的：建议使用qwen2.5 7b
-# name = "Pro/Qwen/Qwen2.5-7B-Instruct"
-name = "Qwen/Qwen2.5-7B-Instruct"
-provider = "SILICONFLOW"
-pri_in = 0
-pri_out = 0
-
-[model.llm_sub_heartflow] #子心流：建议使用V3级别
-name = "Pro/deepseek-ai/DeepSeek-V3"
-provider = "SILICONFLOW"
-pri_in = 2
-pri_out = 8
-temp = 0.2 #模型的温度，新V3建议0.1-0.3
-
-[model.llm_heartflow] #心流：建议使用qwen2.5 32b
-# name = "Pro/Qwen/Qwen2.5-7B-Instruct"
-name = "Qwen/Qwen2.5-32B-Instruct"
-provider = "SILICONFLOW"
-pri_in = 1.26
-pri_out = 1.26
 
 #私聊PFC：需要开启PFC功能，默认三个模型均为硅基流动v3，如果需要支持多人同时私聊或频繁调用，建议把其中的一个或两个换成官方v3或其它模型，以免撞到429
 
@@ -303,3 +299,14 @@ name = "Pro/deepseek-ai/DeepSeek-V3"
 provider = "SILICONFLOW"
 pri_in = 2
 pri_out = 8
+
+
+#此模型暂时没有使用！！
+#此模型暂时没有使用！！
+#此模型暂时没有使用！！
+[model.llm_heartflow] #心流
+# name = "Pro/Qwen/Qwen2.5-7B-Instruct"
+name = "Qwen/Qwen2.5-32B-Instruct"
+provider = "SILICONFLOW"
+pri_in = 1.26
+pri_out = 1.26

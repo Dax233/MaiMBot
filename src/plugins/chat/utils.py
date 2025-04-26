@@ -12,7 +12,7 @@ from ..models.utils_model import LLMRequest
 from ..utils.typo_generator import ChineseTypoGenerator
 from ...config.config import global_config
 from .message import MessageRecv, Message
-from ..message.message_base import UserInfo
+from maim_message import UserInfo
 from .chat_stream import ChatStream
 from ..moods.moods import MoodManager
 from ...common.database import db
@@ -372,8 +372,12 @@ def random_remove_punctuation(text: str) -> str:
 
 def process_llm_response(text: str) -> List[str]:
     # 先保护颜文字
-    protected_text, kaomoji_mapping = protect_kaomoji(text)
-    logger.trace(f"保护颜文字后的文本: {protected_text}")
+    if global_config.enable_kaomoji_protection:
+        protected_text, kaomoji_mapping = protect_kaomoji(text)
+        logger.trace(f"保护颜文字后的文本: {protected_text}")
+    else:
+        protected_text = text
+        kaomoji_mapping = {}
     # 提取被 () 或 [] 包裹且包含中文的内容
     pattern = re.compile(r"[\(\[\（](?=.*[\u4e00-\u9fff]).*?[\)\]\）]")
     # _extracted_contents = pattern.findall(text)
@@ -426,9 +430,8 @@ def process_llm_response(text: str) -> List[str]:
     #         sentences.append(content)
 
     # 在所有句子处理完毕后，对包含占位符的列表进行恢复
-    sentences = recover_kaomoji(sentences, kaomoji_mapping)
-
-    # print(sentences)
+    if global_config.enable_kaomoji_protection:
+        sentences = recover_kaomoji(sentences, kaomoji_mapping)
 
     return sentences
 

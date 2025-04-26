@@ -1,7 +1,7 @@
 # Programmable Friendly Conversationalist
 # Prefrontal cortex
 from typing import List, Optional, Dict, Any, Set
-from ..message.message_base import UserInfo
+from maim_message import UserInfo
 import time
 from dataclasses import dataclass, field
 from src.common.logger import get_module_logger

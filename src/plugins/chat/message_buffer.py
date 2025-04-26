@@ -3,7 +3,7 @@ from src.common.logger import get_module_logger
 import asyncio
 from dataclasses import dataclass, field
 from .message import MessageRecv
-from ..message.message_base import BaseMessageInfo, GroupInfo, Seg
+from maim_message import BaseMessageInfo, GroupInfo
 import hashlib
 from typing import Dict
 from collections import OrderedDict
@@ -128,58 +128,67 @@ class MessageBuffer:
             if result:
                 async with self.lock:  # 再次加锁
                     # 清理所有早于当前消息的已处理消息， 收集所有早于当前消息的F消息的processed_plain_text
-                    keep_msgs = OrderedDict()
-                    combined_text = []
-                    found = False
-                    type = "seglist"
-                    is_update = True
-                    for msg_id, msg in self.buffer_pool[person_id_].items():
+                    keep_msgs = OrderedDict()  # 用于存放 T 消息之后的消息
+                    collected_texts = []  # 用于收集 T 消息及之前 F 消息的文本
+                    process_target_found = False
+
+                    # 遍历当前用户的所有缓冲消息
+                    for msg_id, cache_msg in self.buffer_pool[person_id_].items():
+                        # 如果找到了目标处理消息 (T 状态)
                         if msg_id == message.message_info.message_id:
-                            found = True
-                            if msg.message.message_segment.type != "seglist":
-                                type = msg.message.message_segment.type
-                            else:
-                                if (
-                                    isinstance(msg.message.message_segment.data, list)
-                                    and all(isinstance(x, Seg) for x in msg.message.message_segment.data)
-                                    and len(msg.message.message_segment.data) == 1
-                                ):
-                                    type = msg.message.message_segment.data[0].type
-                            combined_text.append(msg.message.processed_plain_text)
-                            continue
-                        if found:
-                            keep_msgs[msg_id] = msg
-                        elif msg.result == "F":
-                            # 收集F消息的文本内容
-                            f_type = "seglist"
-                            if msg.message.message_segment.type != "seglist":
-                                f_type = msg.message.message_segment.type
-                            else:
-                                if (
-                                    isinstance(msg.message.message_segment.data, list)
-                                    and all(isinstance(x, Seg) for x in msg.message.message_segment.data)
-                                    and len(msg.message.message_segment.data) == 1
-                                ):
-                                    f_type = msg.message.message_segment.data[0].type
-                            if hasattr(msg.message, "processed_plain_text") and msg.message.processed_plain_text:
-                                if f_type == "text":
-                                    combined_text.append(msg.message.processed_plain_text)
-                                elif f_type != "text":
-                                    is_update = False
-                        elif msg.result == "U":
-                            logger.debug(f"异常未处理信息id： {msg.message.message_info.message_id}")
+                            process_target_found = True
+                            # 收集这条 T 消息的文本 (如果有)
+                            if (
+                                hasattr(cache_msg.message, "processed_plain_text")
+                                and cache_msg.message.processed_plain_text
+                            ):
+                                collected_texts.append(cache_msg.message.processed_plain_text)
+                            # 不立即放入 keep_msgs，因为它之前的 F 消息也处理完了
 
-                    # 更新当前消息的processed_plain_text
-                    if combined_text and combined_text[0] != message.processed_plain_text and is_update:
-                        if type == "text":
-                            message.processed_plain_text = "，".join(combined_text)
-                            logger.debug(f"整合了{len(combined_text) - 1}条F消息的内容到当前消息")
-                        elif type == "emoji":
-                            combined_text.pop()
-                            message.processed_plain_text = "，".join(combined_text)
-                            message.is_emoji = False
-                            logger.debug(f"整合了{len(combined_text) - 1}条F消息的内容，覆盖当前emoji消息")
+                        # 如果已经找到了目标 T 消息，之后的消息需要保留
+                        elif process_target_found:
+                            keep_msgs[msg_id] = cache_msg
 
+                        # 如果还没找到目标 T 消息，说明是之前的消息 (F 或 U)
+                        else:
+                            if cache_msg.result == "F":
+                                # 收集这条 F 消息的文本 (如果有)
+                                if (
+                                    hasattr(cache_msg.message, "processed_plain_text")
+                                    and cache_msg.message.processed_plain_text
+                                ):
+                                    collected_texts.append(cache_msg.message.processed_plain_text)
+                            elif cache_msg.result == "U":
+                                # 理论上不应该在 T 消息之前还有 U 消息，记录日志
+                                logger.warning(
+                                    f"异常状态：在目标 T 消息 {message.message_info.message_id} 之前发现未处理的 U 消息 {cache_msg.message.message_info.message_id}"
+                                )
+                                # 也可以选择收集其文本
+                                if (
+                                    hasattr(cache_msg.message, "processed_plain_text")
+                                    and cache_msg.message.processed_plain_text
+                                ):
+                                    collected_texts.append(cache_msg.message.processed_plain_text)
+
+                    # 更新当前消息 (message) 的 processed_plain_text
+                    # 只有在收集到的文本多于一条，或者只有一条但与原始文本不同时才合并
+                    if collected_texts:
+                        # 使用 OrderedDict 去重，同时保留原始顺序
+                        unique_texts = list(OrderedDict.fromkeys(collected_texts))
+                        merged_text = "，".join(unique_texts)
+
+                        # 只有在合并后的文本与原始文本不同时才更新
+                        # 并且确保不是空合并
+                        if merged_text and merged_text != message.processed_plain_text:
+                            message.processed_plain_text = merged_text
+                            # 如果合并了文本，原消息不再视为纯 emoji
+                            if hasattr(message, "is_emoji"):
+                                message.is_emoji = False
+                            logger.debug(
+                                f"合并了 {len(unique_texts)} 条消息的文本内容到当前消息 {message.message_info.message_id}"
+                            )
+
+                    # 更新缓冲池，只保留 T 消息之后的消息
                     self.buffer_pool[person_id_] = keep_msgs
             return result
         except asyncio.TimeoutError:

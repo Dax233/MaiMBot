@@ -5,7 +5,7 @@ from ...config.config import global_config
 from ..chat.message import MessageThinking
 from .heartflow_prompt_builder import prompt_builder
 from ..chat.utils import process_llm_response
-from ..utils.timer_calculater import Timer
+from ..utils.timer_calculator import Timer
 from src.common.logger import get_module_logger, LogConfig, LLM_STYLE_CONFIG
 from src.plugins.respon_info_catcher.info_catcher import info_catcher_manager
 

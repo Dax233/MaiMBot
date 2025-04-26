@@ -7,7 +7,7 @@ import urllib3
 from src.common.logger import get_module_logger
 from .chat_stream import ChatStream
 from .utils_image import image_manager
-from ..message.message_base import Seg, UserInfo, BaseMessageInfo, MessageBase
+from maim_message import Seg, UserInfo, BaseMessageInfo, MessageBase
 
 logger = get_module_logger("chat_message")
 

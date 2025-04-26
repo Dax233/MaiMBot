@@ -326,7 +326,7 @@ response_language = "Recommend Chinese"
                         "timestamp": timestamp,
                     }
                     db.images.update_one({"hash": image_hash}, {"$set": image_doc}, upsert=True)
-                    logger.success(f"保存表情包: {file_path}")
+                    logger.trace(f"保存表情包: {file_path}")
                 except Exception as e:
                     logger.error(f"保存表情包文件失败: {str(e)}")
 

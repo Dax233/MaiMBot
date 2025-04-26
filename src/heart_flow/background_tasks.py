@@ -230,8 +230,8 @@ class BackgroundTaskManager:
                 if await self.subheartflow_manager.stop_subheartflow(flow_id, f"定期清理: {reason}"):
                     stopped_count += 1
             logger.info(f"[Background Task Cleanup] Cleanup cycle finished. Stopped {stopped_count} inactive flows.")
-        else:
-            logger.debug("[Background Task Cleanup] Cleanup cycle finished. No inactive flows found.")
+        # else:
+        # logger.debug("[Background Task Cleanup] Cleanup cycle finished. No inactive flows found.")
 
     async def _perform_logging_work(self):
         """执行一轮状态日志记录。"""

@@ -163,13 +163,13 @@ MOOD_STYLE_CONFIG = {
         "console_format": (
             "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
             "<level>{level: <8}</level> | "
-            "<light-green>心情</light-green> | "
+            "<magenta>心情</magenta> | "
             "<level>{message}</level>"
         ),
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 心情 | {message}",
     },
     "simple": {
-        "console_format": "<level>{time:MM-DD HH:mm}</level> | <magenta>心情</magenta> | {message}",
+        "console_format": "<level>{time:MM-DD HH:mm}</level> | <magenta>心情 | {message} </magenta>",
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 心情 | {message}",
     },
 }
@@ -315,15 +315,13 @@ CHAT_STYLE_CONFIG = {
         "console_format": (
             "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
             "<level>{level: <8}</level> | "
-            "<light-blue>见闻</light-blue> | "
+            "<green>见闻</green> | "
             "<level>{message}</level>"
         ),
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 见闻 | {message}",
     },
     "simple": {
-        "console_format": (
-            "<level>{time:MM-DD HH:mm}</level> | <light-blue>见闻</light-blue> | <green>{message}</green>"
-        ),  # noqa: E501
+        "console_format": ("<level>{time:MM-DD HH:mm}</level> | <green>见闻</green> | <green>{message}</green>"),  # noqa: E501
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 见闻 | {message}",
     },
 }
@@ -403,7 +401,7 @@ SUBHEARTFLOW_MANAGER_STYLE_CONFIG = {
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の水群[管理] | {message}",
     },
     "simple": {
-        "console_format": ("<level>{time:MM-DD HH:mm}</level> | <fg #3399FF>枫の水群[管理] | {message}</fg #3399FF>"),  # noqa: E501
+        "console_format": ("<level>{time:MM-DD HH:mm}</level> | <fg #005BA2>枫の水群[管理] | {message}</fg #005BA2>"),  # noqa: E501
         "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 枫の水群[管理] | {message}",
     },
 }
