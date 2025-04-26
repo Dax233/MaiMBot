@@ -116,7 +116,7 @@ class GoalAnalyzer:
         action_history_text = "你之前做的事情是："
         for action in action_history_list:
             action_history_text += f"{action}\n"
-        print(f"chat_history_text:\n{chat_history_text}")
+
         prompt = """
 ## Base Configuration
 mode = "assistant" #default as creative assistant
@@ -362,7 +362,7 @@ response_language = "Recommend Chinese"
 
         persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"
         # ===> Persona 文本构建结束 <===
-        print(f"analyze_conversation_chat_history_text:\n{chat_history_text}")
+
         # --- 修改 Prompt 字符串，使用 persona_text ---
         prompt = """
 ## Base Configuration

@@ -131,7 +131,7 @@ class ReplyGenerator:
                     )
                 elif action_status == "done":
                     action_history_text += f"你之前做了：{action_type}，原因：{action_reason}\n"
-        print(f"chat_history_text:\n{chat_history_text}")
+
         prompt = """
 ## Base Configuration
 mode = "assistant" #default as creative assistant
