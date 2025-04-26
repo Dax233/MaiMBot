@@ -227,7 +227,7 @@ response_language = "Recommend Chinese"
         prompt += f"你昨天的日程是：{self.yesterday_schedule_text}\n"
         prompt += f"请为你生成{date_str}（{weekday}），也就是今天的日程安排，结合你的个人特点和行为习惯以及昨天的安排\n"
         prompt += "推测你的日程安排，包括你一天都在做什么，从起床到睡眠，有什么发现和思考，具体一些，详细一些，需要1500字以上，精确到每半个小时，记得写明时间\n"  # noqa: E501
-        prompt += "直接返回你的日程，现实一点，不要浮夸，从起床到睡觉，不要输出其他内容："
+        prompt += "直接返回你的日程，现实一点，不要浮夸，从起床到睡觉，以第一人称视角，仅需返回你的日程，不要输出其他内容："
         return prompt
 
     def construct_doing_prompt(self, time: datetime.datetime, mind_thinking: str = ""):
