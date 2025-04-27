@@ -288,7 +288,7 @@ class Conversation:
                 # 2. 检查回复
                 self.state = ConversationState.CHECKING
                 try:
-                    current_goal_str = conversation_info.goal_list[0][0] if conversation_info.goal_list else ""
+                    current_goal_str = conversation_info.goal_list[0]["goal"] if conversation_info.goal_list else ""
                     # 注意：这里传递的是 reply_attempt_count - 1 作为 retry_count 给 checker
                     is_suitable, check_reason, need_replan = await self.reply_generator.check_reply(
                         reply=self.generated_reply,
