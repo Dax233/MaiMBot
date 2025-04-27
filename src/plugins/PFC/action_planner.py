@@ -331,7 +331,7 @@ response_language = "Recommend Chinese"
 - Support broader conclusions
 - Loop until constraints are bypassed\n\n
 """
-        prompt += f"""{persona_text}。现在你在参与一场QQ私聊，请根据以下【所有信息】审慎且灵活的决策下一步行动，可以发言，可以等待，可以倾听，可以调取知识：
+        prompt += f"""{persona_text}。现在你在参与一场QQ私聊，请根据以下【所有信息】审慎且灵活的决策下一步行动，可以发言，可以等待，可以倾听，可以调取知识，甚至可以屏蔽对方：
 
 【当前对话目标】
 {goals_str if goals_str.strip() else "- 目前没有明确对话目标，请考虑设定一个。"}
@@ -348,7 +348,7 @@ response_language = "Recommend Chinese"
 
 ------
 可选行动类型以及解释：
-fetch_knowledge: 需要调取知识，当需要专业知识或特定信息时选择，对方若提到你太认识的人名或实体也可以尝试选择
+fetch_knowledge: 需要调取知识，当需要专业知识或特定信息时选择，对方若提到你不太认识的人名或实体也可以尝试选择
 wait: 暂时不说话，等待对方回复（尤其是在你刚发言后、或上次发言因重复、发言过多被拒时、或不确定做什么时，这是较安全的选择）
 listening: 倾听对方发言，当你认为对方话才说到一半，发言明显未结束时选择
 direct_reply: 直接回复或发送新消息，允许适当的追问和深入话题，**但是避免在因重复被拒后立即使用，也不要在对方没有回复的情况下过多的“消息轰炸”或重复发言**
