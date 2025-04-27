@@ -165,7 +165,7 @@ class Conversation:
                 else:
                     logger.warning("ObservationInfo missing 'new_messages_count' after planning.")
 
-                if current_new_message_count > initial_new_message_count:
+                if current_new_message_count > initial_new_message_count + 2:
                     logger.info(
                         f"规划期间发现新增消息 ({initial_new_message_count} -> {current_new_message_count})，跳过本次行动，重新规划"
                     )
@@ -223,7 +223,7 @@ class Conversation:
             logger.warning("ObservationInfo 未初始化或缺少 'new_messages_count' 属性，无法检查新消息。")
             return False # 或者根据需要抛出错误
 
-        if self.observation_info.new_messages_count > 0:
+        if self.observation_info.new_messages_count > 2:
             logger.info(f"生成/执行动作期间收到 {self.observation_info.new_messages_count} 条新消息，取消当前动作并重新规划")
             # 如果有新消息，也应该重置上次回复状态
             if hasattr(self, 'conversation_info'): # 确保 conversation_info 已初始化

@@ -21,7 +21,7 @@ logger = get_module_logger("action_planner", config=pfc_action_log_config)
 # --- 定义 Prompt 模板 ---
 
 # Prompt(1): 首次回复或非连续回复时的决策 Prompt
-PROMPT_INITIAL_REPLY = """{persona_text}。现在你在参与一场QQ私聊，请根据以下【所有信息】审慎且灵活的决策下一步行动，可以发言，可以等待，可以倾听，可以调取知识，甚至可以屏蔽对方：
+PROMPT_INITIAL_REPLY = """{persona_text}。现在你在参与一场QQ私聊，请根据以下【所有信息】审慎且灵活的决策下一步行动，可以回复，可以倾听，可以调取知识，甚至可以屏蔽对方：
 
 【当前对话目标】
 {goals_str}
@@ -38,7 +38,6 @@ PROMPT_INITIAL_REPLY = """{persona_text}。现在你在参与一场QQ私聊，�
 ------
 可选行动类型以及解释：
 fetch_knowledge: 需要调取知识，当需要专业知识或特定信息时选择，对方若提到你不太认识的人名或实体也可以尝试选择
-wait: 暂时不说话，等待对方回复（尤其是在你刚发言后、或上次发言因重复、发言过多被拒时、或不确定做什么时，这是较安全的选择）
 listening: 倾听对方发言，当你认为对方话才说到一半，发言明显未结束时选择
 direct_reply: 直接回复对方
 rethink_goal: 重新思考对话目标，当发现对话目标不再适用或对话卡住时选择，注意私聊的环境是灵活的，有可能需要经常选择
@@ -71,7 +70,7 @@ PROMPT_FOLLOW_UP = """{persona_text}。现在你在参与一场QQ私聊，刚刚
 ------
 可选行动类型以及解释：
 fetch_knowledge: 需要调取知识，当需要专业知识或特定信息时选择，对方若提到你不太认识的人名或实体也可以尝试选择
-wait: 暂时不说话，等待对方回复（尤其是在你刚发言后、或上次发言因重复、发言过多被拒时、或不确定做什么时，这是不错的选择）
+wait: 暂时不说话，留给对方交互空间，等待对方回复（尤其是在你刚发言后、或上次发言因重复、发言过多被拒时、或不确定做什么时，这是不错的选择）
 listening: 倾听对方发言（虽然你刚发过言，但如果对方立刻回复且明显话没说完，可以选择这个）
 send_new_message: 发送一条新消息继续对话，允许适当的追问、补充、深入话题，或开启相关新话题。**但是避免在因重复被拒后立即使用，也不要在对方没有回复的情况下过多的“消息轰炸”或重复发言**
 rethink_goal: 重新思考对话目标，当发现对话目标不再适用或对话卡住时选择，注意私聊的环境是灵活的，有可能需要经常选择
@@ -155,9 +154,9 @@ class ActionPlanner:
                     if isinstance(last_goal_text, str) and "分钟，思考接下来要做什么" in last_goal_text:
                         try:
                             timeout_minutes_text = last_goal_text.split("，")[0].replace("你等待了", "")
-                            timeout_context = f"重要提示：你刚刚因为对方长时间（{timeout_minutes_text}）没有回复而结束了等待，这可能代表在对方看来本次聊天已结束，请基于此情况规划下一步，不要重复等待前的发言。\n"
+                            timeout_context = f"重要提示：对方已经长时间（{timeout_minutes_text}）没有回复你的消息了（这可能代表对方繁忙/不想回复/没注意到你的消息等情况，或在对方看来本次聊天已告一段落），请基于此情况规划下一步。\n"
                         except Exception:
-                            timeout_context = "重要提示：你刚刚因为对方长时间没有回复而结束了等待，这可能代表在对方看来本次聊天已结束，请基于此情况规划下一步，不要重复等待前的发言。\n"
+                            timeout_context = "重要提示：对方已经长时间没有回复你的消息了（这可能代表对方繁忙/不想回复/没注意到你的消息等情况，或在对方看来本次聊天已告一段落），请基于此情况规划下一步。\n"
             else:
                 logger.debug("Conversation info goal_list is empty or not available for timeout check.")
         except AttributeError:
