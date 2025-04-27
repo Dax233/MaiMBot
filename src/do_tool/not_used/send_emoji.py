@@ -10,7 +10,7 @@ class SendEmojiTool(BaseTool):
     """发送表情包的工具"""
 
     name = "send_emoji"
-    description = "当你觉得文字不足以描述，迫切需要表达情感，或者帮助表达时候时，可以使用这个工具发送表情包"
+    description = "只有当你觉得此刻应有极大的情绪，且非常有必要发送标签辅助表达时，才可以使用这个工具发送表情包"
     parameters = {
         "type": "object",
         "properties": {"text": {"type": "string", "description": "要发送的表情包描述"}},

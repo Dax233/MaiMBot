@@ -112,7 +112,7 @@ class ActionManager:
                             "reasoning": {"type": "string", "description": "做出此决定的简要理由。"},
                             "emoji_query": {
                                 "type": "string",
-                                "description": "如果行动是'emoji_reply'，指定表情的主题或概念。如果行动是'text_reply'且希望在文本后追加表情，也在此指定表情主题。",
+                                "description": "如果行动是'emoji_reply'，指定表情的主题或概念。如果行动是'text_reply'且情绪激动，认为非常有必要在文本后追加表情的情况下，也可在此指定表情主题",
                             },
                         },
                         "required": ["action", "reasoning"],
