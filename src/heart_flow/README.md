@@ -141,6 +141,7 @@ c HeartFChatting工作方式
     - `MaiState.PEEKING` (看一眼手机): 有限度地参与聊天（由 `MaiStateInfo` 定义具体的普通/专注群数量限制）。
     - `MaiState.NORMAL_CHAT` (正常看手机): 正常参与聊天，允许 `SubHeartflow` 进入 `CHAT` 或 `FOCUSED` 状态（数量受限）。
     *   `MaiState.FOCUSED_CHAT` (专心看手机): 更积极地参与聊天，通常允许更多或更高优先级的 `FOCUSED` 状态子心流。
+- **当前转换逻辑**: 目前，`MaiState` 之间的转换由 `MaiStateManager` 管理，主要基于状态持续时间和随机概率。这是一种临时的实现方式，未来计划进行改进。
 - **作用**: `Heartflow` 的状态直接影响 `SubHeartflowManager` 如何管理子心流（如激活数量、允许的状态等）。
 
 ### 2.3. 聊天流状态 (`ChatState`) 与转换
@@ -150,11 +151,31 @@ c HeartFChatting工作方式
     - `ChatState.CHAT` (随便看看/水群): 普通聊天模式。激活 `NormalChatInstance`。
     *   `ChatState.FOCUSED` (专注/认真水群): 专注聊天模式。激活 `HeartFlowChatInstance`。
 - **选择**: 子心流可以根据外部指令（来自 `SubHeartflowManager`）或内部逻辑（未来的扩展）选择进入 `ABSENT` 状态（不回复不观察），或进入 `CHAT` / `FOCUSED` 中的一种回复模式。
-- **状态转换机制** (由 `SubHeartflowManager` 驱动):
-    - **激活 `CHAT`**: 当 `Heartflow` 状态从 `OFFLINE` 变为允许聊天的状态时，`SubHeartflowManager` 会根据限制（通过 `self.mai_state_info` 获取），选择部分 `ABSENT` 状态的子心流，**检查当前 CHAT 状态数量是否达到上限**，如果未达上限，则调用其 `change_chat_state` 方法将其转换为 `CHAT`。此外，`evaluate_and_transition_subflows_by_llm` 方法也会根据 LLM 的判断，在未达上限时将 `ABSENT` 状态的子心流激活为 `CHAT`。
-    - **激活 `FOCUSED`**: `SubHeartflowManager` 会定期评估处于 `CHAT` 状态的子心流的兴趣度 (`InterestChatting.start_hfc_probability`)，若满足条件且**检查当前 FOCUSED 状态数量未达上限**（通过 `self.mai_state_info` 获取限制），则调用 `change_chat_state` 将其提升为 `FOCUSED`。
-    - **停用/回退**: `SubHeartflowManager` 可能因 `Heartflow` 状态变化、达到数量限制、长时间不活跃、随机概率 (`randomly_deactivate_subflows`)、LLM 评估 (`evaluate_and_transition_subflows_by_llm` 判断 `CHAT` 状态子心流应休眠) 或收到来自 `HeartFChatting` 的连续不回复回调信号 (`request_absent_transition`) 等原因，调用 `change_chat_state` 将子心流状态设置为 `ABSENT` 或从 `FOCUSED` 回退到 `CHAT`。当子心流进入 `ABSENT` 状态后，如果持续一小时不活跃，才会被后台清理任务删除。
-    - **注意**: `change_chat_state` 方法本身只负责执行状态转换和管理内部聊天实例（`NormalChatInstance`/`HeartFlowChatInstance`），不再进行限额检查。限额检查的责任完全由调用方（即 `SubHeartflowManager` 中的相关方法，这些方法会使用内部存储的 `mai_state_info` 来获取限制）承担。
+- **状态转换机制** (由 `SubHeartflowManager` 驱动，更细致的说明):
+    - **初始状态**: 新创建的 `SubHeartflow` 默认为 `ABSENT` 状态。
+    - **`ABSENT` -> `CHAT` (激活闲聊)**:
+        - **触发条件**: `Heartflow` 的主状态 (`MaiState`) 允许 `CHAT` 模式，且当前 `CHAT` 状态的子心流数量未达上限。
+        - **判定机制**: `SubHeartflowManager` 中的 `evaluate_and_transition_subflows_by_llm` 方法调用大模型(LLM)。LLM 读取该群聊的近期内容和结合自身个性信息，判断是否"想"在该群开始聊天。
+        - **执行**: 若 LLM 判断为是，且名额未满，`SubHeartflowManager` 调用 `change_chat_state(ChatState.CHAT)`。
+    - **`CHAT` -> `FOCUSED` (激活专注)**:
+        - **触发条件**: 子心流处于 `CHAT` 状态，其内部维护的"开屎热聊"概率 (`InterestChatting.start_hfc_probability`) 达到预设阈值（表示对当前聊天兴趣浓厚），同时 `Heartflow` 的主状态允许 `FOCUSED` 模式，且 `FOCUSED` 名额未满。
+        - **判定机制**: `SubHeartflowManager` 中的 `evaluate_interest_and_promote` 方法定期检查满足条件的 `CHAT` 子心流。
+        - **执行**: 若满足所有条件，`SubHeartflowManager` 调用 `change_chat_state(ChatState.FOCUSED)`。
+        - **注意**: 无法从 `ABSENT` 直接跳到 `FOCUSED`，必须先经过 `CHAT`。
+    - **`FOCUSED` -> `ABSENT` (退出专注)**:
+        - **主要途径 (内部驱动)**: 在 `FOCUSED` 状态下运行的 `HeartFlowChatInstance` 连续多次决策为 `no_reply` (例如达到 5 次，次数可配)，它会通过回调函数 (`request_absent_transition`) 请求 `SubHeartflowManager` 将其状态**直接**设置为 `ABSENT`。
+        - **其他途径 (外部驱动)**:
+            - `Heartflow` 主状态变为 `OFFLINE`，`SubHeartflowManager` 强制所有子心流变为 `ABSENT`。
+            - `SubHeartflowManager` 因 `FOCUSED` 名额超限 (`enforce_subheartflow_limits`) 或随机停用 (`randomly_deactivate_subflows`) 而将其设置为 `ABSENT`。
+    - **`CHAT` -> `ABSENT` (退出闲聊)**:
+        - **主要途径 (内部驱动)**: `SubHeartflowManager` 中的 `evaluate_and_transition_subflows_by_llm` 方法调用 LLM。LLM 读取群聊内容和结合自身状态，判断是否"不想"继续在此群闲聊。
+        - **执行**: 若 LLM 判断为是，`SubHeartflowManager` 调用 `change_chat_state(ChatState.ABSENT)`。
+        - **其他途径 (外部驱动)**:
+            - `Heartflow` 主状态变为 `OFFLINE`。
+            - `SubHeartflowManager` 因 `CHAT` 名额超限或随机停用。
+    - **全局强制 `ABSENT`**: 当 `Heartflow` 的 `MaiState` 变为 `OFFLINE` 时，`SubHeartflowManager` 会调用所有子心流的 `change_chat_state(ChatState.ABSENT)`，强制它们全部停止活动。
+    - **状态变更执行者**: `change_chat_state` 方法仅负责执行状态的切换和对应聊天实例的启停，不进行名额检查。名额检查的责任由 `SubHeartflowManager` 中的各个决策方法承担。
+    - **最终清理**: 进入 `ABSENT` 状态的子心流不会立即被删除，只有在 `ABSENT` 状态持续一小时 (`INACTIVE_THRESHOLD_SECONDS`) 后，才会被后台清理任务 (`cleanup_inactive_subheartflows`) 删除。
 
 ## 3. 聊天实例详解 (Chat Instances Explained)
 
@@ -218,8 +239,3 @@ c HeartFChatting工作方式
   self.observations.append(observation)
   ```
 
-### 5.2. 配置参数 (Key Parameters)
-- `sub_heart_flow_stop_time`: (已废弃，现在由 `INACTIVE_THRESHOLD_SECONDS` in `subheartflow_manager.py` 控制) 子心流在 `ABSENT` 状态持续多久后被后台任务清理，默认为 3600 秒 (1 小时)。
-- `sub_heart_flow_freeze_time`: 子心流冻结时间 (当前文档未明确体现，可能需要审阅代码确认)。
-- `heart_flow_update_interval`: 主心流更新其状态或执行管理操作的频率 (需要审阅 `Heartflow` 代码确认)。
-- `

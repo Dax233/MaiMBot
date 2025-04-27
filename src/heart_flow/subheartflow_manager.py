@@ -267,6 +267,7 @@ class SubHeartflowManager:
             # 使用 self.mai_state_info 获取当前状态和限制
             current_state = self.mai_state_info.get_current_state()
             focused_limit = current_state.get_focused_chat_max_num()
+
             logger.debug(f"{log_prefix} 当前状态 ({current_state.value}) 开始尝试提升到FOCUSED状态")
 
             if int(time.time()) % 20 == 0:  # 每20秒输出一次
@@ -285,6 +286,8 @@ class SubHeartflowManager:
                 flow_id = sub_hf.subheartflow_id
                 stream_name = chat_manager.get_stream_name(flow_id) or flow_id
 
+                logger.debug(f"{log_prefix} 检查子心流: {stream_name}，现在状态: {sub_hf.chat_state.chat_status.value}")
+
                 # 跳过非CHAT状态或已经是FOCUSED状态的子心流
                 if sub_hf.chat_state.chat_status == ChatState.FOCUSED:
                     continue
@@ -296,6 +299,9 @@ class SubHeartflowManager:
                         continue
 
                 # 检查是否满足提升概率
+                logger.debug(
+                    f"{log_prefix} 检查子心流: {stream_name}，现在概率: {sub_hf.interest_chatting.start_hfc_probability}"
+                )
                 if random.random() >= sub_hf.interest_chatting.start_hfc_probability:
                     continue
 

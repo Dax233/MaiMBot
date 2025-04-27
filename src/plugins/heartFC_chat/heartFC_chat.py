@@ -154,7 +154,7 @@ class HeartFChatting:
     其生命周期现在由其关联的 SubHeartflow 的 FOCUSED 状态控制。
     """
 
-    CONSECUTIVE_NO_REPLY_THRESHOLD = 4  # 连续不回复的阈值
+    CONSECUTIVE_NO_REPLY_THRESHOLD = 5  # 连续不回复的阈值
 
     def __init__(
         self,

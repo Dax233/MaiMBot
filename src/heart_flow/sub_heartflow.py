@@ -151,8 +151,8 @@ class InterestChatting:
         if self.above_threshold:
             self.start_hfc_probability += 0.1
         else:
-            if self.start_hfc_probability != 0:
-                self.start_hfc_probability -= 0.1
+            if self.start_hfc_probability > 0:
+                self.start_hfc_probability = max(0, self.start_hfc_probability - 0.1)
 
     async def increase_interest(self, value: float):
         self.interest_level += value
@@ -170,7 +170,7 @@ class InterestChatting:
         return {
             "interest_level": round(interest, 2),
             "start_hfc_probability": round(self.start_hfc_probability, 4),
-            "is_above_threshold": self.is_above_threshold,
+            "above_threshold": self.above_threshold,
         }
 
     async def should_evaluate_reply(self) -> bool:
