@@ -380,7 +380,15 @@ block_and_ignore: 更加极端的结束对话方式，直接结束对话并在�
             reason = result.get("reason", "LLM未提供原因，默认等待")
 
             # 验证action类型
-            valid_actions = ["direct_reply", "fetch_knowledge", "wait", "listening", "rethink_goal", "end_conversation", "block_and_ignore"]
+            valid_actions = [
+                "direct_reply",
+                "fetch_knowledge",
+                "wait",
+                "listening",
+                "rethink_goal",
+                "end_conversation",
+                "block_and_ignore",
+            ]
             if action not in valid_actions:
                 logger.warning(f"LLM返回了未知的行动类型: '{action}'，强制改为 wait")
                 reason = f"(原始行动'{action}'无效，已强制改为wait) {reason}"
