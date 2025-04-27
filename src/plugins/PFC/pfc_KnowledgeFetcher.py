@@ -5,6 +5,7 @@ from ..models.utils_model import LLMRequest
 from ...config.config import global_config
 from ..chat.message import Message
 from ..knowledge.knowledge_lib import qa_manager
+from ..utils.chat_message_builder import build_readable_messages
 
 logger = get_module_logger("knowledge_fetcher")
 
@@ -50,10 +51,13 @@ class KnowledgeFetcher:
             Tuple[str, str]: (获取的知识, 知识来源)
         """
         # 构建查询上下文
-        chat_history_text = ""
-        for msg in chat_history:
-            # sender = msg.message_info.user_info.user_nickname or f"用户{msg.message_info.user_info.user_id}"
-            chat_history_text += f"{msg.detailed_plain_text}\n"
+        chat_history_text = await build_readable_messages(
+            chat_history,
+            replace_bot_name=True,
+            merge_messages=False,
+            timestamp_mode="relative",
+            read_mark=0.0,
+        )
 
         # 从记忆中获取相关知识
         related_memory = await HippocampusManager.get_instance().get_memory_from_text(

@@ -98,15 +98,11 @@ class NotificationManager:
             notification_type: 要处理的通知类型
             handler: 处理器实例
         """
-        # print(1145145511114445551111444)
         if target not in self._handlers:
-            # print("没11有target")
             self._handlers[target] = {}
         if notification_type not in self._handlers[target]:
-            # print("没11有notification_type")
             self._handlers[target][notification_type] = []
             # print(self._handlers[target][notification_type])
-        # print(f"注册1111111111111111111111处理器: {target} {notification_type} {handler}")
         self._handlers[target][notification_type].append(handler)
         # print(self._handlers[target][notification_type])
 
@@ -132,7 +128,6 @@ class NotificationManager:
     async def send_notification(self, notification: Notification):
         """发送通知"""
         self._notification_history.append(notification)
-        # print("kaishichul-----------------------------------i")
 
         # 如果是状态通知，更新活跃状态
         if isinstance(notification, StateNotification):
@@ -145,7 +140,6 @@ class NotificationManager:
         target = notification.target
         if target in self._handlers:
             handlers = self._handlers[target].get(notification.type, [])
-            # print(1111111)
             # print(handlers)
             for handler in handlers:
                 # print(f"调用处理器: {handler}")

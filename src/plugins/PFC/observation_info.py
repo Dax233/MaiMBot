@@ -140,7 +140,6 @@ class ObservationInfo:
         self.chat_observer.notification_manager.register_handler(
             target="observation_info", notification_type=NotificationType.COLD_CHAT, handler=self.handler
         )
-        print("1919810------------------------绑定-----------------------------")
 
     def unbind_from_chat_observer(self):
         """解除与chat_observer的绑定"""
@@ -159,7 +158,6 @@ class ObservationInfo:
         Args:
             message: 消息数据
         """
-        # print("1919810-----------------------------------------------------")
         # logger.debug(f"更新信息from_message: {message}")
         self.last_message_time = message["time"]
         self.last_message_id = message["message_id"]

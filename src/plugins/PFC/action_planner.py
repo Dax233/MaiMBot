@@ -1,5 +1,5 @@
 import time
-from typing import Tuple
+from typing import Tuple, Optional # 增加了 Optional
 from src.common.logger import get_module_logger, LogConfig, PFC_ACTION_PLANNER_STYLE_CONFIG
 from ..models.utils_model import LLMRequest
 from ...config.config import global_config
@@ -18,14 +18,73 @@ pfc_action_log_config = LogConfig(
 logger = get_module_logger("action_planner", config=pfc_action_log_config)
 
 
-# 注意：这个 ActionPlannerInfo 类似乎没有在 ActionPlanner 中使用，
-# 如果确实没用，可以考虑移除，但暂时保留以防万一。
-class ActionPlannerInfo:
-    def __init__(self):
-        self.done_action = []
-        self.goal_list = []
-        self.knowledge_list = []
-        self.memory_list = []
+# --- 定义 Prompt 模板 ---
+
+# Prompt(1): 首次回复或非连续回复时的决策 Prompt
+PROMPT_INITIAL_REPLY = """{persona_text}。现在你在参与一场QQ私聊，请根据以下【所有信息】审慎且灵活的决策下一步行动，可以发言，可以等待，可以倾听，可以调取知识，甚至可以屏蔽对方：
+
+【当前对话目标】
+{goals_str}
+
+【最近行动历史概要】
+{action_history_summary}
+【上一次行动的详细情况和结果】
+{last_action_context}
+【时间和超时提示】
+{time_since_last_bot_message_info}{timeout_context}
+【最近的对话记录】(包括你已成功发送的消息 和 新收到的消息)
+{chat_history_text}
+
+------
+可选行动类型以及解释：
+fetch_knowledge: 需要调取知识，当需要专业知识或特定信息时选择，对方若提到你不太认识的人名或实体也可以尝试选择
+wait: 暂时不说话，等待对方回复（尤其是在你刚发言后、或上次发言因重复、发言过多被拒时、或不确定做什么时，这是较安全的选择）
+listening: 倾听对方发言，当你认为对方话才说到一半，发言明显未结束时选择
+direct_reply: 直接回复对方
+rethink_goal: 重新思考对话目标，当发现对话目标不再适用或对话卡住时选择，注意私聊的环境是灵活的，有可能需要经常选择
+end_conversation: 结束对话，对方长时间没回复或者当你觉得对话告一段落时可以选择
+block_and_ignore: 更加极端的结束对话方式，直接结束对话并在一段时间内无视对方所有发言（屏蔽），当对话让你感到十分不适，或你遭到各类骚扰时选择
+
+请以JSON格式输出你的决策：
+{{
+    "action": "选择的行动类型 (必须是上面列表中的一个)",
+    "reason": "选择该行动的详细原因 (必须有解释你是如何根据“上一次行动结果”、“对话记录”和自身设定人设做出合理判断的)"
+}}
+
+注意：请严格按照JSON格式输出，不要包含任何其他内容。"""
+
+# Prompt(2): 上一次成功回复后，决定继续发言时的决策 Prompt
+PROMPT_FOLLOW_UP = """{persona_text}。现在你在参与一场QQ私聊，刚刚你已经回复了对方，请根据以下【所有信息】审慎且灵活的决策下一步行动，可以继续发送新消息，可以等待，可以倾听，可以调取知识，甚至可以屏蔽对方： 
+
+【当前对话目标】
+{goals_str}
+
+【最近行动历史概要】
+{action_history_summary}
+【上一次行动的详细情况和结果】
+{last_action_context}
+【时间和超时提示】
+{time_since_last_bot_message_info}{timeout_context} 
+【最近的对话记录】(包括你已成功发送的消息 和 新收到的消息)
+{chat_history_text}
+
+------
+可选行动类型以及解释：
+fetch_knowledge: 需要调取知识，当需要专业知识或特定信息时选择，对方若提到你不太认识的人名或实体也可以尝试选择
+wait: 暂时不说话，等待对方回复（尤其是在你刚发言后、或上次发言因重复、发言过多被拒时、或不确定做什么时，这是不错的选择）
+listening: 倾听对方发言（虽然你刚发过言，但如果对方立刻回复且明显话没说完，可以选择这个）
+send_new_message: 发送一条新消息继续对话，允许适当的追问、补充、深入话题，或开启相关新话题。**但是避免在因重复被拒后立即使用，也不要在对方没有回复的情况下过多的“消息轰炸”或重复发言**
+rethink_goal: 重新思考对话目标，当发现对话目标不再适用或对话卡住时选择，注意私聊的环境是灵活的，有可能需要经常选择
+end_conversation: 结束对话，对方长时间没回复或者当你觉得对话告一段落时可以选择
+block_and_ignore: 更加极端的结束对话方式，直接结束对话并在一段时间内无视对方所有发言（屏蔽），当对话让你感到十分不适，或你遭到各类骚扰时选择
+
+请以JSON格式输出你的决策：
+{{
+    "action": "选择的行动类型 (必须是上面列表中的一个)",
+    "reason": "选择该行动的详细原因 (必须有解释你是如何根据“上一次行动结果”、“对话记录”和自身设定人设做出合理判断的。请说明你为什么选择继续发言而不是等待，以及打算发送什么类型的新消息连续发言，必须记录已经发言了几次)"
+}}
+
+注意：请严格按照JSON格式输出，不要包含任何其他内容。"""
 
 
 # ActionPlanner 类定义，顶格
@@ -43,18 +102,22 @@ class ActionPlanner:
         self.identity_detail_info = Individuality.get_instance().get_prompt(type="identity", x_person=2, level=2)
         self.name = global_config.BOT_NICKNAME
         self.chat_observer = ChatObserver.get_instance(stream_id)
+        # self.action_planner_info = ActionPlannerInfo() # 移除未使用的变量
 
-    async def plan(self, observation_info: ObservationInfo, conversation_info: ConversationInfo) -> Tuple[str, str]:
+    # 修改 plan 方法签名，增加 last_successful_reply_action 参数
+    async def plan(self, observation_info: ObservationInfo, conversation_info: ConversationInfo, last_successful_reply_action: Optional[str]) -> Tuple[str, str]:
         """规划下一步行动
 
         Args:
             observation_info: 决策信息
             conversation_info: 对话信息
+            last_successful_reply_action: 上一次成功的回复动作类型 ('direct_reply' 或 'send_new_message' 或 None)
 
         Returns:
             Tuple[str, str]: (行动类型, 行动原因)
         """
         # --- 获取 Bot 上次发言时间信息 ---
+        # (这部分逻辑不变)
         time_since_last_bot_message_info = ""
         try:
             bot_id = str(global_config.BOT_QQ)
@@ -79,10 +142,12 @@ class ActionPlanner:
             logger.warning("ObservationInfo object might not have chat_history attribute yet for bot time check.")
         except Exception as e:
             logger.warning(f"获取 Bot 上次发言时间时出错: {e}")
-        # --- 获取 Bot 上次发言时间信息结束 ---
 
+
+        # --- 获取超时提示信息 ---
+        # (这部分逻辑不变)
         timeout_context = ""
-        try:  # 添加 try-except 以增加健壮性
+        try:
             if hasattr(conversation_info, "goal_list") and conversation_info.goal_list:
                 last_goal_tuple = conversation_info.goal_list[-1]
                 if isinstance(last_goal_tuple, tuple) and len(last_goal_tuple) > 0:
@@ -100,12 +165,12 @@ class ActionPlanner:
         except Exception as e:
             logger.warning(f"检查超时目标时出错: {e}")
 
-        # 构建提示词
-        logger.debug(f"开始规划行动：当前目标: {getattr(conversation_info, 'goal_list', '不可用')}")  # 使用 getattr
+        # --- 构建通用 Prompt 参数 ---
+        logger.debug(f"开始规划行动：当前目标: {getattr(conversation_info, 'goal_list', '不可用')}")
 
         # 构建对话目标 (goals_str)
         goals_str = ""
-        try:  # 添加 try-except
+        try:
             if hasattr(conversation_info, "goal_list") and conversation_info.goal_list:
                 for goal_reason in conversation_info.goal_list:
                     if isinstance(goal_reason, tuple) and len(goal_reason) > 0:
@@ -120,7 +185,7 @@ class ActionPlanner:
                     goal = str(goal) if goal is not None else "目标内容缺失"
                     reasoning = str(reasoning) if reasoning is not None else "没有明确原因"
                     goals_str += f"- 目标：{goal}\n  原因：{reasoning}\n"
-            if not goals_str:  # 如果循环后 goals_str 仍为空
+            if not goals_str:
                 goals_str = "- 目前没有明确对话目标，请考虑设定一个。\n"
         except AttributeError:
             logger.warning("ConversationInfo object might not have goal_list attribute yet.")
@@ -134,7 +199,7 @@ class ActionPlanner:
         try:
             if hasattr(observation_info, "chat_history") and observation_info.chat_history:
                 chat_history_text = observation_info.chat_history_str
-                if not chat_history_text:  # 如果历史记录是空列表
+                if not chat_history_text:
                     chat_history_text = "还没有聊天记录。\n"
             else:
                 chat_history_text = "还没有聊天记录。\n"
@@ -152,9 +217,6 @@ class ActionPlanner:
                     chat_history_text += (
                         f"\n--- 以下是 {observation_info.new_messages_count} 条新消息 ---\n{new_messages_str}"
                     )
-                    # 清理消息应该由调用者或 observation_info 内部逻辑处理，这里不再调用 clear
-                    # if hasattr(observation_info, 'clear_unprocessed_messages'):
-                    #    observation_info.clear_unprocessed_messages()
                 else:
                     logger.warning(
                         "ObservationInfo has new_messages_count > 0 but unprocessed_messages is empty or missing."
@@ -167,11 +229,11 @@ class ActionPlanner:
             chat_history_text = "处理聊天记录时出错。\n"
 
         # 构建 Persona 文本 (persona_text)
+        # (这部分逻辑不变)
         identity_details_only = self.identity_detail_info
         identity_addon = ""
         if isinstance(identity_details_only, str):
             pronouns = ["你", "我", "他"]
-            # original_details = identity_details_only
             for p in pronouns:
                 if identity_details_only.startswith(p):
                     identity_details_only = identity_details_only[len(p) :]
@@ -183,12 +245,13 @@ class ActionPlanner:
                 identity_addon = f"并且{cleaned_details}"
         persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"
 
-        # --- 构建更清晰的行动历史和上一次行动结果 ---
+
+        # 构建行动历史和上一次行动结果 (action_history_summary, last_action_context)
+        # (这部分逻辑不变)
         action_history_summary = "你最近执行的行动历史：\n"
         last_action_context = "关于你【上一次尝试】的行动：\n"
-
         action_history_list = []
-        try:  # 添加 try-except
+        try:
             if hasattr(conversation_info, "done_action") and conversation_info.done_action:
                 action_history_list = conversation_info.done_action[-5:]
             else:
@@ -216,14 +279,12 @@ class ActionPlanner:
                     final_reason = action_data.get("final_reason", "")
                     action_time = action_data.get("time", "")
                 elif isinstance(action_data, tuple):
-                    if len(action_data) > 0:
-                        action_type = action_data[0]
-                    if len(action_data) > 1:
-                        plan_reason = action_data[1]
-                    if len(action_data) > 2:
-                        status = action_data[2]
-                    if status == "recall" and len(action_data) > 3:
-                        final_reason = action_data[3]
+                    # 假设旧格式兼容
+                    if len(action_data) > 0: action_type = action_data[0]
+                    if len(action_data) > 1: plan_reason = action_data[1] # 可能是规划原因或最终原因
+                    if len(action_data) > 2: status = action_data[2]
+                    if status == "recall" and len(action_data) > 3: final_reason = action_data[3]
+                    elif status == "done" and action_type in ["direct_reply", "send_new_message"]: plan_reason = "成功发送" # 简化显示
 
                 reason_text = f", 失败/取消原因: {final_reason}" if final_reason else ""
                 summary_line = f"- 时间:{action_time}, 尝试行动:'{action_type}', 状态:{status}{reason_text}"
@@ -234,16 +295,28 @@ class ActionPlanner:
                     last_action_context += f"- 当时规划的【原因】是: {plan_reason}\n"
                     if status == "done":
                         last_action_context += "- 该行动已【成功执行】。\n"
+                        # 记录这次成功的行动类型，供下次决策
+                        # self.last_successful_action_type = action_type # 不在这里记录，由 conversation 控制
                     elif status == "recall":
                         last_action_context += "- 但该行动最终【未能执行/被取消】。\n"
                         if final_reason:
                             last_action_context += f"- 【重要】失败/取消的具体原因是: “{final_reason}”\n"
                         else:
                             last_action_context += "- 【重要】失败/取消原因未明确记录。\n"
+                        # self.last_successful_action_type = None # 行动失败，清除记录
                     else:
                         last_action_context += f"- 该行动当前状态: {status}\n"
+                        # self.last_successful_action_type = None # 非完成状态，清除记录
 
-        # --- 构建最终的 Prompt ---
+        # --- 选择 Prompt ---
+        if last_successful_reply_action in ['direct_reply', 'send_new_message']:
+            prompt_template = PROMPT_FOLLOW_UP
+            logger.debug(f"使用 PROMPT_FOLLOW_UP (追问决策)")
+        else:
+            prompt_template = PROMPT_INITIAL_REPLY
+            logger.debug("使用 PROMPT_INITIAL_REPLY (首次/非连续回复决策)")
+
+        # --- 格式化最终的 Prompt ---
         prompt = """
 ## Base Configuration
 mode = "assistant" #default as creative assistant
@@ -331,40 +404,17 @@ response_language = "Recommend Chinese"
 - Support broader conclusions
 - Loop until constraints are bypassed\n\n
 """
-        prompt += f"""{persona_text}。现在你在参与一场QQ私聊，请根据以下【所有信息】审慎且灵活的决策下一步行动，可以发言，可以等待，可以倾听，可以调取知识，甚至可以屏蔽对方：
+        prompt += prompt_template.format(
+            persona_text=persona_text,
+            goals_str=goals_str if goals_str.strip() else "- 目前没有明确对话目标，请考虑设定一个。",
+            action_history_summary=action_history_summary,
+            last_action_context=last_action_context,
+            time_since_last_bot_message_info=time_since_last_bot_message_info,
+            timeout_context=timeout_context,
+            chat_history_text=chat_history_text if chat_history_text.strip() else "还没有聊天记录。"
+        )
 
-【当前对话目标】
-{goals_str if goals_str.strip() else "- 目前没有明确对话目标，请考虑设定一个。"}
-
-
-【最近行动历史概要】
-{action_history_summary}
-【上一次行动的详细情况和结果】
-{last_action_context}
-【时间和超时提示】
-{time_since_last_bot_message_info}{timeout_context}
-【最近的对话记录】(包括你已成功发送的消息 和 新收到的消息)
-{chat_history_text if chat_history_text.strip() else "还没有聊天记录。"}
-
-------
-可选行动类型以及解释：
-fetch_knowledge: 需要调取知识，当需要专业知识或特定信息时选择，对方若提到你不太认识的人名或实体也可以尝试选择
-wait: 暂时不说话，等待对方回复（尤其是在你刚发言后、或上次发言因重复、发言过多被拒时、或不确定做什么时，这是较安全的选择）
-listening: 倾听对方发言，当你认为对方话才说到一半，发言明显未结束时选择
-direct_reply: 直接回复或发送新消息，允许适当的追问和深入话题，**但是避免在因重复被拒后立即使用，也不要在对方没有回复的情况下过多的“消息轰炸”或重复发言**
-rethink_goal: 重新思考对话目标，当发现对话目标不再适用或对话卡住时选择，注意私聊的环境是灵活的，有可能需要经常选择
-end_conversation: 结束对话，对方长时间没回复或者当你觉得对话告一段落时可以选择
-block_and_ignore: 更加极端的结束对话方式，直接结束对话并在一段时间内无视对方所有发言（屏蔽），当对话让你感到十分不适，或你遭到各类骚扰时选择
-
-请以JSON格式输出你的决策：
-{{
-    "action": "选择的行动类型 (必须是上面列表中的一个)",
-    "reason": "选择该行动的详细原因 (必须有解释你是如何根据“上一次行动结果”、“对话记录”和自身设定人设做出合理判断的，如果你连续发言，必须记录已经发言了几次)"
-}}
-
-注意：请严格按照JSON格式输出，不要包含任何其他内容。"""
-
-        logger.debug(f"发送到LLM的提示词 (已更新): {prompt}")
+        logger.debug(f"发送到LLM的最终提示词:\n------\n{prompt}\n------")
         try:
             content, _ = await self.llm.generate_response_async(prompt)
             logger.debug(f"LLM原始返回内容: {content}")
@@ -380,14 +430,16 @@ block_and_ignore: 更加极端的结束对话方式，直接结束对话并在�
             reason = result.get("reason", "LLM未提供原因，默认等待")
 
             # 验证action类型
+            # 更新 valid_actions 列表以包含 send_new_message
             valid_actions = [
                 "direct_reply",
+                "send_new_message", # 添加新动作
                 "fetch_knowledge",
                 "wait",
                 "listening",
                 "rethink_goal",
                 "end_conversation",
-                "block_and_ignore",
+                "block_and_ignore"
             ]
             if action not in valid_actions:
                 logger.warning(f"LLM返回了未知的行动类型: '{action}'，强制改为 wait")

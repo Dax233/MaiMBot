@@ -337,15 +337,13 @@ response_language = "Recommend Chinese"
 
     async def analyze_conversation(self, goal, reasoning):
         messages = self.chat_observer.get_cached_messages()
-        chat_history_text = ""
-        for msg in messages:
-            time_str = datetime.datetime.fromtimestamp(msg["time"]).strftime("%H:%M:%S")
-            user_info = UserInfo.from_dict(msg.get("user_info", {}))
-            sender = user_info.user_nickname or f"用户{user_info.user_id}"
-            if sender == self.name:
-                sender = "你说"
-            chat_history_text += f"{time_str},{sender}:{msg.get('processed_plain_text', '')}\n"
-
+        chat_history_text = await build_readable_messages(
+            messages,
+            replace_bot_name=True,
+            merge_messages=False,
+            timestamp_mode="relative",
+            read_mark=0.0,
+        )
         identity_details_only = self.identity_detail_info
         identity_addon = ""
         if isinstance(identity_details_only, str):
