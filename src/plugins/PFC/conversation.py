@@ -6,7 +6,7 @@ import datetime
 from src.plugins.utils.chat_message_builder import build_readable_messages, get_raw_msg_before_timestamp_with_chat
 
 # from ...config.config import global_config
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from ..chat.message import Message
 from .pfc_types import ConversationState
 from .pfc import ChatObserver, GoalAnalyzer, DirectMessageSender
@@ -38,6 +38,7 @@ class Conversation:
         self.stream_id = stream_id
         self.state = ConversationState.INIT
         self.should_continue = False
+        self.ignore_until_timestamp: Optional[float] = None
 
         # 回复相关
         self.generated_reply = ""
@@ -135,6 +136,18 @@ class Conversation:
     async def _plan_and_action_loop(self):
         """思考步，PFC核心循环模块"""
         while self.should_continue:
+            if self.ignore_until_timestamp and time.time() < self.ignore_until_timestamp:
+            # 仍在忽略期间，等待下次检查
+                await asyncio.sleep(30) # 每 30 秒检查一次
+                continue # 跳过本轮循环的剩余部分
+            elif self.ignore_until_timestamp and time.time() >= self.ignore_until_timestamp:
+            # 忽略期结束，现在正常地结束对话
+                logger.info(f"忽略时间已到 {self.stream_id}，准备结束对话。")
+                self.ignore_until_timestamp = None # 清除时间戳
+                self.should_continue = False # 现在停止循环
+            # （可选）在这里记录一个 'end_conversation' 动作
+            # 或者确保管理器会基于 should_continue 为 False 来清理它
+                continue # 跳过本轮循环的剩余部分，让它终止
             try:
                 # --- 在规划前记录当前新消息数量 ---
                 initial_new_message_count = 0
@@ -411,6 +424,21 @@ class Conversation:
                 }
             )
             # 这里不需要 return，主循环会在下一轮检查 should_continue
+
+        elif action == "block_and_ignore":
+            logger.info("不想再理你了...")
+            # 1. 标记对话为暂时忽略
+            ignore_duration_seconds = 10 * 60 # 10 分钟
+            self.ignore_until_timestamp = time.time() + ignore_duration_seconds
+            logger.info(f"将忽略此对话直到: {datetime.datetime.fromtimestamp(self.ignore_until_timestamp)}")
+            conversation_info.done_action[action_index].update(
+                {
+                    "status": "done", # 或者一个自定义状态，比如 "ignored"
+                    "final_reason": "Detected potential harassment, ignoring temporarily.", # 检测到潜在骚扰，暂时忽略
+                    "time": datetime.datetime.now().strftime("%H:%M:%S"),
+                }
+            )
+            self.state = ConversationState.IGNORED         
 
         else:  # 对应 'wait' 动作
             self.state = ConversationState.WAITING

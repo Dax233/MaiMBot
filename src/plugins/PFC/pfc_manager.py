@@ -1,3 +1,4 @@
+import time
 from typing import Dict, Optional
 from src.common.logger import get_module_logger
 from .conversation import Conversation
@@ -44,7 +45,21 @@ class PFCManager:
         if stream_id in self._instances and self._instances[stream_id].should_continue:
             logger.debug(f"使用现有会话实例: {stream_id}")
             return self._instances[stream_id]
+        if stream_id in self._instances:
+            instance = self._instances[stream_id]
+            if hasattr(instance, 'ignore_until_timestamp') and \
+                instance.ignore_until_timestamp and \
+                time.time() < instance.ignore_until_timestamp:
+                logger.debug(f"会话实例当前处于忽略状态: {stream_id}")
+            # 返回 None 阻止交互。或者可以返回实例但标记它被忽略了喵？
+            # 还是返回 None 吧喵。
+                return None
 
+        # 检查 should_continue 状态
+            if instance.should_continue:
+                logger.debug(f"使用现有会话实例: {stream_id}")
+                return instance
+        # else: 实例存在但不应继续
         try:
             # 创建新实例
             logger.info(f"创建新的对话实例: {stream_id}")

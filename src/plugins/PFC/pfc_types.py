@@ -17,6 +17,7 @@ class ConversationState(Enum):
     LISTENING = "倾听"
     ENDED = "结束"
     JUDGING = "判断"
+    IGNORED = "屏蔽"
 
 
 ActionType = Literal["direct_reply", "fetch_knowledge", "wait"]
