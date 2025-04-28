@@ -36,7 +36,7 @@ PROMPT_INITIAL_REPLY = """{persona_text}。现在你在参与一场QQ私聊，�
 fetch_knowledge: 需要调取知识，当需要专业知识或特定信息时选择，对方若提到你不太认识的人名或实体也可以尝试选择
 listening: 倾听对方发言，当你认为对方话才说到一半，发言明显未结束时选择
 direct_reply: 直接回复对方
-rethink_goal: 重新思考对话目标，当发现对话目标不再适用或对话卡住时选择，注意私聊的环境是灵活的，有可能需要经常选择
+rethink_goal: 思考一个对话目标，当你觉得目前对话需要目标，或当前目标不再适用，或话题卡住时选择。注意私聊的环境是灵活的，有可能需要经常选择
 end_conversation: 结束对话，对方长时间没回复或者当你觉得对话告一段落时可以选择
 block_and_ignore: 更加极端的结束对话方式，直接结束对话并在一段时间内无视对方所有发言（屏蔽），当对话让你感到十分不适，或你遭到各类骚扰时选择
 
@@ -69,7 +69,7 @@ fetch_knowledge: 需要调取知识，当需要专业知识或特定信息时选
 wait: 暂时不说话，留给对方交互空间，等待对方回复（尤其是在你刚发言后、或上次发言因重复、发言过多被拒时、或不确定做什么时，这是不错的选择）
 listening: 倾听对方发言（虽然你刚发过言，但如果对方立刻回复且明显话没说完，可以选择这个）
 send_new_message: 发送一条新消息继续对话，允许适当的追问、补充、深入话题，或开启相关新话题。**但是避免在因重复被拒后立即使用，也不要在对方没有回复的情况下过多的“消息轰炸”或重复发言**
-rethink_goal: 重新思考对话目标，当发现对话目标不再适用或对话卡住时选择，注意私聊的环境是灵活的，有可能需要经常选择
+rethink_goal: 思考一个对话目标，当你觉得目前对话需要目标，或当前目标不再适用，或话题卡住时选择。注意私聊的环境是灵活的，有可能需要经常选择
 end_conversation: 结束对话，对方长时间没回复或者当你觉得对话告一段落时可以选择
 block_and_ignore: 更加极端的结束对话方式，直接结束对话并在一段时间内无视对方所有发言（屏蔽），当对话让你感到十分不适，或你遭到各类骚扰时选择
 
@@ -148,9 +148,9 @@ class ActionPlanner:
         timeout_context = ""
         try:
             if hasattr(conversation_info, "goal_list") and conversation_info.goal_list:
-                last_goal_tuple = conversation_info.goal_list[-1]
-                if isinstance(last_goal_tuple, tuple) and len(last_goal_tuple) > 0:
-                    last_goal_text = last_goal_tuple[0]
+                last_goal_dict = conversation_info.goal_list[-1]
+                if isinstance(last_goal_dict, dict) and "goal" in last_goal_dict:
+                    last_goal_text = last_goal_dict["goal"]
                     if isinstance(last_goal_text, str) and "分钟，思考接下来要做什么" in last_goal_text:
                         try:
                             timeout_minutes_text = last_goal_text.split("，")[0].replace("你等待了", "")
@@ -172,19 +172,20 @@ class ActionPlanner:
         try:
             if hasattr(conversation_info, "goal_list") and conversation_info.goal_list:
                 for goal_reason in conversation_info.goal_list:
-                    if isinstance(goal_reason, tuple) and len(goal_reason) > 0:
-                        goal = goal_reason[0]
-                        reasoning = goal_reason[1] if len(goal_reason) > 1 else "没有明确原因"
-                    elif isinstance(goal_reason, dict):
+                    if isinstance(goal_reason, dict):
                         goal = goal_reason.get("goal", "目标内容缺失")
                         reasoning = goal_reason.get("reasoning", "没有明确原因")
                     else:
                         goal = str(goal_reason)
                         reasoning = "没有明确原因"
+
                     goal = str(goal) if goal is not None else "目标内容缺失"
                     reasoning = str(reasoning) if reasoning is not None else "没有明确原因"
                     goals_str += f"- 目标：{goal}\n  原因：{reasoning}\n"
-            if not goals_str:
+
+                if not goals_str:
+                    goals_str = "- 目前没有明确对话目标，请考虑设定一个。\n"
+            else:
                 goals_str = "- 目前没有明确对话目标，请考虑设定一个。\n"
         except AttributeError:
             logger.warning("ConversationInfo object might not have goal_list attribute yet.")

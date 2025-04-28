@@ -98,15 +98,13 @@ class ReplyGenerator:
         goals_str = ""
         if conversation_info.goal_list:
             for goal_reason in conversation_info.goal_list:
-                if isinstance(goal_reason, tuple):
-                    goal = goal_reason[0] if len(goal_reason) > 0 else "目标内容缺失"
-                    reasoning = goal_reason[1] if len(goal_reason) > 1 else "没有明确原因"
-                elif isinstance(goal_reason, dict):
+                if isinstance(goal_reason, dict):
                     goal = goal_reason.get("goal", "目标内容缺失")
                     reasoning = goal_reason.get("reasoning", "没有明确原因")
                 else:
                     goal = str(goal_reason)
                     reasoning = "没有明确原因"
+
                 goal = str(goal) if goal is not None else "目标内容缺失"
                 reasoning = str(reasoning) if reasoning is not None else "没有明确原因"
                 goals_str += f"- 目标：{goal}\n  原因：{reasoning}\n"
