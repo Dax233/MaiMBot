@@ -9,7 +9,8 @@ from src.plugins.utils.chat_message_builder import build_readable_messages, get_
 from typing import Dict, Any, Optional
 from ..chat.message import Message
 from .pfc_types import ConversationState
-from .pfc import ChatObserver, GoalAnalyzer, DirectMessageSender
+from .pfc import ChatObserver, GoalAnalyzer
+from .message_sender import DirectMessageSender
 from src.common.logger_manager import get_logger
 from .action_planner import ActionPlanner
 from .observation_info import ObservationInfo
