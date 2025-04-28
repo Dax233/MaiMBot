@@ -9,7 +9,7 @@ from src.plugins.chat.message import Seg  # Local import needed after move
 from src.plugins.chat.chat_stream import ChatStream
 from src.plugins.chat.message import UserInfo
 from src.plugins.chat.chat_stream import chat_manager
-from src.common.logger import get_module_logger, LogConfig, PFC_STYLE_CONFIG  # 引入 DEFAULT_CONFIG
+from src.common.logger_manager import get_logger
 from src.plugins.models.utils_model import LLMRequest
 from src.config.config import global_config
 from src.plugins.chat.utils_image import image_path_to_base64  # Local import needed after move
@@ -30,12 +30,7 @@ from .heartFC_sender import HeartFCSender
 INITIAL_DURATION = 60.0
 
 
-# 定义日志配置 (使用 loguru 格式)
-interest_log_config = LogConfig(
-    console_format=PFC_STYLE_CONFIG["console_format"],  # 使用默认控制台格式
-    file_format=PFC_STYLE_CONFIG["file_format"],  # 使用默认文件格式
-)
-logger = get_module_logger("HeartFCLoop", config=interest_log_config)  # Logger Name Changed
+logger = get_logger("interest")  # Logger Name Changed
 
 
 # 默认动作定义
@@ -413,8 +408,8 @@ class HeartFChatting:
 
             # 在获取规划结果后检查新消息
             if await self._check_new_messages(planner_start_db_time):
-                if random.random() < 0.3:
-                    logger.info(f"{self.log_prefix} 看到了新消息，决定重新观察和规划...")
+                if random.random() < 0.2:
+                    logger.info(f"{self.log_prefix} 看到了新消息，麦麦决定重新观察和规划...")
                     # 重新规划
                     with Timer("重新决策", cycle_timers):
                         self._current_cycle.replanned = True
@@ -710,12 +705,14 @@ class HeartFChatting:
                 await observation.observe()
 
             # 获取上一个循环的信息
-            last_cycle = self._cycle_history[-1] if self._cycle_history else None
+            # last_cycle = self._cycle_history[-1] if self._cycle_history else None
 
             with Timer("思考", cycle_timers):
                 # 获取上一个循环的动作
                 # 传递上一个循环的信息给 do_thinking_before_reply
-                current_mind, _past_mind = await self.sub_mind.do_thinking_before_reply(last_cycle=last_cycle)
+                current_mind, _past_mind = await self.sub_mind.do_thinking_before_reply(
+                    history_cycle=self._cycle_history
+                )
                 return current_mind
         except Exception as e:
             logger.error(f"{self.log_prefix}[SubMind] 思考失败: {e}")
@@ -767,9 +764,15 @@ class HeartFChatting:
             # 执行LLM请求
 
             try:
+                print("prompt")
+                print("prompt")
+                print("prompt")
+                print(payload)
+                print(prompt)
                 response = await self.planner_llm._execute_request(
                     endpoint="/chat/completions", payload=payload, prompt=prompt
                 )
+                print(response)
             except Exception as req_e:
                 logger.error(f"{self.log_prefix}[Planner] LLM请求执行失败: {req_e}")
                 return {
@@ -784,6 +787,9 @@ class HeartFChatting:
             # 处理LLM响应
             with Timer("使用工具", cycle_timers):
                 # 使用辅助函数处理工具调用响应
+                print(1111122222222222)
+                print(response)
+
                 success, arguments, error_msg = process_llm_tool_response(
                     response, expected_tool_name="decide_reply_action", log_prefix=f"{self.log_prefix}[Planner] "
                 )
@@ -973,38 +979,87 @@ class HeartFChatting:
         replan_prompt: str,
     ) -> str:
         """构建 Planner LLM 的提示词"""
+        try:
+            # 准备结构化信息块
+            structured_info_block = ""
+            if structured_info:
+                structured_info_block = f"以下是一些额外的信息：\n{structured_info}\n"
 
-        # 准备结构化信息块
-        structured_info_block = ""
-        if structured_info:
-            structured_info_block = f"以下是一些额外的信息：\n{structured_info}\n"
+            # 准备聊天内容块
+            chat_content_block = ""
+            if observed_messages_str:
+                chat_content_block = "观察到的最新聊天内容如下：\n---\n"
+                chat_content_block += observed_messages_str
+                chat_content_block += "\n---"
+            else:
+                chat_content_block = "当前没有观察到新的聊天内容。\n"
 
-        # 准备聊天内容块
-        chat_content_block = ""
-        if observed_messages_str:
-            chat_content_block = "观察到的最新聊天内容如下：\n---\n"
-            chat_content_block += observed_messages_str
-            chat_content_block += "\n---"
-        else:
-            chat_content_block = "当前没有观察到新的聊天内容。\n"
+            # 准备当前思维块
+            current_mind_block = ""
+            if current_mind:
+                current_mind_block = f"{current_mind}"
+            else:
+                current_mind_block = "[没有特别的想法]"
 
-        # 准备当前思维块
-        current_mind_block = ""
-        if current_mind:
-            current_mind_block = f"{current_mind}"
-        else:
-            current_mind_block = "[没有特别的想法]"
+            # 准备循环信息块 (分析最近的活动循环)
+            recent_active_cycles = []
+            for cycle in reversed(self._cycle_history):
+                # 只关心实际执行了动作的循环
+                if cycle.action_taken:
+                    recent_active_cycles.append(cycle)
+                    # 最多找最近的3个活动循环
+                    if len(recent_active_cycles) == 3:
+                        break
 
-        # 获取提示词模板并填充数据
-        prompt = (await global_prompt_manager.get_prompt_async("planner_prompt")).format(
-            bot_name=global_config.BOT_NICKNAME,
-            structured_info_block=structured_info_block,
-            chat_content_block=chat_content_block,
-            current_mind_block=current_mind_block,
-            replan=replan_prompt,
-        )
+            cycle_info_block = ""
+            consecutive_text_replies = 0
+            responses_for_prompt = []
 
-        return prompt
+            # 检查这最近的活动循环中有多少是连续的文本回复 (从最近的开始看)
+            for cycle in recent_active_cycles:
+                if cycle.action_type == "text_reply":
+                    consecutive_text_replies += 1
+                    # 获取回复内容，如果不存在则返回'[空回复]'
+                    response_text = cycle.response_info.get("response_text", [])
+                    # 使用简单的 join 来格式化回复内容列表
+                    formatted_response = "[空回复]" if not response_text else " ".join(response_text)
+                    responses_for_prompt.append(formatted_response)
+                else:
+                    # 一旦遇到非文本回复，连续性中断
+                    break
+
+            # 根据连续文本回复的数量构建提示信息
+            # 注意: responses_for_prompt 列表是从最近到最远排序的
+            if consecutive_text_replies >= 3:  # 如果最近的三个活动都是文本回复
+                cycle_info_block = f'你已经连续回复了三条消息（最近: "{responses_for_prompt[0]}"，第二近: "{responses_for_prompt[1]}"，第三近: "{responses_for_prompt[2]}"）。你回复的有点多了，请注意'
+            elif consecutive_text_replies == 2:  # 如果最近的两个活动是文本回复
+                cycle_info_block = f'你已经连续回复了两条消息（最近: "{responses_for_prompt[0]}"，第二近: "{responses_for_prompt[1]}"），请注意'
+            elif consecutive_text_replies == 1:  # 如果最近的一个活动是文本回复
+                cycle_info_block = f'你刚刚已经回复一条消息（内容: "{responses_for_prompt[0]}"）'
+
+            # 包装提示块，增加可读性，即使没有连续回复也给个标记
+            if cycle_info_block:
+                cycle_info_block = f"\n【近期回复历史】\n{cycle_info_block}\n"
+            else:
+                # 如果最近的活动循环不是文本回复，或者没有活动循环
+                cycle_info_block = "\n【近期回复历史】\n(最近没有连续文本回复)\n"
+
+            # 获取提示词模板并填充数据
+            prompt = (await global_prompt_manager.get_prompt_async("planner_prompt")).format(
+                bot_name=global_config.BOT_NICKNAME,
+                structured_info_block=structured_info_block,
+                chat_content_block=chat_content_block,
+                current_mind_block=current_mind_block,
+                replan=replan_prompt,
+                cycle_info_block=cycle_info_block,
+            )
+
+            return prompt
+
+        except Exception as e:
+            logger.error(f"{self.log_prefix}[Planner] 构建提示词时出错: {e}")
+            logger.error(traceback.format_exc())
+            return ""
 
     # --- 回复器 (Replier) 的定义 --- #
     async def _replier_work(

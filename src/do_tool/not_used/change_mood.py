@@ -1,11 +1,11 @@
 from src.do_tool.tool_can_use.base_tool import BaseTool
 from src.config.config import global_config
-from src.common.logger import get_module_logger
+from src.common.logger_manager import get_logger
 from src.plugins.moods.moods import MoodManager
 
 from typing import Dict, Any
 
-logger = get_module_logger("change_mood_tool")
+logger = get_logger("change_mood_tool")
 
 
 class ChangeMoodTool(BaseTool):

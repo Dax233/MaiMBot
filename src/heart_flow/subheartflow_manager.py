@@ -6,7 +6,7 @@ import json  # 导入 json 模块
 import functools  # <-- 新增导入
 
 # 导入日志模块
-from src.common.logger import get_module_logger, LogConfig, SUBHEARTFLOW_MANAGER_STYLE_CONFIG
+from src.common.logger_manager import get_logger
 
 # 导入聊天流管理模块
 from src.plugins.chat.chat_stream import chat_manager
@@ -25,11 +25,7 @@ import traceback
 
 # 初始化日志记录器
 
-subheartflow_manager_log_config = LogConfig(
-    console_format=SUBHEARTFLOW_MANAGER_STYLE_CONFIG["console_format"],
-    file_format=SUBHEARTFLOW_MANAGER_STYLE_CONFIG["file_format"],
-)
-logger = get_module_logger("subheartflow_manager", config=subheartflow_manager_log_config)
+logger = get_logger("subheartflow_manager")
 
 # 子心流管理相关常量
 INACTIVE_THRESHOLD_SECONDS = 3600  # 子心流不活跃超时时间(秒)

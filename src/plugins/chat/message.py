@@ -4,12 +4,12 @@ from typing import Dict, List, Optional, Union
 
 import urllib3
 
-from src.common.logger import get_module_logger
+from src.common.logger_manager import get_logger
 from .chat_stream import ChatStream
 from .utils_image import image_manager
 from maim_message import Seg, UserInfo, BaseMessageInfo, MessageBase
 
-logger = get_module_logger("chat_message")
+logger = get_logger("chat_message")
 
 # 禁用SSL警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)

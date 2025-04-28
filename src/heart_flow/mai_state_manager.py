@@ -2,15 +2,10 @@ import enum
 import time
 import random
 from typing import List, Tuple, Optional
-from src.common.logger import get_module_logger, LogConfig, MAI_STATE_CONFIG
+from src.common.logger_manager import get_logger
 from src.plugins.moods.moods import MoodManager
 
-mai_state_config = LogConfig(
-    # 使用海马体专用样式
-    console_format=MAI_STATE_CONFIG["console_format"],
-    file_format=MAI_STATE_CONFIG["file_format"],
-)
-logger = get_module_logger("mai_state_manager", config=mai_state_config)
+logger = get_logger("mai_state")
 
 
 # enable_unlimited_hfc_chat = True

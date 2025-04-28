@@ -1,9 +1,9 @@
 from src.do_tool.tool_can_use.base_tool import BaseTool
-from src.common.logger import get_module_logger
+from src.common.logger_manager import get_logger
 from typing import Dict, Any
 from datetime import datetime
 
-logger = get_module_logger("get_time_date")
+logger = get_logger("get_time_date")
 
 
 class GetCurrentDateTimeTool(BaseTool):

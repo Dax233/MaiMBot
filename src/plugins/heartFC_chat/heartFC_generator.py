@@ -6,20 +6,14 @@ from ...config.config import global_config
 from ..chat.message import MessageRecv
 from .heartflow_prompt_builder import prompt_builder
 from ..chat.utils import process_llm_response
-from src.common.logger import get_module_logger, LogConfig, LLM_STYLE_CONFIG
+from src.common.logger_manager import get_logger
 from src.plugins.respon_info_catcher.info_catcher import info_catcher_manager
 from ..utils.timer_calculator import Timer
 
 from src.plugins.moods.moods import MoodManager
 
-# 定义日志配置
-llm_config = LogConfig(
-    # 使用消息发送专用样式
-    console_format=LLM_STYLE_CONFIG["console_format"],
-    file_format=LLM_STYLE_CONFIG["file_format"],
-)
 
-logger = get_module_logger("llm_generator", config=llm_config)
+logger = get_logger("llm")
 
 
 class HeartFCGenerator:

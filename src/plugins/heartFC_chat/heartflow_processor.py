@@ -7,19 +7,14 @@ from ..storage.storage import MessageStorage
 from ..chat.utils import is_mentioned_bot_in_message
 from maim_message import Seg
 from src.heart_flow.heartflow import heartflow
-from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
+from src.common.logger_manager import get_logger
 from ..chat.chat_stream import chat_manager
 from ..chat.message_buffer import message_buffer
 from ..utils.timer_calculator import Timer
 from src.plugins.person_info.relationship_manager import relationship_manager
 from typing import Optional, Tuple
 
-# 定义日志配置
-processor_config = LogConfig(
-    console_format=CHAT_STYLE_CONFIG["console_format"],
-    file_format=CHAT_STYLE_CONFIG["file_format"],
-)
-logger = get_module_logger("heartflow_processor", config=processor_config)
+logger = get_logger("chat")
 
 
 class HeartFCProcessor:

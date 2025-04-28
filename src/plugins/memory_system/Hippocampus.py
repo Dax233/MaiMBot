@@ -12,7 +12,7 @@ import numpy as np
 from collections import Counter
 from ...common.database import db
 from ...plugins.models.utils_model import LLMRequest
-from src.common.logger import get_module_logger, LogConfig, MEMORY_STYLE_CONFIG
+from src.common.logger_manager import get_logger
 from src.plugins.memory_system.sample_distribution import MemoryBuildScheduler  # 分布生成器
 from .memory_config import MemoryConfig
 
@@ -83,15 +83,7 @@ def cosine_similarity(v1, v2):
     return dot_product / (norm1 * norm2)
 
 
-# 定义日志配置
-memory_config = LogConfig(
-    # 使用海马体专用样式
-    console_format=MEMORY_STYLE_CONFIG["console_format"],
-    file_format=MEMORY_STYLE_CONFIG["file_format"],
-)
-
-
-logger = get_module_logger("memory_system", config=memory_config)
+logger = get_logger("memory")
 
 
 class MemoryGraph:

@@ -11,9 +11,9 @@ from ...common.database import db
 from ...config.config import global_config
 from ..models.utils_model import LLMRequest
 
-from src.common.logger import get_module_logger
+from src.common.logger_manager import get_logger
 
-logger = get_module_logger("chat_image")
+logger = get_logger("chat_image")
 
 
 class ImageManager:

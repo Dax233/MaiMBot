@@ -1,6 +1,6 @@
 import time
-from typing import Tuple, Optional # 增加了 Optional
-from src.common.logger import get_module_logger, LogConfig, PFC_ACTION_PLANNER_STYLE_CONFIG
+from typing import Tuple, Optional  # 增加了 Optional
+from src.common.logger_manager import get_logger
 from ..models.utils_model import LLMRequest
 from ...config.config import global_config
 from .chat_observer import ChatObserver
@@ -10,12 +10,8 @@ from .observation_info import ObservationInfo
 from .conversation_info import ConversationInfo
 from src.plugins.utils.chat_message_builder import build_readable_messages
 
-pfc_action_log_config = LogConfig(
-    console_format=PFC_ACTION_PLANNER_STYLE_CONFIG["console_format"],
-    file_format=PFC_ACTION_PLANNER_STYLE_CONFIG["file_format"],
-)
 
-logger = get_module_logger("action_planner", config=pfc_action_log_config)
+logger = get_logger("pfc_action_planner")
 
 
 # --- 定义 Prompt 模板 ---
@@ -104,7 +100,12 @@ class ActionPlanner:
         # self.action_planner_info = ActionPlannerInfo() # 移除未使用的变量
 
     # 修改 plan 方法签名，增加 last_successful_reply_action 参数
-    async def plan(self, observation_info: ObservationInfo, conversation_info: ConversationInfo, last_successful_reply_action: Optional[str]) -> Tuple[str, str]:
+    async def plan(
+        self,
+        observation_info: ObservationInfo,
+        conversation_info: ConversationInfo,
+        last_successful_reply_action: Optional[str],
+    ) -> Tuple[str, str]:
         """规划下一步行动
 
         Args:
@@ -141,7 +142,6 @@ class ActionPlanner:
             logger.warning("ObservationInfo object might not have chat_history attribute yet for bot time check.")
         except Exception as e:
             logger.warning(f"获取 Bot 上次发言时间时出错: {e}")
-
 
         # --- 获取超时提示信息 ---
         # (这部分逻辑不变)
@@ -244,7 +244,6 @@ class ActionPlanner:
                 identity_addon = f"并且{cleaned_details}"
         persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"
 
-
         # 构建行动历史和上一次行动结果 (action_history_summary, last_action_context)
         # (这部分逻辑不变)
         action_history_summary = "你最近执行的行动历史：\n"
@@ -279,11 +278,16 @@ class ActionPlanner:
                     action_time = action_data.get("time", "")
                 elif isinstance(action_data, tuple):
                     # 假设旧格式兼容
-                    if len(action_data) > 0: action_type = action_data[0]
-                    if len(action_data) > 1: plan_reason = action_data[1] # 可能是规划原因或最终原因
-                    if len(action_data) > 2: status = action_data[2]
-                    if status == "recall" and len(action_data) > 3: final_reason = action_data[3]
-                    elif status == "done" and action_type in ["direct_reply", "send_new_message"]: plan_reason = "成功发送" # 简化显示
+                    if len(action_data) > 0:
+                        action_type = action_data[0]
+                    if len(action_data) > 1:
+                        plan_reason = action_data[1]  # 可能是规划原因或最终原因
+                    if len(action_data) > 2:
+                        status = action_data[2]
+                    if status == "recall" and len(action_data) > 3:
+                        final_reason = action_data[3]
+                    elif status == "done" and action_type in ["direct_reply", "send_new_message"]:
+                        plan_reason = "成功发送"  # 简化显示
 
                 reason_text = f", 失败/取消原因: {final_reason}" if final_reason else ""
                 summary_line = f"- 时间:{action_time}, 尝试行动:'{action_type}', 状态:{status}{reason_text}"
@@ -308,9 +312,9 @@ class ActionPlanner:
                         # self.last_successful_action_type = None # 非完成状态，清除记录
 
         # --- 选择 Prompt ---
-        if last_successful_reply_action in ['direct_reply', 'send_new_message']:
+        if last_successful_reply_action in ["direct_reply", "send_new_message"]:
             prompt_template = PROMPT_FOLLOW_UP
-            logger.debug(f"使用 PROMPT_FOLLOW_UP (追问决策)")
+            logger.debug("使用 PROMPT_FOLLOW_UP (追问决策)")
         else:
             prompt_template = PROMPT_INITIAL_REPLY
             logger.debug("使用 PROMPT_INITIAL_REPLY (首次/非连续回复决策)")
@@ -410,7 +414,7 @@ response_language = "Recommend Chinese"
             last_action_context=last_action_context,
             time_since_last_bot_message_info=time_since_last_bot_message_info,
             timeout_context=timeout_context,
-            chat_history_text=chat_history_text if chat_history_text.strip() else "还没有聊天记录。"
+            chat_history_text=chat_history_text if chat_history_text.strip() else "还没有聊天记录。",
         )
 
         logger.debug(f"发送到LLM的最终提示词:\n------\n{prompt}\n------")
@@ -432,13 +436,13 @@ response_language = "Recommend Chinese"
             # 更新 valid_actions 列表以包含 send_new_message
             valid_actions = [
                 "direct_reply",
-                "send_new_message", # 添加新动作
+                "send_new_message",  # 添加新动作
                 "fetch_knowledge",
                 "wait",
                 "listening",
                 "rethink_goal",
                 "end_conversation",
-                "block_and_ignore"
+                "block_and_ignore",
             ]
             if action not in valid_actions:
                 logger.warning(f"LLM返回了未知的行动类型: '{action}'，强制改为 wait")

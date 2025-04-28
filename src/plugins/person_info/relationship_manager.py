@@ -1,4 +1,4 @@
-from src.common.logger import get_module_logger, LogConfig, RELATION_STYLE_CONFIG
+from src.common.logger_manager import get_logger
 from ..chat.chat_stream import ChatStream
 import math
 from bson.decimal128 import Decimal128
@@ -7,12 +7,8 @@ import time
 import re
 import traceback
 
-relationship_config = LogConfig(
-    # 使用关系专用样式
-    console_format=RELATION_STYLE_CONFIG["console_format"],
-    file_format=RELATION_STYLE_CONFIG["file_format"],
-)
-logger = get_module_logger("rel_manager", config=relationship_config)
+
+logger = get_logger("relation")
 
 
 class RelationshipManager:

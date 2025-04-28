@@ -14,15 +14,10 @@ from ...common.database import db
 from ...config.config import global_config
 from ..chat.utils_image import image_path_to_base64, image_manager
 from ..models.utils_model import LLMRequest
-from src.common.logger import get_module_logger, LogConfig, EMOJI_STYLE_CONFIG
+from src.common.logger_manager import get_logger
 
 
-emoji_log_config = LogConfig(
-    console_format=EMOJI_STYLE_CONFIG["console_format"],
-    file_format=EMOJI_STYLE_CONFIG["file_format"],
-)
-
-logger = get_module_logger("emoji", config=emoji_log_config)
+logger = get_logger("emoji")
 
 BASE_DIR = os.path.join("data")
 EMOJI_DIR = os.path.join(BASE_DIR, "emoji")  # 表情包存储目录

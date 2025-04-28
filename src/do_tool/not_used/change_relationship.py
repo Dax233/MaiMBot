@@ -1,9 +1,9 @@
 from typing import Dict, Any
-from src.common.logger import get_module_logger
+from src.common.logger_manager import get_logger
 from src.do_tool.tool_can_use.base_tool import BaseTool
 
 
-logger = get_module_logger("relationship_tool")
+logger = get_logger("relationship_tool")
 
 
 class RelationshipTool(BaseTool):

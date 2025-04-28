@@ -2,7 +2,7 @@ from src.heart_flow.sub_heartflow import SubHeartflow
 from src.plugins.models.utils_model import LLMRequest
 from src.config.config import global_config
 from src.plugins.schedule.schedule_generator import bot_schedule
-from src.common.logger import get_module_logger, LogConfig, HEARTFLOW_STYLE_CONFIG
+from src.common.logger_manager import get_logger
 from typing import Any, Optional
 from src.do_tool.tool_use import ToolUser
 from src.plugins.person_info.relationship_manager import relationship_manager  # Module instance
@@ -13,11 +13,7 @@ from src.heart_flow.interest_logger import InterestLogger  # Import InterestLogg
 from src.heart_flow.background_tasks import BackgroundTaskManager  # Import BackgroundTaskManager
 # --- End import ---
 
-heartflow_config = LogConfig(
-    console_format=HEARTFLOW_STYLE_CONFIG["console_format"],
-    file_format=HEARTFLOW_STYLE_CONFIG["file_format"],
-)
-logger = get_module_logger("heartflow", config=heartflow_config)
+logger = get_logger("heartflow")
 
 
 # Task Intervals (should be in BackgroundTaskManager or config)

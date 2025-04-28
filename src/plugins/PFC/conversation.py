@@ -10,10 +10,10 @@ from typing import Dict, Any, Optional
 from ..chat.message import Message
 from .pfc_types import ConversationState
 from .pfc import ChatObserver, GoalAnalyzer, DirectMessageSender
-from src.common.logger import get_module_logger
+from src.common.logger_manager import get_logger
 from .action_planner import ActionPlanner
 from .observation_info import ObservationInfo
-from .conversation_info import ConversationInfo # 确保导入 ConversationInfo
+from .conversation_info import ConversationInfo  # 确保导入 ConversationInfo
 from .reply_generator import ReplyGenerator
 from ..chat.chat_stream import ChatStream
 from maim_message import UserInfo
@@ -23,7 +23,7 @@ from .waiter import Waiter
 
 import traceback
 
-logger = get_module_logger("pfc_conversation")
+logger = get_logger("pfc")
 
 
 class Conversation:
@@ -153,9 +153,7 @@ class Conversation:
                 # --- 调用 Action Planner ---
                 # 传递 self.conversation_info.last_successful_reply_action
                 action, reason = await self.action_planner.plan(
-                    self.observation_info,
-                    self.conversation_info,
-                    self.conversation_info.last_successful_reply_action
+                    self.observation_info, self.conversation_info, self.conversation_info.last_successful_reply_action
                 )
 
                 # --- 规划后检查是否有 *更多* 新消息到达 ---
@@ -184,7 +182,6 @@ class Conversation:
                     else:
                         logger.error("无法清理未处理消息: ObservationInfo 缺少 clear_unprocessed_messages 方法！")
 
-
                 await self._handle_action(action, reason, self.observation_info, self.conversation_info)
 
                 # 检查是否需要结束对话 (逻辑不变)
@@ -205,7 +202,6 @@ class Conversation:
                     self.should_continue = False
                     logger.info("检测到'结束对话'目标，停止循环。")
 
-
             except Exception as loop_err:
                 logger.error(f"PFC主循环出错: {loop_err}")
                 logger.error(traceback.format_exc())
@@ -219,14 +215,16 @@ class Conversation:
     def _check_new_messages_after_planning(self):
         """检查在规划后是否有新消息"""
         # 检查 ObservationInfo 是否已初始化并且有 new_messages_count 属性
-        if not hasattr(self, 'observation_info') or not hasattr(self.observation_info, 'new_messages_count'):
+        if not hasattr(self, "observation_info") or not hasattr(self.observation_info, "new_messages_count"):
             logger.warning("ObservationInfo 未初始化或缺少 'new_messages_count' 属性，无法检查新消息。")
-            return False # 或者根据需要抛出错误
+            return False  # 或者根据需要抛出错误
 
         if self.observation_info.new_messages_count > 2:
-            logger.info(f"生成/执行动作期间收到 {self.observation_info.new_messages_count} 条新消息，取消当前动作并重新规划")
+            logger.info(
+                f"生成/执行动作期间收到 {self.observation_info.new_messages_count} 条新消息，取消当前动作并重新规划"
+            )
             # 如果有新消息，也应该重置上次回复状态
-            if hasattr(self, 'conversation_info'): # 确保 conversation_info 已初始化
+            if hasattr(self, "conversation_info"):  # 确保 conversation_info 已初始化
                 self.conversation_info.last_successful_reply_action = None
             else:
                 logger.warning("ConversationInfo 未初始化，无法重置 last_successful_reply_action。")
@@ -240,9 +238,9 @@ class Conversation:
             chat_info = msg_dict.get("chat_info")
             if chat_info and isinstance(chat_info, dict):
                 chat_stream = ChatStream.from_dict(chat_info)
-            elif self.chat_stream: # 使用实例变量中的 chat_stream
+            elif self.chat_stream:  # 使用实例变量中的 chat_stream
                 chat_stream = self.chat_stream
-            else: # Fallback: 尝试从 manager 获取 (可能需要 stream_id)
+            else:  # Fallback: 尝试从 manager 获取 (可能需要 stream_id)
                 chat_stream = chat_manager.get_stream(self.stream_id)
                 if not chat_stream:
                     raise ValueError(f"无法确定 ChatStream for stream_id {self.stream_id}")
@@ -250,9 +248,9 @@ class Conversation:
             user_info = UserInfo.from_dict(msg_dict.get("user_info", {}))
 
             return Message(
-                message_id=msg_dict.get("message_id", f"gen_{time.time()}"), # 提供默认 ID
-                chat_stream=chat_stream, # 使用确定的 chat_stream
-                time=msg_dict.get("time", time.time()), # 提供默认时间
+                message_id=msg_dict.get("message_id", f"gen_{time.time()}"),  # 提供默认 ID
+                chat_stream=chat_stream,  # 使用确定的 chat_stream
+                time=msg_dict.get("time", time.time()),  # 提供默认时间
                 user_info=user_info,
                 processed_plain_text=msg_dict.get("processed_plain_text", ""),
                 detailed_plain_text=msg_dict.get("detailed_plain_text", ""),
@@ -278,12 +276,12 @@ class Conversation:
             "final_reason": None,
         }
         # 确保 done_action 列表存在
-        if not hasattr(conversation_info, 'done_action'):
+        if not hasattr(conversation_info, "done_action"):
             conversation_info.done_action = []
         conversation_info.done_action.append(current_action_record)
         action_index = len(conversation_info.done_action) - 1
 
-        action_successful = False # 用于标记动作是否成功完成
+        action_successful = False  # 用于标记动作是否成功完成
 
         # --- 根据不同的 action 执行 ---
 
@@ -302,7 +300,9 @@ class Conversation:
                 self.state = ConversationState.GENERATING
 
                 # 1. 生成回复 (调用 generate 时传入 action_type)
-                self.generated_reply = await self.reply_generator.generate(observation_info, conversation_info, action_type='send_new_message')
+                self.generated_reply = await self.reply_generator.generate(
+                    observation_info, conversation_info, action_type="send_new_message"
+                )
                 logger.info(f"第 {reply_attempt_count} 次生成的追问回复: {self.generated_reply}")
 
                 # 2. 检查回复 (逻辑不变)
@@ -323,7 +323,9 @@ class Conversation:
                         final_reply_to_send = self.generated_reply
                         break
                     elif need_replan:
-                        logger.warning(f"第 {reply_attempt_count} 次追问检查建议重新规划，停止尝试。原因: {check_reason}")
+                        logger.warning(
+                            f"第 {reply_attempt_count} 次追问检查建议重新规划，停止尝试。原因: {check_reason}"
+                        )
                         break
                 except Exception as check_err:
                     logger.error(f"第 {reply_attempt_count} 次调用 ReplyChecker (追问) 时出错: {check_err}")
@@ -338,16 +340,16 @@ class Conversation:
                     conversation_info.done_action[action_index].update(
                         {"status": "recall", "final_reason": f"有新消息，取消发送追问: {final_reply_to_send}"}
                     )
-                    return # 直接返回，重新规划
+                    return  # 直接返回，重新规划
 
                 # 发送合适的回复
                 self.generated_reply = final_reply_to_send
                 # --- 在这里调用 _send_reply ---
-                await self._send_reply() # <--- 调用恢复后的函数
+                await self._send_reply()  # <--- 调用恢复后的函数
 
                 # 更新状态: 标记上次成功是 send_new_message
-                self.conversation_info.last_successful_reply_action = 'send_new_message'
-                action_successful = True # 标记动作成功
+                self.conversation_info.last_successful_reply_action = "send_new_message"
+                action_successful = True  # 标记动作成功
 
             else:
                 # 追问失败
@@ -371,7 +373,6 @@ class Conversation:
                 }
                 conversation_info.done_action.append(wait_action_record)
 
-
         elif action == "direct_reply":
             max_reply_attempts = 3
             reply_attempt_count = 0
@@ -386,7 +387,9 @@ class Conversation:
                 self.state = ConversationState.GENERATING
 
                 # 1. 生成回复
-                self.generated_reply = await self.reply_generator.generate(observation_info, conversation_info, action_type='direct_reply')
+                self.generated_reply = await self.reply_generator.generate(
+                    observation_info, conversation_info, action_type="direct_reply"
+                )
                 logger.info(f"第 {reply_attempt_count} 次生成的首次回复: {self.generated_reply}")
 
                 # 2. 检查回复
@@ -407,7 +410,9 @@ class Conversation:
                         final_reply_to_send = self.generated_reply
                         break
                     elif need_replan:
-                        logger.warning(f"第 {reply_attempt_count} 次首次回复检查建议重新规划，停止尝试。原因: {check_reason}")
+                        logger.warning(
+                            f"第 {reply_attempt_count} 次首次回复检查建议重新规划，停止尝试。原因: {check_reason}"
+                        )
                         break
                 except Exception as check_err:
                     logger.error(f"第 {reply_attempt_count} 次调用 ReplyChecker (首次回复) 时出错: {check_err}")
@@ -422,16 +427,16 @@ class Conversation:
                     conversation_info.done_action[action_index].update(
                         {"status": "recall", "final_reason": f"有新消息，取消发送首次回复: {final_reply_to_send}"}
                     )
-                    return # 直接返回，重新规划
+                    return  # 直接返回，重新规划
 
                 # 发送合适的回复
                 self.generated_reply = final_reply_to_send
                 # --- 在这里调用 _send_reply ---
-                await self._send_reply() # <--- 调用恢复后的函数
+                await self._send_reply()  # <--- 调用恢复后的函数
 
                 # 更新状态: 标记上次成功是 direct_reply
-                self.conversation_info.last_successful_reply_action = 'direct_reply'
-                action_successful = True # 标记动作成功
+                self.conversation_info.last_successful_reply_action = "direct_reply"
+                action_successful = True  # 标记动作成功
 
             else:
                 # 首次回复失败
@@ -460,7 +465,7 @@ class Conversation:
             knowledge_query = reason
             try:
                 # 检查 knowledge_fetcher 是否存在
-                if not hasattr(self, 'knowledge_fetcher'):
+                if not hasattr(self, "knowledge_fetcher"):
                     logger.error("KnowledgeFetcher 未初始化，无法获取知识。")
                     raise AttributeError("KnowledgeFetcher not initialized")
 
@@ -468,23 +473,24 @@ class Conversation:
                 logger.info(f"获取到知识: {knowledge[:100]}..., 来源: {source}")
                 if knowledge:
                     # 确保 knowledge_list 存在
-                    if not hasattr(conversation_info, 'knowledge_list'):
+                    if not hasattr(conversation_info, "knowledge_list"):
                         conversation_info.knowledge_list = []
-                    conversation_info.knowledge_list.append({"query": knowledge_query, "knowledge": knowledge, "source": source})
+                    conversation_info.knowledge_list.append(
+                        {"query": knowledge_query, "knowledge": knowledge, "source": source}
+                    )
                 action_successful = True
             except Exception as fetch_err:
                 logger.error(f"获取知识时出错: {fetch_err}")
                 conversation_info.done_action[action_index].update(
                     {"status": "recall", "final_reason": f"获取知识失败: {fetch_err}"}
                 )
-                self.conversation_info.last_successful_reply_action = None # 重置状态
-
+                self.conversation_info.last_successful_reply_action = None  # 重置状态
 
         elif action == "rethink_goal":
             self.state = ConversationState.RETHINKING
             try:
                 # 检查 goal_analyzer 是否存在
-                if not hasattr(self, 'goal_analyzer'):
+                if not hasattr(self, "goal_analyzer"):
                     logger.error("GoalAnalyzer 未初始化，无法重新思考目标。")
                     raise AttributeError("GoalAnalyzer not initialized")
                 await self.goal_analyzer.analyze_goal(conversation_info, observation_info)
@@ -494,31 +500,29 @@ class Conversation:
                 conversation_info.done_action[action_index].update(
                     {"status": "recall", "final_reason": f"重新思考目标失败: {rethink_err}"}
                 )
-                self.conversation_info.last_successful_reply_action = None # 重置状态
-
+                self.conversation_info.last_successful_reply_action = None  # 重置状态
 
         elif action == "listening":
             self.state = ConversationState.LISTENING
             logger.info("倾听对方发言...")
             try:
                 # 检查 waiter 是否存在
-                if not hasattr(self, 'waiter'):
+                if not hasattr(self, "waiter"):
                     logger.error("Waiter 未初始化，无法倾听。")
                     raise AttributeError("Waiter not initialized")
-                timeout_occurred = await self.waiter.wait_listening(conversation_info)
-                action_successful = True # Listening 完成就算成功
+                await self.waiter.wait_listening(conversation_info)
+                action_successful = True  # Listening 完成就算成功
             except Exception as listen_err:
                 logger.error(f"倾听时出错: {listen_err}")
                 conversation_info.done_action[action_index].update(
                     {"status": "recall", "final_reason": f"倾听失败: {listen_err}"}
                 )
-                self.conversation_info.last_successful_reply_action = None # 重置状态
-
+                self.conversation_info.last_successful_reply_action = None  # 重置状态
 
         elif action == "end_conversation":
             self.should_continue = False
             logger.info("决定结束对话...")
-            action_successful = True # 标记动作成功
+            action_successful = True  # 标记动作成功
 
         elif action == "block_and_ignore":
             logger.info("不想再理你了...")
@@ -526,24 +530,24 @@ class Conversation:
             self.ignore_until_timestamp = time.time() + ignore_duration_seconds
             logger.info(f"将忽略此对话直到: {datetime.datetime.fromtimestamp(self.ignore_until_timestamp)}")
             self.state = ConversationState.IGNORED
-            action_successful = True # 标记动作成功
+            action_successful = True  # 标记动作成功
 
         else:  # 对应 'wait' 动作
             self.state = ConversationState.WAITING
             logger.info("等待更多信息...")
             try:
                 # 检查 waiter 是否存在
-                if not hasattr(self, 'waiter'):
+                if not hasattr(self, "waiter"):
                     logger.error("Waiter 未初始化，无法等待。")
                     raise AttributeError("Waiter not initialized")
-                timeout_occurred = await self.waiter.wait(self.conversation_info)
-                action_successful = True # Wait 完成就算成功
+                _timeout_occurred = await self.waiter.wait(self.conversation_info)
+                action_successful = True  # Wait 完成就算成功
             except Exception as wait_err:
                 logger.error(f"等待时出错: {wait_err}")
                 conversation_info.done_action[action_index].update(
                     {"status": "recall", "final_reason": f"等待失败: {wait_err}"}
                 )
-                self.conversation_info.last_successful_reply_action = None # 重置状态
+                self.conversation_info.last_successful_reply_action = None  # 重置状态
 
         # --- 更新 Action History 状态 ---
         # 只有当动作本身成功时，才更新状态为 done
@@ -555,7 +559,7 @@ class Conversation:
                 }
             )
             # 重置状态: 对于非回复类动作的成功，清除上次回复状态
-            if action not in ['direct_reply', 'send_new_message']:
+            if action not in ["direct_reply", "send_new_message"]:
                 self.conversation_info.last_successful_reply_action = None
                 logger.debug(f"动作 {action} 成功完成，重置 last_successful_reply_action")
         # 如果动作是 recall 状态，在各自的处理逻辑中已经更新了 done_action
@@ -571,7 +575,7 @@ class Conversation:
             reply_content = self.generated_reply
 
             # 发送消息 (确保 direct_sender 和 chat_stream 有效)
-            if not hasattr(self, 'direct_sender') or not self.direct_sender:
+            if not hasattr(self, "direct_sender") or not self.direct_sender:
                 logger.error("DirectMessageSender 未初始化，无法发送回复。")
                 return
             if not self.chat_stream:
@@ -587,7 +591,7 @@ class Conversation:
             # if not await self.chat_observer.wait_for_update():
             #     logger.warning("等待 ChatObserver 更新完成超时")
 
-            self.state = ConversationState.ANALYZING # 更新状态
+            self.state = ConversationState.ANALYZING  # 更新状态
 
         except Exception as e:
             logger.error(f"发送消息或更新状态时失败: {str(e)}")

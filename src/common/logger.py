@@ -442,6 +442,24 @@ CHAT_STREAM_STYLE_CONFIG = {
     },
 }
 
+CHAT_MESSAGE_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
+            "<level>{level: <8}</level> | "
+            "<light-blue>聊天消息</light-blue> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 聊天消息 | {message}",
+    },
+    "simple": {
+        "console_format": (
+            "<level>{time:MM-DD HH:mm}</level> | <light-blue>聊天消息</light-blue> | <light-blue>{message}</light-blue>"
+        ),  # noqa: E501
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 聊天消息 | {message}",
+    },
+}
+
 PERSON_INFO_STYLE_CONFIG = {
     "advanced": {
         "console_format": (
@@ -583,6 +601,42 @@ LPMM_STYLE_CONFIG = {
     },
 }
 
+OBSERVATION_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
+            "<level>{level: <8}</level> | "
+            "<light-yellow>聊天观察</light-yellow> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 聊天观察 | {message}",
+    },
+    "simple": {
+        "console_format": (
+            "<level>{time:MM-DD HH:mm}</level> | <light-yellow>聊天观察</light-yellow> | <light-yellow>{message}</light-yellow>"
+        ),  # noqa: E501
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 聊天观察 | {message}",
+    },
+}
+
+CHAT_IMAGE_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
+            "<level>{level: <8}</level> | "
+            "<light-yellow>聊天图片</light-yellow> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 聊天图片 | {message}",
+    },
+    "simple": {
+        "console_format": (
+            "<level>{time:MM-DD HH:mm}</level> | <light-yellow>聊天图片</light-yellow> | <light-yellow>{message}</light-yellow>"
+        ),  # noqa: E501
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 聊天图片 | {message}",
+    },
+}
+
 # 兴趣log
 INTEREST_STYLE_CONFIG = {
     "advanced": {
@@ -626,6 +680,136 @@ TIANYI_STYLE_CONFIG = {
     },
 }
 
+# 模型日志样式配置
+MODEL_UTILS_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
+            "<level>{level: <8}</level> | "
+            "<light-yellow>模型</light-yellow> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 模型 | {message}",
+    },
+    "simple": {
+        "console_format": "<level>{time:MM-DD HH:mm}</level> | <light-green>模型</light-green> | {message}",
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 模型 | {message}",
+    },
+}
+
+MESSAGE_BUFFER_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
+            "<level>{level: <8}</level> | "
+            "<light-yellow>消息缓存</light-yellow> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 消息缓存 | {message}",
+    },
+    "simple": {
+        "console_format": "<level>{time:MM-DD HH:mm}</level> | <light-green>消息缓存</light-green> | {message}",
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 消息缓存 | {message}",
+    },
+}
+
+PROMPT_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
+            "<level>{level: <8}</level> | "
+            "<light-yellow>提示词构建</light-yellow> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 提示词构建 | {message}",
+    },
+    "simple": {
+        "console_format": "<level>{time:MM-DD HH:mm}</level> | <light-green>提示词构建</light-green> | {message}",
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 提示词构建 | {message}",
+    },
+}
+
+CHANGE_MOOD_TOOL_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
+            "<level>{level: <8}</level> | "
+            "<fg #3FC1C9>心情工具</fg #3FC1C9> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 心情工具 | {message}",
+    },
+    "simple": {
+        "console_format": "<level>{time:MM-DD HH:mm}</level> | <light-green>心情工具</light-green> | {message}",
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 心情工具 | {message}",
+    },
+}
+
+CHANGE_RELATIONSHIP_TOOL_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
+            "<level>{level: <8}</level> | "
+            "<fg #3FC1C9>关系工具</fg #3FC1C9> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 关系工具 | {message}",
+    },
+    "simple": {
+        "console_format": "<level>{time:MM-DD HH:mm}</level> | <light-green>关系工具</light-green> | {message}",
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 关系工具 | {message}",
+    },
+}
+
+GET_KNOWLEDGE_TOOL_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
+            "<level>{level: <8}</level> | "
+            "<fg #3FC1C9>获取知识</fg #3FC1C9> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 获取知识 | {message}",
+    },
+    "simple": {
+        "console_format": "<level>{time:MM-DD HH:mm}</level> | <light-green>获取知识</light-green> | {message}",
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 获取知识 | {message}",
+    },
+}
+
+GET_TIME_DATE_TOOL_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
+            "<level>{level: <8}</level> | "
+            "<fg #3FC1C9>获取时间日期</fg #3FC1C9> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 获取时间日期 | {message}",
+    },
+    "simple": {
+        "console_format": "<level>{time:MM-DD HH:mm}</level> | <light-green>获取时间日期</light-green> | {message}",
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 获取时间日期 | {message}",
+    },
+}
+
+LPMM_GET_KNOWLEDGE_TOOL_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
+            "<level>{level: <8}</level> | "
+            "<fg #3FC1C9>LPMM获取知识</fg #3FC1C9> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | LPMM获取知识 | {message}",
+    },
+    "simple": {
+        "console_format": "<level>{time:MM-DD HH:mm}</level> | <light-green>LPMM获取知识</light-green> | {message}",
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | LPMM获取知识 | {message}",
+    },
+}
+
+
 # 根据SIMPLE_OUTPUT选择配置
 MAIN_STYLE_CONFIG = MAIN_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else MAIN_STYLE_CONFIG["advanced"]
 EMOJI_STYLE_CONFIG = EMOJI_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else EMOJI_STYLE_CONFIG["advanced"]
@@ -665,6 +849,35 @@ PFC_STYLE_CONFIG = PFC_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else PFC_STYLE_CO
 LPMM_STYLE_CONFIG = LPMM_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else LPMM_STYLE_CONFIG["advanced"]
 INTEREST_STYLE_CONFIG = INTEREST_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else INTEREST_STYLE_CONFIG["advanced"]
 TIANYI_STYLE_CONFIG = TIANYI_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else TIANYI_STYLE_CONFIG["advanced"]
+MODEL_UTILS_STYLE_CONFIG = MODEL_UTILS_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else MODEL_UTILS_STYLE_CONFIG["advanced"]
+PROMPT_STYLE_CONFIG = PROMPT_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else PROMPT_STYLE_CONFIG["advanced"]
+CHANGE_MOOD_TOOL_STYLE_CONFIG = (
+    CHANGE_MOOD_TOOL_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else CHANGE_MOOD_TOOL_STYLE_CONFIG["advanced"]
+)
+CHANGE_RELATIONSHIP_TOOL_STYLE_CONFIG = (
+    CHANGE_RELATIONSHIP_TOOL_STYLE_CONFIG["simple"]
+    if SIMPLE_OUTPUT
+    else CHANGE_RELATIONSHIP_TOOL_STYLE_CONFIG["advanced"]
+)
+GET_KNOWLEDGE_TOOL_STYLE_CONFIG = (
+    GET_KNOWLEDGE_TOOL_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else GET_KNOWLEDGE_TOOL_STYLE_CONFIG["advanced"]
+)
+GET_TIME_DATE_TOOL_STYLE_CONFIG = (
+    GET_TIME_DATE_TOOL_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else GET_TIME_DATE_TOOL_STYLE_CONFIG["advanced"]
+)
+LPMM_GET_KNOWLEDGE_TOOL_STYLE_CONFIG = (
+    LPMM_GET_KNOWLEDGE_TOOL_STYLE_CONFIG["simple"]
+    if SIMPLE_OUTPUT
+    else LPMM_GET_KNOWLEDGE_TOOL_STYLE_CONFIG["advanced"]
+)
+OBSERVATION_STYLE_CONFIG = OBSERVATION_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else OBSERVATION_STYLE_CONFIG["advanced"]
+MESSAGE_BUFFER_STYLE_CONFIG = (
+    MESSAGE_BUFFER_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else MESSAGE_BUFFER_STYLE_CONFIG["advanced"]
+)
+CHAT_MESSAGE_STYLE_CONFIG = (
+    CHAT_MESSAGE_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else CHAT_MESSAGE_STYLE_CONFIG["advanced"]
+)
+CHAT_IMAGE_STYLE_CONFIG = CHAT_IMAGE_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else CHAT_IMAGE_STYLE_CONFIG["advanced"]
 
 
 def is_registered_module(record: dict) -> bool:

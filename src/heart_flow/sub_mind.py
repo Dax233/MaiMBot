@@ -3,7 +3,7 @@ from src.plugins.models.utils_model import LLMRequest
 from src.config.config import global_config
 import time
 import traceback
-from src.common.logger import get_module_logger, LogConfig, SUB_HEARTFLOW_STYLE_CONFIG  # noqa: E402
+from src.common.logger_manager import get_logger
 from src.individuality.individuality import Individuality
 import random
 from ..plugins.utils.prompt_builder import Prompt, global_prompt_manager
@@ -13,11 +13,8 @@ from src.heart_flow.chat_state_info import ChatStateInfo
 from src.plugins.chat.chat_stream import chat_manager
 from src.plugins.heartFC_chat.heartFC_Cycleinfo import CycleInfo
 
-subheartflow_config = LogConfig(
-    console_format=SUB_HEARTFLOW_STYLE_CONFIG["console_format"],
-    file_format=SUB_HEARTFLOW_STYLE_CONFIG["file_format"],
-)
-logger = get_module_logger("subheartflow", config=subheartflow_config)
+
+logger = get_logger("sub_heartflow")
 
 
 def init_prompt():
@@ -25,6 +22,7 @@ def init_prompt():
     prompt += "{extra_info}\n"
     prompt += "{prompt_personality}\n"
     prompt += "{last_loop_prompt}\n"
+    prompt += "{cycle_info_block}\n"
     prompt += "现在是{time_now}，你正在上网，和qq群里的网友们聊天，以下是正在进行的聊天内容：\n{chat_observe_info}\n"
     prompt += "\n你现在{mood_info}\n"
     prompt += (
@@ -69,7 +67,7 @@ class SubMind:
         self.past_mind = []
         self.structured_info = {}
 
-    async def do_thinking_before_reply(self, last_cycle: CycleInfo = None):
+    async def do_thinking_before_reply(self, history_cycle: list[CycleInfo] = None):
         """
         在回复前进行思考，生成内心想法并收集工具调用结果
 
@@ -133,6 +131,7 @@ class SubMind:
             ("进行深入思考", 0.2),
         ]
 
+        last_cycle = history_cycle[-1] if history_cycle else None
         # 上一次决策信息
         if last_cycle != None:
             last_action = last_cycle.action_type
@@ -153,6 +152,49 @@ class SubMind:
             )
         else:
             last_loop_prompt = ""
+
+        # 准备循环信息块 (分析最近的活动循环)
+        recent_active_cycles = []
+        for cycle in reversed(history_cycle):
+            # 只关心实际执行了动作的循环
+            if cycle.action_taken:
+                recent_active_cycles.append(cycle)
+                # 最多找最近的3个活动循环
+                if len(recent_active_cycles) == 3:
+                    break
+
+        cycle_info_block = ""
+        consecutive_text_replies = 0
+        responses_for_prompt = []
+
+        # 检查这最近的活动循环中有多少是连续的文本回复 (从最近的开始看)
+        for cycle in recent_active_cycles:
+            if cycle.action_type == "text_reply":
+                consecutive_text_replies += 1
+                # 获取回复内容，如果不存在则返回'[空回复]'
+                response_text = cycle.response_info.get("response_text", [])
+                # 使用简单的 join 来格式化回复内容列表
+                formatted_response = "[空回复]" if not response_text else " ".join(response_text)
+                responses_for_prompt.append(formatted_response)
+            else:
+                # 一旦遇到非文本回复，连续性中断
+                break
+
+        # 根据连续文本回复的数量构建提示信息
+        # 注意: responses_for_prompt 列表是从最近到最远排序的
+        if consecutive_text_replies >= 3:  # 如果最近的三个活动都是文本回复
+            cycle_info_block = f'你已经连续回复了三条消息（最近: "{responses_for_prompt[0]}"，第二近: "{responses_for_prompt[1]}"，第三近: "{responses_for_prompt[2]}"）。你回复的有点多了，请注意'
+        elif consecutive_text_replies == 2:  # 如果最近的两个活动是文本回复
+            cycle_info_block = f'你已经连续回复了两条消息（最近: "{responses_for_prompt[0]}"，第二近: "{responses_for_prompt[1]}"），请注意'
+        elif consecutive_text_replies == 1:  # 如果最近的一个活动是文本回复
+            cycle_info_block = f'你刚刚已经回复一条消息（内容: "{responses_for_prompt[0]}"）'
+
+        # 包装提示块，增加可读性，即使没有连续回复也给个标记
+        if cycle_info_block:
+            cycle_info_block = f"\n【近期回复历史】\n{cycle_info_block}\n"
+        else:
+            # 如果最近的活动循环不是文本回复，或者没有活动循环
+            cycle_info_block = "\n【近期回复历史】\n(最近没有连续文本回复)\n"
 
         # 加权随机选择思考指导
         hf_do_next = local_random.choices(
@@ -256,6 +298,7 @@ response_language = "Recommend Chinese"
             mood_info=mood_info,
             hf_do_next=hf_do_next,
             last_loop_prompt=last_loop_prompt,
+            cycle_info_block=cycle_info_block,
         )
 
         # logger.debug(f"[{self.subheartflow_id}] 心流思考提示词构建完成")

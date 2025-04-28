@@ -14,19 +14,14 @@ from ..chat.message_sender import message_manager
 from ..chat.utils_image import image_path_to_base64
 from ..willing.willing_manager import willing_manager
 from maim_message import UserInfo, Seg
-from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
+from src.common.logger_manager import get_logger
 from src.plugins.chat.chat_stream import ChatStream, chat_manager
 from src.plugins.person_info.relationship_manager import relationship_manager
 from src.plugins.respon_info_catcher.info_catcher import info_catcher_manager
 from src.plugins.utils.timer_calculator import Timer
 
-# 定义日志配置
-chat_config = LogConfig(
-    console_format=CHAT_STYLE_CONFIG["console_format"],
-    file_format=CHAT_STYLE_CONFIG["file_format"],
-)
 
-logger = get_module_logger("normal_chat", config=chat_config)
+logger = get_logger("chat")
 
 
 class NormalChat:

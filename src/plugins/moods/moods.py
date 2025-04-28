@@ -4,16 +4,12 @@ import time
 from dataclasses import dataclass
 
 from ...config.config import global_config
-from src.common.logger import get_module_logger, LogConfig, MOOD_STYLE_CONFIG
+from src.common.logger_manager import get_logger
 from ..person_info.relationship_manager import relationship_manager
 from src.individuality.individuality import Individuality
 
-mood_config = LogConfig(
-    # 使用海马体专用样式
-    console_format=MOOD_STYLE_CONFIG["console_format"],
-    file_format=MOOD_STYLE_CONFIG["file_format"],
-)
-logger = get_module_logger("mood_manager", config=mood_config)
+
+logger = get_logger("mood")
 
 
 @dataclass

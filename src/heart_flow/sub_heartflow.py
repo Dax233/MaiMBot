@@ -4,7 +4,7 @@ from src.config.config import global_config
 import time
 from typing import Optional, List, Dict, Tuple, Callable, Coroutine
 import traceback
-from src.common.logger import get_module_logger, LogConfig, SUB_HEARTFLOW_STYLE_CONFIG  # noqa: E402
+from src.common.logger_manager import get_logger
 import random
 from src.plugins.chat.message import MessageRecv
 from src.plugins.chat.chat_stream import chat_manager
@@ -24,12 +24,7 @@ from src.heart_flow.sub_mind import SubMind
 # 定义常量 (从 interest.py 移动过来)
 MAX_INTEREST = 15.0
 
-subheartflow_config = LogConfig(
-    # 使用海马体专用样式
-    console_format=SUB_HEARTFLOW_STYLE_CONFIG["console_format"],
-    file_format=SUB_HEARTFLOW_STYLE_CONFIG["file_format"],
-)
-logger = get_module_logger("subheartflow", config=subheartflow_config)
+logger = get_logger("subheartflow")
 
 base_reply_probability = 0.05
 probability_increase_rate_per_second = 0.08

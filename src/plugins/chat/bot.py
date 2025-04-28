@@ -5,20 +5,16 @@ from ..PFC.pfc_manager import PFCManager
 from .chat_stream import chat_manager
 from .only_message_process import MessageProcessor
 
-from src.common.logger import get_module_logger, CHAT_STYLE_CONFIG, LogConfig
+from src.common.logger_manager import get_logger
 from ..heartFC_chat.heartflow_processor import HeartFCProcessor
 from ..utils.prompt_builder import Prompt, global_prompt_manager
 import traceback
 
 # 定义日志配置
-chat_config = LogConfig(
-    # 使用消息发送专用样式
-    console_format=CHAT_STYLE_CONFIG["console_format"],
-    file_format=CHAT_STYLE_CONFIG["file_format"],
-)
+
 
 # 配置主程序日志格式
-logger = get_module_logger("chat_bot", config=chat_config)
+logger = get_logger("chat")
 
 
 class ChatBot:

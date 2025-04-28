@@ -1,10 +1,10 @@
 from src.do_tool.tool_can_use.base_tool import BaseTool
 from src.plugins.chat.utils import get_embedding
 from src.common.database import db
-from src.common.logger import get_module_logger
+from src.common.logger_manager import get_logger
 from typing import Dict, Any, Union
 
-logger = get_module_logger("get_knowledge_tool")
+logger = get_logger("get_knowledge_tool")
 
 
 class SearchKnowledgeTool(BaseTool):

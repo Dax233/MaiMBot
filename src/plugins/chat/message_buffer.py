@@ -1,5 +1,5 @@
 from ..person_info.person_info import person_info_manager
-from src.common.logger import get_module_logger
+from src.common.logger_manager import get_logger
 import asyncio
 from dataclasses import dataclass, field
 from .message import MessageRecv
@@ -11,7 +11,7 @@ import random
 import time
 from ...config.config import global_config
 
-logger = get_module_logger("message_buffer")
+logger = get_logger("message_buffer")
 
 
 @dataclass

@@ -13,17 +13,11 @@ from packaging import version
 from packaging.version import Version, InvalidVersion
 from packaging.specifiers import SpecifierSet, InvalidSpecifier
 
-from src.common.logger import get_module_logger, CONFIG_STYLE_CONFIG, LogConfig
+from src.common.logger_manager import get_logger
 
-# 定义日志配置
-config_config = LogConfig(
-    # 使用消息发送专用样式
-    console_format=CONFIG_STYLE_CONFIG["console_format"],
-    file_format=CONFIG_STYLE_CONFIG["file_format"],
-)
 
 # 配置主程序日志格式
-logger = get_module_logger("config", config=config_config)
+logger = get_logger("config")
 
 # 考虑到，实际上配置文件中的mai_version是不会自动更新的,所以采用硬编码
 is_test = True

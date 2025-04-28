@@ -1,4 +1,6 @@
 from typing import Optional
+
+
 class ConversationInfo:
     def __init__(self):
         self.done_action = []

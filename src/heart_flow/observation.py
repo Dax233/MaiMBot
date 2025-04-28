@@ -3,7 +3,7 @@
 from datetime import datetime
 from src.plugins.models.utils_model import LLMRequest
 from src.config.config import global_config
-from src.common.logger import get_module_logger
+from src.common.logger_manager import get_logger
 import traceback
 from src.plugins.utils.chat_message_builder import (
     get_raw_msg_before_timestamp_with_chat,
@@ -12,7 +12,7 @@ from src.plugins.utils.chat_message_builder import (
     num_new_messages_since,
 )
 
-logger = get_module_logger("observation")
+logger = get_logger("observation")
 
 
 # 所有观察的基类
