@@ -1,24 +1,12 @@
-# Programmable Friendly Conversationalist
-# Prefrontal cortex
-# import datetime
-
-# import asyncio
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 from src.common.logger import get_module_logger
-from ..chat.chat_stream import ChatStream
-from maim_message import UserInfo, Seg
-from ..chat.message import Message
 from ..models.utils_model import LLMRequest
 from ...config.config import global_config
-from src.plugins.chat.message import MessageSending
-from ..message.api import global_api
-from ..storage.storage import MessageStorage
 from .chat_observer import ChatObserver
 from .pfc_utils import get_items_from_json
 from src.individuality.individuality import Individuality
 from .conversation_info import ConversationInfo
 from .observation_info import ObservationInfo
-import time
 from src.plugins.utils.chat_message_builder import build_readable_messages
 
 if TYPE_CHECKING:
