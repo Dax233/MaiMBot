@@ -81,7 +81,7 @@ class GoalAnalyzer:
             goals_str = f"目标：{goal}，产生该对话目标的原因：{reasoning}\n"
 
         # 获取聊天历史记录
-        chat_history_text = observation_info.chat_history
+        chat_history_text = observation_info.chat_history_str
 
         if observation_info.new_messages_count > 0:
             new_messages_list = observation_info.unprocessed_messages
@@ -256,9 +256,7 @@ response_language = "Recommend Chinese"
                 # 清空现有目标列表并添加新目标
                 conversation_info.goal_list = []
                 for item in result:
-                    goal = item.get("goal", "")
-                    reasoning = item.get("reasoning", "")
-                    conversation_info.goal_list.append((goal, reasoning))
+                    conversation_info.goal_list.append(item)
 
                 # 返回第一个目标作为当前主要目标（如果有）
                 if result:
@@ -266,9 +264,7 @@ response_language = "Recommend Chinese"
                     return (first_goal.get("goal", ""), "", first_goal.get("reasoning", ""))
             else:
                 # 单个目标的情况
-                goal = result.get("goal", "")
-                reasoning = result.get("reasoning", "")
-                conversation_info.goal_list.append((goal, reasoning))
+                conversation_info.goal_list.append(result)
                 return (goal, "", reasoning)
 
         # 如果解析失败，返回默认值
