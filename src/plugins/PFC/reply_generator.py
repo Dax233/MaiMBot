@@ -61,7 +61,7 @@ PROMPT_SEND_NEW_MESSAGE = """{persona_text}。现在你在参与一场QQ私聊�
 class ReplyGenerator:
     """回复生成器"""
 
-    def __init__(self, stream_id: str):
+    def __init__(self, stream_id: str, private_name: str):
         self.llm = LLMRequest(
             model=global_config.llm_PFC_chat,
             temperature=global_config.llm_PFC_chat["temp"],
@@ -71,8 +71,9 @@ class ReplyGenerator:
         self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=3)
         self.identity_detail_info = Individuality.get_instance().get_prompt(type="identity", x_person=2, level=2)
         self.name = global_config.BOT_NICKNAME
-        self.chat_observer = ChatObserver.get_instance(stream_id)
-        self.reply_checker = ReplyChecker(stream_id)
+        self.private_name = private_name
+        self.chat_observer = ChatObserver.get_instance(stream_id, private_name)
+        self.reply_checker = ReplyChecker(stream_id, private_name)
 
     # 修改 generate 方法签名，增加 action_type 参数
     async def generate(
@@ -89,7 +90,9 @@ class ReplyGenerator:
             str: 生成的回复
         """
         # 构建提示词
-        logger.debug(f"开始生成回复 (动作类型: {action_type})：当前目标: {conversation_info.goal_list}")
+        logger.debug(
+            f"[私聊][{self.private_name}]开始生成回复 (动作类型: {action_type})：当前目标: {conversation_info.goal_list}"
+        )
 
         # --- 构建通用 Prompt 参数 ---
         # (这部分逻辑基本不变)
@@ -145,10 +148,10 @@ class ReplyGenerator:
         # --- 选择 Prompt ---
         if action_type == "send_new_message":
             prompt_template = PROMPT_SEND_NEW_MESSAGE
-            logger.info("使用 PROMPT_SEND_NEW_MESSAGE (追问生成)")
+            logger.info(f"[私聊][{self.private_name}]使用 PROMPT_SEND_NEW_MESSAGE (追问生成)")
         else:  # 默认使用 direct_reply 的 prompt
             prompt_template = PROMPT_DIRECT_REPLY
-            logger.info("使用 PROMPT_DIRECT_REPLY (首次/非连续回复生成)")
+            logger.info(f"[私聊][{self.private_name}]使用 PROMPT_DIRECT_REPLY (首次/非连续回复生成)")
 
         # --- 格式化最终的 Prompt ---
         prompt = """
@@ -243,15 +246,15 @@ response_language = "Recommend Chinese"
         )
 
         # --- 调用 LLM 生成 ---
-        logger.debug(f"发送到LLM的生成提示词:\n------\n{prompt}\n------")
+        logger.debug(f"[私聊][{self.private_name}]发送到LLM的生成提示词:\n------\n{prompt}\n------")
         try:
             content, _ = await self.llm.generate_response_async(prompt)
-            logger.debug(f"生成的回复: {content}")
+            logger.debug(f"[私聊][{self.private_name}]生成的回复: {content}")
             # 移除旧的检查新消息逻辑，这应该由 conversation 控制流处理
             return content
 
         except Exception as e:
-            logger.error(f"生成回复时出错: {e}")
+            logger.error(f"[私聊][{self.private_name}]生成回复时出错: {e}")
             return "抱歉，我现在有点混乱，让我重新思考一下..."
 
     # check_reply 方法保持不变

@@ -86,7 +86,7 @@ block_and_ignore: 更加极端的结束对话方式，直接结束对话并在�
 class ActionPlanner:
     """行动规划器"""
 
-    def __init__(self, stream_id: str):
+    def __init__(self, stream_id: str, private_name: str):
         self.llm = LLMRequest(
             model=global_config.llm_PFC_action_planner,
             temperature=global_config.llm_PFC_action_planner["temp"],
@@ -96,7 +96,8 @@ class ActionPlanner:
         self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=3)
         self.identity_detail_info = Individuality.get_instance().get_prompt(type="identity", x_person=2, level=2)
         self.name = global_config.BOT_NICKNAME
-        self.chat_observer = ChatObserver.get_instance(stream_id)
+        self.private_name = private_name
+        self.chat_observer = ChatObserver.get_instance(stream_id, private_name)
         # self.action_planner_info = ActionPlannerInfo() # 移除未使用的变量
 
     # 修改 plan 方法签名，增加 last_successful_reply_action 参数
@@ -137,11 +138,15 @@ class ActionPlanner:
                             )
                         break
             else:
-                logger.debug("Observation info chat history is empty or not available for bot time check.")
+                logger.debug(
+                    f"[私聊][{self.private_name}]Observation info chat history is empty or not available for bot time check."
+                )
         except AttributeError:
-            logger.warning("ObservationInfo object might not have chat_history attribute yet for bot time check.")
+            logger.warning(
+                f"[私聊][{self.private_name}]ObservationInfo object might not have chat_history attribute yet for bot time check."
+            )
         except Exception as e:
-            logger.warning(f"获取 Bot 上次发言时间时出错: {e}")
+            logger.warning(f"[私聊][{self.private_name}]获取 Bot 上次发言时间时出错: {e}")
 
         # --- 获取超时提示信息 ---
         # (这部分逻辑不变)
@@ -158,14 +163,20 @@ class ActionPlanner:
                         except Exception:
                             timeout_context = "重要提示：对方已经长时间没有回复你的消息了（这可能代表对方繁忙/不想回复/没注意到你的消息等情况，或在对方看来本次聊天已告一段落），请基于此情况规划下一步。\n"
             else:
-                logger.debug("Conversation info goal_list is empty or not available for timeout check.")
+                logger.debug(
+                    f"[私聊][{self.private_name}]Conversation info goal_list is empty or not available for timeout check."
+                )
         except AttributeError:
-            logger.warning("ConversationInfo object might not have goal_list attribute yet for timeout check.")
+            logger.warning(
+                f"[私聊][{self.private_name}]ConversationInfo object might not have goal_list attribute yet for timeout check."
+            )
         except Exception as e:
-            logger.warning(f"检查超时目标时出错: {e}")
+            logger.warning(f"[私聊][{self.private_name}]检查超时目标时出错: {e}")
 
         # --- 构建通用 Prompt 参数 ---
-        logger.debug(f"开始规划行动：当前目标: {getattr(conversation_info, 'goal_list', '不可用')}")
+        logger.debug(
+            f"[私聊][{self.private_name}]开始规划行动：当前目标: {getattr(conversation_info, 'goal_list', '不可用')}"
+        )
 
         # 构建对话目标 (goals_str)
         goals_str = ""
@@ -188,10 +199,12 @@ class ActionPlanner:
             else:
                 goals_str = "- 目前没有明确对话目标，请考虑设定一个。\n"
         except AttributeError:
-            logger.warning("ConversationInfo object might not have goal_list attribute yet.")
+            logger.warning(
+                f"[私聊][{self.private_name}]ConversationInfo object might not have goal_list attribute yet."
+            )
             goals_str = "- 获取对话目标时出错。\n"
         except Exception as e:
-            logger.error(f"构建对话目标字符串时出错: {e}")
+            logger.error(f"[私聊][{self.private_name}]构建对话目标字符串时出错: {e}")
             goals_str = "- 构建对话目标时出错。\n"
 
         # 获取聊天历史记录 (chat_history_text)
@@ -219,13 +232,15 @@ class ActionPlanner:
                     )
                 else:
                     logger.warning(
-                        "ObservationInfo has new_messages_count > 0 but unprocessed_messages is empty or missing."
+                        f"[私聊][{self.private_name}]ObservationInfo has new_messages_count > 0 but unprocessed_messages is empty or missing."
                     )
         except AttributeError:
-            logger.warning("ObservationInfo object might be missing expected attributes for chat history.")
+            logger.warning(
+                f"[私聊][{self.private_name}]ObservationInfo object might be missing expected attributes for chat history."
+            )
             chat_history_text = "获取聊天记录时出错。\n"
         except Exception as e:
-            logger.error(f"处理聊天记录时发生未知错误: {e}")
+            logger.error(f"[私聊][{self.private_name}]处理聊天记录时发生未知错误: {e}")
             chat_history_text = "处理聊天记录时出错。\n"
 
         # 构建 Persona 文本 (persona_text)
@@ -254,11 +269,13 @@ class ActionPlanner:
             if hasattr(conversation_info, "done_action") and conversation_info.done_action:
                 action_history_list = conversation_info.done_action[-5:]
             else:
-                logger.debug("Conversation info done_action is empty or not available.")
+                logger.debug(f"[私聊][{self.private_name}]Conversation info done_action is empty or not available.")
         except AttributeError:
-            logger.warning("ConversationInfo object might not have done_action attribute yet.")
+            logger.warning(
+                f"[私聊][{self.private_name}]ConversationInfo object might not have done_action attribute yet."
+            )
         except Exception as e:
-            logger.error(f"访问行动历史时出错: {e}")
+            logger.error(f"[私聊][{self.private_name}]访问行动历史时出错: {e}")
 
         if not action_history_list:
             action_history_summary += "- 还没有执行过行动。\n"
@@ -315,10 +332,10 @@ class ActionPlanner:
         # --- 选择 Prompt ---
         if last_successful_reply_action in ["direct_reply", "send_new_message"]:
             prompt_template = PROMPT_FOLLOW_UP
-            logger.debug("使用 PROMPT_FOLLOW_UP (追问决策)")
+            logger.debug(f"[私聊][{self.private_name}]使用 PROMPT_FOLLOW_UP (追问决策)")
         else:
             prompt_template = PROMPT_INITIAL_REPLY
-            logger.debug("使用 PROMPT_INITIAL_REPLY (首次/非连续回复决策)")
+            logger.debug(f"[私聊][{self.private_name}]使用 PROMPT_INITIAL_REPLY (首次/非连续回复决策)")
 
         # --- 格式化最终的 Prompt ---
         prompt = """
@@ -418,13 +435,14 @@ response_language = "Recommend Chinese"
             chat_history_text=chat_history_text if chat_history_text.strip() else "还没有聊天记录。",
         )
 
-        logger.debug(f"发送到LLM的最终提示词:\n------\n{prompt}\n------")
+        logger.debug(f"[私聊][{self.private_name}]发送到LLM的最终提示词:\n------\n{prompt}\n------")
         try:
             content, _ = await self.llm.generate_response_async(prompt)
-            logger.debug(f"LLM原始返回内容: {content}")
+            logger.debug(f"[私聊][{self.private_name}]LLM原始返回内容: {content}")
 
             success, result = get_items_from_json(
                 content,
+                self.private_name,
                 "action",
                 "reason",
                 default_values={"action": "wait", "reason": "LLM返回格式错误或未提供原因，默认等待"},
@@ -446,14 +464,14 @@ response_language = "Recommend Chinese"
                 "block_and_ignore",
             ]
             if action not in valid_actions:
-                logger.warning(f"LLM返回了未知的行动类型: '{action}'，强制改为 wait")
+                logger.warning(f"[私聊][{self.private_name}]LLM返回了未知的行动类型: '{action}'，强制改为 wait")
                 reason = f"(原始行动'{action}'无效，已强制改为wait) {reason}"
                 action = "wait"
 
-            logger.info(f"规划的行动: {action}")
-            logger.info(f"行动原因: {reason}")
+            logger.info(f"[私聊][{self.private_name}]规划的行动: {action}")
+            logger.info(f"[私聊][{self.private_name}]行动原因: {reason}")
             return action, reason
 
         except Exception as e:
-            logger.error(f"规划行动时调用 LLM 或处理结果出错: {str(e)}")
+            logger.error(f"[私聊][{self.private_name}]规划行动时调用 LLM 或处理结果出错: {str(e)}")
             return "wait", f"行动规划处理中发生错误，暂时等待: {str(e)}"

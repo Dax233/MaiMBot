@@ -13,13 +13,14 @@ logger = get_module_logger("knowledge_fetcher")
 class KnowledgeFetcher:
     """知识调取器"""
 
-    def __init__(self):
+    def __init__(self, private_name: str):
         self.llm = LLMRequest(
             model=global_config.llm_normal,
             temperature=global_config.llm_normal["temp"],
             max_tokens=1000,
             request_type="knowledge_fetch",
         )
+        self.private_name = private_name
 
     def _lpmm_get_knowledge(self, query: str) -> str:
         """获取相关知识
@@ -31,13 +32,13 @@ class KnowledgeFetcher:
             str: 构造好的,带相关度的知识
         """
 
-        logger.debug("正在从LPMM知识库中获取知识")
+        logger.debug(f"[私聊][{self.private_name}]正在从LPMM知识库中获取知识")
         try:
             knowledge_info = qa_manager.get_knowledge(query)
-            logger.debug(f"LPMM知识库查询结果: {knowledge_info:150}")
+            logger.debug(f"[私聊][{self.private_name}]LPMM知识库查询结果: {knowledge_info:150}")
             return knowledge_info
         except Exception as e:
-            logger.error(f"LPMM知识库搜索工具执行失败: {str(e)}")
+            logger.error(f"[私聊][{self.private_name}]LPMM知识库搜索工具执行失败: {str(e)}")
             return "未找到匹配的知识"
 
     async def fetch(self, query: str, chat_history: List[Message]) -> Tuple[str, str]:

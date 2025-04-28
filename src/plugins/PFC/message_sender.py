@@ -19,6 +19,7 @@ class DirectMessageSender:
         self,
         chat_stream: ChatStream,
         content: str,
+        private_name: str,
         reply_to_message: Optional[Message] = None,
     ) -> None:
         """发送消息到聊天流
@@ -43,8 +44,8 @@ class DirectMessageSender:
             message_set = MessageSet(chat_stream, message_sending.message_id)
             message_set.add_message(message_sending)
             message_manager.add_message(message_set)
-            logger.info(f"PFC消息已发送: {content}")
+            logger.info(f"[私聊][{private_name}]PFC消息已发送: {content}")
 
         except Exception as e:
-            logger.error(f"PFC消息发送失败: {str(e)}")
+            logger.error(f"[私聊][{private_name}]PFC消息发送失败: {str(e)}")
             raise

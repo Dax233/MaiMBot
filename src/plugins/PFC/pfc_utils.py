@@ -8,6 +8,7 @@ logger = get_module_logger("pfc_utils")
 
 def get_items_from_json(
     content: str,
+    private_name: str,
     *items: str,
     default_values: Optional[Dict[str, Any]] = None,
     required_types: Optional[Dict[str, type]] = None,
@@ -78,9 +79,9 @@ def get_items_from_json(
                     if valid_items:
                         return True, valid_items
         except json.JSONDecodeError:
-            logger.debug("JSON数组解析失败，尝试解析单个JSON对象")
+            logger.debug(f"[私聊][{private_name}]JSON数组解析失败，尝试解析单个JSON对象")
         except Exception as e:
-            logger.debug(f"尝试解析JSON数组时出错: {str(e)}")
+            logger.debug(f"[私聊][{private_name}]尝试解析JSON数组时出错: {str(e)}")
 
     # 尝试解析JSON对象
     try:
@@ -93,10 +94,10 @@ def get_items_from_json(
             try:
                 json_data = json.loads(json_match.group())
             except json.JSONDecodeError:
-                logger.error("提取的JSON内容解析失败")
+                logger.error(f"[私聊][{private_name}]提取的JSON内容解析失败")
                 return False, result
         else:
-            logger.error("无法在返回内容中找到有效的JSON")
+            logger.error(f"[私聊][{private_name}]无法在返回内容中找到有效的JSON")
             return False, result
 
     # 提取字段
@@ -106,20 +107,20 @@ def get_items_from_json(
 
     # 验证必需字段
     if not all(item in result for item in items):
-        logger.error(f"JSON缺少必要字段，实际内容: {json_data}")
+        logger.error(f"[私聊][{private_name}]JSON缺少必要字段，实际内容: {json_data}")
         return False, result
 
     # 验证字段类型
     if required_types:
         for field, expected_type in required_types.items():
             if field in result and not isinstance(result[field], expected_type):
-                logger.error(f"{field} 必须是 {expected_type.__name__} 类型")
+                logger.error(f"[私聊][{private_name}]{field} 必须是 {expected_type.__name__} 类型")
                 return False, result
 
     # 验证字符串字段不为空
     for field in items:
         if isinstance(result[field], str) and not result[field].strip():
-            logger.error(f"{field} 不能为空")
+            logger.error(f"[私聊][{private_name}]{field} 不能为空")
             return False, result
 
     return True, result

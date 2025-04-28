@@ -12,12 +12,13 @@ logger = get_module_logger("reply_checker")
 class ReplyChecker:
     """回复检查器"""
 
-    def __init__(self, stream_id: str):
+    def __init__(self, stream_id: str, private_name: str):
         self.llm = LLMRequest(
             model=global_config.llm_PFC_reply_checker, temperature=0.50, max_tokens=1000, request_type="reply_check"
         )
         self.name = global_config.BOT_NICKNAME
-        self.chat_observer = ChatObserver.get_instance(stream_id)
+        self.private_name = private_name
+        self.chat_observer = ChatObserver.get_instance(stream_id, private_name)
         self.max_retries = 3  # 最大重试次数
 
     async def check(
@@ -49,7 +50,9 @@ class ReplyChecker:
                 # 可以用简单比较，或者更复杂的相似度库 (如 difflib)
                 # 简单比较：是否完全相同
                 if reply == bot_messages[0]:  # 和最近一条完全一样
-                    logger.warning(f"ReplyChecker 检测到回复与上一条 Bot 消息完全相同: '{reply}'")
+                    logger.warning(
+                        f"[私聊][{self.private_name}]ReplyChecker 检测到回复与上一条 Bot 消息完全相同: '{reply}'"
+                    )
                     return (
                         False,
                         "回复内容与你上一条发言完全相同，请修改，可以选择深入话题或寻找其它话题或等待",
@@ -60,13 +63,13 @@ class ReplyChecker:
 
                 # 计算编辑距离相似度，ratio() 返回 0 到 1 之间的浮点数
                 similarity_ratio = difflib.SequenceMatcher(None, reply, bot_messages[0]).ratio()
-                logger.debug(f"ReplyChecker - 相似度: {similarity_ratio:.2f}")
+                logger.debug(f"[私聊][{self.private_name}]ReplyChecker - 相似度: {similarity_ratio:.2f}")
 
                 # 设置一个相似度阈值
                 similarity_threshold = 0.9
                 if similarity_ratio > similarity_threshold:
                     logger.warning(
-                        f"ReplyChecker 检测到回复与上一条 Bot 消息高度相似 (相似度 {similarity_ratio:.2f}): '{reply}'"
+                        f"[私聊][{self.private_name}]ReplyChecker 检测到回复与上一条 Bot 消息高度相似 (相似度 {similarity_ratio:.2f}): '{reply}'"
                     )
                     return (
                         False,
@@ -77,8 +80,8 @@ class ReplyChecker:
         except Exception as e:
             import traceback
 
-            logger.error(f"检查回复时出错: 类型={type(e)}, 值={e}")
-            logger.error(traceback.format_exc())  # 打印详细的回溯信息
+            logger.error(f"[私聊][{self.private_name}]检查回复时出错: 类型={type(e)}, 值={e}")
+            logger.error(f"[私聊][{self.private_name}]{traceback.format_exc()}")  # 打印详细的回溯信息
 
         prompt = """
 ## Base Configuration
@@ -206,7 +209,7 @@ response_language = "Recommend Chinese"
 
         try:
             content, _ = await self.llm.generate_response_async(prompt)
-            logger.debug(f"检查回复的原始返回: {content}")
+            logger.debug(f"[私聊][{self.private_name}]检查回复的原始返回: {content}")
 
             # 清理内容，尝试提取JSON部分
             content = content.strip()
@@ -259,7 +262,7 @@ response_language = "Recommend Chinese"
             return suitable, reason, need_replan
 
         except Exception as e:
-            logger.error(f"检查回复时出错: {e}")
+            logger.error(f"[私聊][{self.private_name}]检查回复时出错: {e}")
             # 如果出错且已达到最大重试次数，建议重新规划
             if retry_count >= self.max_retries:
                 return False, "多次检查失败，建议重新规划", True
