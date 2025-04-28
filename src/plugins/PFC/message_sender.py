@@ -45,7 +45,7 @@ class DirectMessageSender:
             )
 
             # 用当前时间作为message_id，和之前那套sender一样
-            message_id=f"dm{round(time.time(), 2)}"
+            message_id = f"dm{round(time.time(), 2)}"
 
             # 构建消息对象
             message = MessageSending(

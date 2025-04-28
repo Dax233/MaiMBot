@@ -480,6 +480,7 @@ response_language = "Recommend Chinese"
             logger.error(f"[私聊][{self.private_name}]分析对话状态时出错: {str(e)}")
             return False, False, f"分析出错: {str(e)}"
 
+
 # 先注释掉，万一以后出问题了还能开回来（（（
 # class DirectMessageSender:
 #     """直接发送消息到平台的发送器"""
