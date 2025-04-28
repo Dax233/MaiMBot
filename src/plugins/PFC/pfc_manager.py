@@ -28,7 +28,7 @@ class PFCManager:
             cls._instance = PFCManager()
         return cls._instance
 
-    async def get_or_create_conversation(self, stream_id: str) -> Optional[Conversation]:
+    async def get_or_create_conversation(self, stream_id: str, private_name: str) -> Optional[Conversation]:
         """获取或创建对话实例
 
         Args:
@@ -67,7 +67,7 @@ class PFCManager:
             logger.info(f"创建新的对话实例: {stream_id}")
             self._initializing[stream_id] = True
             # 创建实例
-            conversation_instance = Conversation(stream_id)
+            conversation_instance = Conversation(stream_id, private_name)
             self._instances[stream_id] = conversation_instance
 
             # 启动实例初始化

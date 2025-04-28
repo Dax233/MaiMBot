@@ -29,13 +29,14 @@ logger = get_logger("pfc")
 class Conversation:
     """对话类，负责管理单个对话的状态和行为"""
 
-    def __init__(self, stream_id: str):
+    def __init__(self, stream_id: str, private_name: str):
         """初始化对话实例
 
         Args:
             stream_id: 聊天流ID
         """
         self.stream_id = stream_id
+        self.private_name = private_name
         self.state = ConversationState.INIT
         self.should_continue = False
         self.ignore_until_timestamp: Optional[float] = None
