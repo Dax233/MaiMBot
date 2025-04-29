@@ -35,6 +35,7 @@ class ChattingObservation(Observation):
 
         self.talking_message = []
         self.talking_message_str = ""
+        self.talking_message_str_truncate = ""
 
         self.name = global_config.BOT_NICKNAME
         self.nick_name = global_config.BOT_ALIAS_NAMES
@@ -231,6 +232,12 @@ response_language = "Recommend Chinese"
             messages=self.talking_message,
             timestamp_mode="normal",
             read_mark=last_obs_time_mark,
+        )
+        self.talking_message_str_truncate = await build_readable_messages(
+            messages=self.talking_message,
+            timestamp_mode="normal",
+            read_mark=last_obs_time_mark,
+            truncate=True,
         )
 
         logger.trace(

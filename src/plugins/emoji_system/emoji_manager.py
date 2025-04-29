@@ -22,7 +22,7 @@ logger = get_logger("emoji")
 BASE_DIR = os.path.join("data")
 EMOJI_DIR = os.path.join(BASE_DIR, "emoji")  # 表情包存储目录
 EMOJI_REGISTED_DIR = os.path.join(BASE_DIR, "emoji_registed")  # 已注册的表情包注册目录
-
+MAX_EMOJI_FOR_PROMPT = 20  # 最大表情包描述于图片替换的 prompt 中
 
 """
 还没经过测试，有些地方数据库和内存数据同步可能不完全
@@ -625,10 +625,20 @@ class EmojiManager:
             self._ensure_db()
 
             # 获取所有表情包对象
-            all_emojis = self.emoji_objects
+            emoji_objects = self.emoji_objects
+            # 计算每个表情包的选择概率
+            probabilities = [1 / (emoji.usage_count + 1) for emoji in emoji_objects]
+            # 归一化概率，确保总和为1
+            total_probability = sum(probabilities)
+            normalized_probabilities = [p / total_probability for p in probabilities]
+
+            # 使用概率分布选择最多20个表情包
+            selected_emojis = random.choices(
+                emoji_objects, weights=normalized_probabilities, k=min(MAX_EMOJI_FOR_PROMPT, len(emoji_objects))
+            )
 
             # 将表情包信息转换为可读的字符串
-            emoji_info_list = self._emoji_objects_to_readable_list(all_emojis)
+            emoji_info_list = self._emoji_objects_to_readable_list(selected_emojis)
 
             # 构建提示词
             prompt = (
@@ -658,8 +668,8 @@ class EmojiManager:
                 emoji_index = int(match.group(1)) - 1  # 转换为0-based索引
 
                 # 检查索引是否有效
-                if 0 <= emoji_index < len(all_emojis):
-                    emoji_to_delete = all_emojis[emoji_index]
+                if 0 <= emoji_index < len(selected_emojis):
+                    emoji_to_delete = selected_emojis[emoji_index]
 
                     # 删除选定的表情包
                     logger.info(f"[决策] 决定删除表情包: {emoji_to_delete.description}")
@@ -779,6 +789,7 @@ class EmojiManager:
                 if not replaced:
                     logger.error("[错误] 替换表情包失败，无法完成注册")
                     return False
+                return True
             else:
                 # 修复：等待异步注册完成
                 register_success = await new_emoji.register_to_db()

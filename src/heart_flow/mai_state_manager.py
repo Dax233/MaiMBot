@@ -8,8 +8,8 @@ from src.plugins.moods.moods import MoodManager
 logger = get_logger("mai_state")
 
 
-enable_unlimited_hfc_chat = True
-# enable_unlimited_hfc_chat = False
+# enable_unlimited_hfc_chat = True
+enable_unlimited_hfc_chat = False
 
 
 class MaiState(enum.Enum):

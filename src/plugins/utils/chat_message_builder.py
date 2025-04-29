@@ -144,7 +144,8 @@ async def _build_readable_messages_internal(
     messages: List[Dict[str, Any]],
     replace_bot_name: bool = True,
     merge_messages: bool = False,
-    timestamp_mode: str = "relative",  # 新增参数控制时间戳格式
+    timestamp_mode: str = "relative",
+    truncate: bool = False,
 ) -> Tuple[str, List[Tuple[float, str, str]]]:
     """
     内部辅助函数，构建可读消息字符串和原始消息详情列表。
@@ -154,6 +155,7 @@ async def _build_readable_messages_internal(
         replace_bot_name: 是否将机器人的 user_id 替换为 "我"。
         merge_messages: 是否合并来自同一用户的连续消息。
         timestamp_mode: 时间戳的显示模式 ('relative', 'absolute', etc.)。传递给 translate_timestamp_to_human_readable。
+        truncate: 是否根据消息的新旧程度截断过长的消息内容。
 
     Returns:
         包含格式化消息的字符串和原始消息详情列表 (时间戳, 发送者名称, 内容) 的元组。
@@ -161,7 +163,7 @@ async def _build_readable_messages_internal(
     if not messages:
         return "", []
 
-    message_details: List[Tuple[float, str, str]] = []
+    message_details_raw: List[Tuple[float, str, str]] = []
 
     # 1 & 2: 获取发送者信息并提取消息组件
     for msg in messages:
@@ -177,7 +179,6 @@ async def _build_readable_messages_internal(
 
         # 检查必要信息是否存在
         if not all([platform, user_id, timestamp is not None]):
-            # logger.warning(f"Skipping message due to missing info: {msg.get('_id', 'N/A')}")
             continue
 
         person_id = person_info_manager.get_person_id(platform, user_id)
@@ -196,12 +197,38 @@ async def _build_readable_messages_internal(
             else:
                 person_name = "某人"
 
-        message_details.append((timestamp, person_name, content))
+        message_details_raw.append((timestamp, person_name, content))
 
-    if not message_details:
+    if not message_details_raw:
         return "", []
 
-    message_details.sort(key=lambda x: x[0])  # 按时间戳(第一个元素)升序排序，越早的消息排在前面
+    message_details_raw.sort(key=lambda x: x[0])  # 按时间戳(第一个元素)升序排序，越早的消息排在前面
+
+    # 应用截断逻辑 (如果 truncate 为 True)
+    message_details: List[Tuple[float, str, str]] = []
+    n_messages = len(message_details_raw)
+    if truncate and n_messages > 0:
+        for i, (timestamp, name, content) in enumerate(message_details_raw):
+            percentile = i / n_messages  # 计算消息在列表中的位置百分比 (0 <= percentile < 1)
+            original_len = len(content)
+            limit = -1  # 默认不截断
+
+            if percentile < 0.6:  # 60% 之前的消息 (即最旧的 60%)
+                limit = 170
+            elif percentile < 0.8:  # 60% 到 80% 之前的消息 (即中间的 20%)
+                limit = 250
+            elif percentile < 1.0:  # 80% 到 100% 之前的消息 (即较新的 20%)
+                limit = 500
+            # 最新的 20% (理论上 percentile 会趋近 1，但这里不需要显式处理，因为 limit 默认为 -1)
+
+            truncated_content = content
+            if limit > 0 and original_len > limit:
+                truncated_content = f"{content[:limit]}......（内容太长）"
+
+            message_details.append((timestamp, name, truncated_content))
+    else:
+        # 如果不截断，直接使用原始列表
+        message_details = message_details_raw
 
     # 3: 合并连续消息 (如果 merge_messages 为 True)
     merged_messages = []
@@ -250,16 +277,21 @@ async def _build_readable_messages_internal(
         for line in merged["content"]:
             stripped_line = line.strip()
             if stripped_line:  # 过滤空行
-                # 移除末尾句号，添加分号
+                # 移除末尾句号，添加分号 - 这个逻辑似乎有点奇怪，暂时保留
                 if stripped_line.endswith("。"):
                     stripped_line = stripped_line[:-1]
-                output_lines.append(f"{stripped_line};")
+                # 如果内容被截断，结尾已经是 ...（内容太长），不再添加分号
+                if not stripped_line.endswith("（内容太长）"):
+                    output_lines.append(f"{stripped_line};")
+                else:
+                    output_lines.append(stripped_line)  # 直接添加截断后的内容
         output_lines.append("\n")  # 在每个消息块后添加换行，保持可读性
 
     # 移除可能的多余换行，然后合并
     formatted_string = "".join(output_lines).strip()
 
-    # 返回格式化后的字符串和原始的 message_details 列表
+    # 返回格式化后的字符串和 *应用截断后* 的 message_details 列表
+    # 注意：如果外部调用者需要原始未截断的内容，可能需要调整返回策略
     return formatted_string, message_details
 
 
@@ -268,13 +300,14 @@ async def build_readable_messages_with_list(
     replace_bot_name: bool = True,
     merge_messages: bool = False,
     timestamp_mode: str = "relative",
+    truncate: bool = False,
 ) -> Tuple[str, List[Tuple[float, str, str]]]:
     """
     将消息列表转换为可读的文本格式，并返回原始(时间戳, 昵称, 内容)列表。
     允许通过参数控制格式化行为。
     """
     formatted_string, details_list = await _build_readable_messages_internal(
-        messages, replace_bot_name, merge_messages, timestamp_mode
+        messages, replace_bot_name, merge_messages, timestamp_mode, truncate
     )
     return formatted_string, details_list
 
@@ -285,6 +318,7 @@ async def build_readable_messages(
     merge_messages: bool = False,
     timestamp_mode: str = "relative",
     read_mark: float = 0.0,
+    truncate: bool = False,
 ) -> str:
     """
     将消息列表转换为可读的文本格式。
@@ -294,7 +328,7 @@ async def build_readable_messages(
     if read_mark <= 0:
         # 没有有效的 read_mark，直接格式化所有消息
         formatted_string, _ = await _build_readable_messages_internal(
-            messages, replace_bot_name, merge_messages, timestamp_mode
+            messages, replace_bot_name, merge_messages, timestamp_mode, truncate
         )
         return formatted_string
     else:
@@ -303,11 +337,13 @@ async def build_readable_messages(
         messages_after_mark = [msg for msg in messages if msg.get("time", 0) > read_mark]
 
         # 分别格式化
+        # 注意：这里决定对已读和未读部分都应用相同的 truncate 设置
+        # 如果需要不同的行为（例如只截断已读部分），需要调整这里的调用
         formatted_before, _ = await _build_readable_messages_internal(
-            messages_before_mark, replace_bot_name, merge_messages, timestamp_mode
+            messages_before_mark, replace_bot_name, merge_messages, timestamp_mode, truncate
         )
         formatted_after, _ = await _build_readable_messages_internal(
-            messages_after_mark, replace_bot_name, merge_messages, timestamp_mode
+            messages_after_mark, replace_bot_name, merge_messages, timestamp_mode, truncate
         )
 
         readable_read_mark = translate_timestamp_to_human_readable(read_mark, mode=timestamp_mode)

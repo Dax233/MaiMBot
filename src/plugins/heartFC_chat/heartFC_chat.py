@@ -292,6 +292,7 @@ class HeartFChatting:
         """主循环，持续进行计划并可能回复消息，直到被外部取消。"""
         try:
             while True:  # 主循环
+                logger.debug(f"{self.log_prefix} 开始第{self._cycle_counter}次循环")
                 # --- 在循环开始处检查关闭标志 ---
                 if self._shutting_down:
                     logger.info(f"{self.log_prefix} 检测到关闭标志，退出 HFC 循环。")
@@ -744,7 +745,7 @@ class HeartFChatting:
         if is_re_planned:
             await observation.observe()
         observed_messages = observation.talking_message
-        observed_messages_str = observation.talking_message_str
+        observed_messages_str = observation.talking_message_str_truncate
 
         # --- 使用 LLM 进行决策 --- #
         reasoning = "默认决策或获取决策失败"
