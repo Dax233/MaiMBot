@@ -81,6 +81,24 @@ block_and_ignore: 更加极端的结束对话方式，直接结束对话并在�
 
 注意：请严格按照JSON格式输出，不要包含任何其他内容。"""
 
+# 新增：Prompt(3): 决定是否在结束对话前发送告别语
+PROMPT_END_DECISION = """{persona_text}。刚刚你决定结束一场 QQ 私聊。
+
+【你们之前的聊天记录】
+{chat_history_text}
+
+你觉得你们的对话已经完整结束了吗？有时候，在对话自然结束后再说点什么可能会有点奇怪，但有时也可能需要一条简短的消息来圆满结束。
+如果觉得确实有必要再发一条简短、自然、符合你人设的告别消息（比如 "好，下次再聊~" 或 "嗯，先这样吧"），就输出 "yes"。
+如果觉得当前状态下直接结束对话更好，没有必要再发消息，就输出 "no"。
+
+请以 JSON 格式输出你的选择：
+{{
+    "say_bye": "yes/no",
+    "reason": "选择 yes 或 no 的原因和内心想法 (简要说明)"
+}}
+
+注意：请严格按照 JSON 格式输出，不要包含任何其他内容。"""
+
 
 # ActionPlanner 类定义，顶格
 class ActionPlanner:
@@ -423,9 +441,10 @@ response_language = "Recommend Chinese"
         logger.debug(f"[私聊][{self.private_name}]发送到LLM的最终提示词:\n------\n{prompt}\n------")
         try:
             content, _ = await self.llm.generate_response_async(prompt)
-            logger.debug(f"[私聊][{self.private_name}]LLM原始返回内容: {content}")
+            logger.debug(f"[私聊][{self.private_name}]LLM (行动规划) 原始返回内容: {content}")
 
-            success, result = get_items_from_json(
+            # --- 初始行动规划解析 ---
+            success, initial_result = get_items_from_json(
                 content,
                 self.private_name,
                 "action",
@@ -433,30 +452,90 @@ response_language = "Recommend Chinese"
                 default_values={"action": "wait", "reason": "LLM返回格式错误或未提供原因，默认等待"},
             )
 
-            action = result.get("action", "wait")
-            reason = result.get("reason", "LLM未提供原因，默认等待")
+            initial_action = initial_result.get("action", "wait")
+            initial_reason = initial_result.get("reason", "LLM未提供原因，默认等待")
 
-            # 验证action类型
-            # 更新 valid_actions 列表以包含 send_new_message
-            valid_actions = [
-                "direct_reply",
-                "send_new_message",  # 添加新动作
-                "fetch_knowledge",
-                "wait",
-                "listening",
-                "rethink_goal",
-                "end_conversation",
-                "block_and_ignore",
-            ]
-            if action not in valid_actions:
-                logger.warning(f"[私聊][{self.private_name}]LLM返回了未知的行动类型: '{action}'，强制改为 wait")
-                reason = f"(原始行动'{action}'无效，已强制改为wait) {reason}"
-                action = "wait"
+            # 检查是否需要进行结束对话决策 ---
+            if initial_action == "end_conversation":
+                logger.info(f"[私聊][{self.private_name}]初步规划结束对话，进入告别决策...")
 
-            logger.info(f"[私聊][{self.private_name}]规划的行动: {action}")
-            logger.info(f"[私聊][{self.private_name}]行动原因: {reason}")
-            return action, reason
+                # 使用新的 PROMPT_END_DECISION
+                end_decision_prompt = PROMPT_END_DECISION.format(
+                    persona_text=persona_text,  # 复用之前的 persona_text
+                    chat_history_text=chat_history_text,  # 复用之前的 chat_history_text
+                )
+
+                logger.debug(
+                    f"[私聊][{self.private_name}]发送到LLM的结束决策提示词:\n------\n{end_decision_prompt}\n------"
+                )
+                try:
+                    end_content, _ = await self.llm.generate_response_async(end_decision_prompt)  # 再次调用LLM
+                    logger.debug(f"[私聊][{self.private_name}]LLM (结束决策) 原始返回内容: {end_content}")
+
+                    # 解析结束决策的JSON
+                    end_success, end_result = get_items_from_json(
+                        end_content,
+                        self.private_name,
+                        "say_bye",
+                        "reason",
+                        default_values={"say_bye": "no", "reason": "结束决策LLM返回格式错误，默认不告别"},
+                        required_types={"say_bye": str, "reason": str},  # 明确类型
+                    )
+
+                    say_bye_decision = end_result.get("say_bye", "no").lower()  # 转小写方便比较
+                    end_decision_reason = end_result.get("reason", "未提供原因")
+
+                    if end_success and say_bye_decision == "yes":
+                        # 决定要告别，返回新的 'say_goodbye' 动作
+                        logger.info(
+                            f"[私聊][{self.private_name}]结束决策: yes, 准备生成告别语. 原因: {end_decision_reason}"
+                        )
+                        # 注意：这里的 reason 可以考虑拼接初始原因和结束决策原因，或者只用结束决策原因
+                        final_action = "say_goodbye"
+                        final_reason = f"决定发送告别语。决策原因: {end_decision_reason} (原结束理由: {initial_reason})"
+                        return final_action, final_reason
+                    else:
+                        # 决定不告别 (包括解析失败或明确说no)
+                        logger.info(
+                            f"[私聊][{self.private_name}]结束决策: no, 直接结束对话. 原因: {end_decision_reason}"
+                        )
+                        # 返回原始的 'end_conversation' 动作
+                        final_action = "end_conversation"
+                        final_reason = initial_reason  # 保持原始的结束理由
+                        return final_action, final_reason
+
+                except Exception as end_e:
+                    logger.error(f"[私聊][{self.private_name}]调用结束决策LLM或处理结果时出错: {str(end_e)}")
+                    # 出错时，默认执行原始的结束对话
+                    logger.warning(f"[私聊][{self.private_name}]结束决策出错，将按原计划执行 end_conversation")
+                    return "end_conversation", initial_reason  # 返回原始动作和原因
+
+            else:
+                action = initial_action
+                reason = initial_reason
+
+                # 验证action类型 (保持不变)
+                valid_actions = [
+                    "direct_reply",
+                    "send_new_message",
+                    "fetch_knowledge",
+                    "wait",
+                    "listening",
+                    "rethink_goal",
+                    "end_conversation",  # 仍然需要验证，因为可能从上面决策后返回
+                    "block_and_ignore",
+                    "say_goodbye",  # 也要验证这个新动作
+                ]
+                if action not in valid_actions:
+                    logger.warning(f"[私聊][{self.private_name}]LLM返回了未知的行动类型: '{action}'，强制改为 wait")
+                    reason = f"(原始行动'{action}'无效，已强制改为wait) {reason}"
+                    action = "wait"
+
+                logger.info(f"[私聊][{self.private_name}]规划的行动: {action}")
+                logger.info(f"[私聊][{self.private_name}]行动原因: {reason}")
+                return action, reason
 
         except Exception as e:
+            # 外层异常处理保持不变
             logger.error(f"[私聊][{self.private_name}]规划行动时调用 LLM 或处理结果出错: {str(e)}")
             return "wait", f"行动规划处理中发生错误，暂时等待: {str(e)}"

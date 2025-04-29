@@ -57,6 +57,24 @@ PROMPT_SEND_NEW_MESSAGE = """{persona_text}。现在你在参与一场QQ私聊�
 
 请直接输出回复内容，不需要任何额外格式。"""
 
+# Prompt for say_goodbye (告别语生成)
+PROMPT_FAREWELL = """{persona_text}。你在参与一场 QQ 私聊，现在对话似乎已经结束，你决定再发一条最后的消息来圆满结束。
+
+最近的聊天记录：
+{chat_history_text}
+
+请根据上述信息，结合聊天记录，构思一条**简短、自然、符合你人设**的最后的消息。
+这条消息应该：
+1. 从你自己的角度发言。
+2. 符合你的性格特征和身份细节。
+3. 通俗易懂，自然流畅，通常很简短。
+4. 自然地为这场对话画上句号，避免开启新话题或显得冗长、刻意。
+
+请像真人一样随意自然，**简洁是关键**。
+不要输出多余内容（包括前后缀、冒号、引号、括号、表情包、at或@等）。
+
+请直接输出最终的告别消息内容，不需要任何额外格式。"""
+
 
 class ReplyGenerator:
     """回复生成器"""
@@ -135,7 +153,10 @@ class ReplyGenerator:
         if action_type == "send_new_message":
             prompt_template = PROMPT_SEND_NEW_MESSAGE
             logger.info(f"[私聊][{self.private_name}]使用 PROMPT_SEND_NEW_MESSAGE (追问生成)")
-        else:  # 默认使用 direct_reply 的 prompt
+        elif action_type == "say_goodbye":  # 处理告别动作
+            prompt_template = PROMPT_FAREWELL
+            logger.info(f"[私聊][{self.private_name}]使用 PROMPT_FAREWELL (告别语生成)")
+        else:  # 默认使用 direct_reply 的 prompt (包括 'direct_reply' 或其他未明确处理的类型)
             prompt_template = PROMPT_DIRECT_REPLY
             logger.info(f"[私聊][{self.private_name}]使用 PROMPT_DIRECT_REPLY (首次/非连续回复生成)")
 
