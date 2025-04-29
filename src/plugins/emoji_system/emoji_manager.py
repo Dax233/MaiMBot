@@ -360,6 +360,7 @@ class EmojiManager:
                 return
 
             total_count = len(self.emoji_objects)
+            self.emoji_num = total_count
             removed_count = 0
             # 使用列表复制进行遍历，因为我们会在遍历过程中修改列表
             for emoji in self.emoji_objects[:]:
@@ -375,11 +376,23 @@ class EmojiManager:
                         self.emoji_num -= 1
                         removed_count += 1
                         continue
+                    
+                    if emoji.description == None:
+                        logger.warning(f"[检查] 表情包文件已被删除: {emoji.path}")
+                        # 执行表情包对象的删除方法
+                        await emoji.delete()
+                        # 从列表中移除该对象
+                        self.emoji_objects.remove(emoji)
+                        # 更新计数
+                        self.emoji_num -= 1
+                        removed_count += 1
+                        continue
 
                 except Exception as item_error:
                     logger.error(f"[错误] 处理表情包记录时出错: {str(item_error)}")
                     continue
 
+            await self.clean_unused_emojis(EMOJI_REGISTED_DIR, self.emoji_objects)
             # 输出清理结果
             if removed_count > 0:
                 logger.success(f"[清理] 已清理 {removed_count} 个失效的表情包记录")
@@ -749,7 +762,7 @@ class EmojiManager:
             await new_emoji.initialize_hash_format()
             emoji_base64 = image_path_to_base64(os.path.join(EMOJI_DIR, filename))
             description, emotions = await self.build_emoji_description(emoji_base64)
-            if description == "":
+            if description == "" or description == None :
                 return False
             new_emoji.description = description
             new_emoji.emotion = emotions
@@ -816,6 +829,27 @@ class EmojiManager:
                         logger.debug(f"[清理] 删除图片文件: {filename}")
 
         logger.success("[清理] 临时文件清理完成")
+
+    async def clean_unused_emojis(self, emoji_dir, emoji_objects):
+        """清理未使用的表情包文件
+        遍历指定文件夹中的所有文件，删除未在emoji_objects列表中的文件
+        """
+        # 获取所有表情包路径
+        emoji_paths = {emoji.path for emoji in emoji_objects}
+        
+        # 遍历文件夹中的所有文件
+        for file_name in os.listdir(emoji_dir):
+            file_path = os.path.join(emoji_dir, file_name)
+            
+            # 检查文件是否在表情包路径列表中
+            if file_path not in emoji_paths:
+                try:
+                    # 删除未在表情包列表中的文件
+                    os.remove(file_path)
+                    logger.info(f"[清理] 删除未使用的表情包文件: {file_path}")
+                except Exception as e:
+                    logger.error(f"[错误] 删除文件时出错: {str(e)}")
+
 
 
 # 创建全局单例
