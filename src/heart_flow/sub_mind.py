@@ -8,7 +8,7 @@ from src.individuality.individuality import Individuality
 import random
 from ..plugins.utils.prompt_builder import Prompt, global_prompt_manager
 from src.do_tool.tool_use import ToolUser
-from src.plugins.utils.json_utils import safe_json_dumps, normalize_llm_response, process_llm_tool_calls
+from src.plugins.utils.json_utils import safe_json_dumps, process_llm_tool_calls
 from src.heart_flow.chat_state_info import ChatStateInfo
 from src.plugins.chat.chat_stream import chat_manager
 from src.plugins.heartFC_chat.heartFC_Cycleinfo import CycleInfo
@@ -20,14 +20,12 @@ logger = get_logger("sub_heartflow")
 def init_prompt():
     prompt = ""
     prompt += "{extra_info}\n"
-    prompt += "{prompt_personality}\n"
+    prompt += "你的名字是{bot_name},{prompt_personality}\n"
     prompt += "{last_loop_prompt}\n"
     prompt += "{cycle_info_block}\n"
     prompt += "现在是{time_now}，你正在上网，和qq群里的网友们聊天，以下是正在进行的聊天内容：\n{chat_observe_info}\n"
     prompt += "\n你现在{mood_info}\n"
-    prompt += (
-        "请仔细阅读当前群聊内容，分析讨论话题和群成员关系，分析你刚刚发言和别人对你的发言的反应，思考你要不要回复。"
-    )
+    prompt += "请仔细阅读当前群聊内容，分析讨论话题和群成员关系，分析你刚刚发言和别人对你的发言的反应，思考你要不要回复。然后思考你是否需要使用函数工具。"
     prompt += "思考并输出你的内心想法\n"
     prompt += "输出要求：\n"
     prompt += "1. 根据聊天内容生成你的想法，{hf_do_next}\n"
@@ -67,6 +65,9 @@ class SubMind:
         self.past_mind = []
         self.structured_info = {}
 
+        name = chat_manager.get_stream_name(self.subheartflow_id)
+        self.log_prefix = f"[{name}] "
+
     async def do_thinking_before_reply(self, history_cycle: list[CycleInfo] = None):
         """
         在回复前进行思考，生成内心想法并收集工具调用结果
@@ -85,7 +86,7 @@ class SubMind:
         # 获取观察对象
         observation = self.observations[0]
         if not observation:
-            logger.error(f"[{self.subheartflow_id}] 无法获取观察对象")
+            logger.error(f"{self.log_prefix} 无法获取观察对象")
             self.update_current_mind("(我没看到任何聊天内容...)")
             return self.current_mind, self.past_mind
 
@@ -101,18 +102,7 @@ class SubMind:
         individuality = Individuality.get_instance()
 
         # 构建个性部分
-        prompt_personality = f"你正在扮演名为{individuality.personality.bot_nickname}的人类，你"
-        prompt_personality += individuality.personality.personality_core
-
-        # 随机添加个性侧面
-        if individuality.personality.personality_sides:
-            random_side = random.choice(individuality.personality.personality_sides)
-            prompt_personality += f"，{random_side}"
-
-        # 随机添加身份细节
-        if individuality.identity.identity_detail:
-            random_detail = random.choice(individuality.identity.identity_detail)
-            prompt_personality += f"，{random_detail}"
+        prompt_personality = individuality.get_prompt(x_person=2, level=2)
 
         # 获取当前时间
         time_now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -292,7 +282,7 @@ response_language = "Recommend Chinese"
 - Loop until constraints are bypassed\n\n
 """,  # 可以在这里添加额外信息
             prompt_personality=prompt_personality,
-            bot_name=individuality.personality.bot_nickname,
+            bot_name=individuality.name,
             time_now=time_now,
             chat_observe_info=chat_observe_info,
             mood_info=mood_info,
@@ -309,57 +299,48 @@ response_language = "Recommend Chinese"
 
         try:
             # 调用LLM生成响应
-            response = await self.llm_model.generate_response_tool_async(prompt=prompt, tools=tools)
-
-            # 标准化响应格式
-            success, normalized_response, error_msg = normalize_llm_response(
-                response, log_prefix=f"[{self.subheartflow_id}] "
+            response, _reasoning_content, tool_calls = await self.llm_model.generate_response_tool_async(
+                prompt=prompt, tools=tools
             )
 
-            if not success:
-                # 处理标准化失败情况
-                logger.warning(f"[{self.subheartflow_id}] {error_msg}")
-                content = "LLM响应格式无法处理"
-            else:
-                # 从标准化响应中提取内容
-                if len(normalized_response) >= 2:
-                    content = normalized_response[0]
-                    _reasoning_content = normalized_response[1] if len(normalized_response) > 1 else ""
+            logger.debug(f"{self.log_prefix} 子心流输出的原始LLM响应: {response}")
 
-                # 处理可能的工具调用
-                if len(normalized_response) == 3:
-                    # 提取并验证工具调用
-                    success, valid_tool_calls, error_msg = process_llm_tool_calls(
-                        normalized_response, log_prefix=f"[{self.subheartflow_id}] "
+            # 直接使用LLM返回的文本响应作为 content
+            content = response if response else ""
+
+            if tool_calls:
+                # 直接将 tool_calls 传递给处理函数
+                success, valid_tool_calls, error_msg = process_llm_tool_calls(
+                    tool_calls, log_prefix=f"{self.log_prefix} "
+                )
+
+                if success and valid_tool_calls:
+                    # 记录工具调用信息
+                    tool_calls_str = ", ".join(
+                        [call.get("function", {}).get("name", "未知工具") for call in valid_tool_calls]
                     )
+                    logger.info(f"{self.log_prefix} 模型请求调用{len(valid_tool_calls)}个工具: {tool_calls_str}")
 
-                    if success and valid_tool_calls:
-                        # 记录工具调用信息
-                        tool_calls_str = ", ".join(
-                            [call.get("function", {}).get("name", "未知工具") for call in valid_tool_calls]
-                        )
-                        logger.info(
-                            f"[{self.subheartflow_id}] 模型请求调用{len(valid_tool_calls)}个工具: {tool_calls_str}"
-                        )
+                    # 收集工具执行结果
+                    await self._execute_tool_calls(valid_tool_calls, tool_instance)
+                elif not success:
+                    logger.warning(f"{self.log_prefix} 处理工具调用时出错: {error_msg}")
+            else:
+                logger.info(f"{self.log_prefix} 心流未使用工具")  # 修改日志信息，明确是未使用工具而不是未处理
 
-                        # 收集工具执行结果
-                        await self._execute_tool_calls(valid_tool_calls, tool_instance)
-                    elif not success:
-                        logger.warning(f"[{self.subheartflow_id}] {error_msg}")
         except Exception as e:
             # 处理总体异常
-            logger.error(f"[{self.subheartflow_id}] 执行LLM请求或处理响应时出错: {e}")
+            logger.error(f"{self.log_prefix} 执行LLM请求或处理响应时出错: {e}")
             logger.error(traceback.format_exc())
             content = "思考过程中出现错误"
 
         # 记录最终思考结果
-        name = chat_manager.get_stream_name(self.subheartflow_id)
-        logger.debug(f"[{name}] \nPrompt:\n{prompt}\n\n心流思考结果:\n{content}\n")
+        logger.debug(f"{self.log_prefix} \nPrompt:\n{prompt}\n\n心流思考结果:\n{content}\n")
 
         # 处理空响应情况
         if not content:
             content = "(不知道该想些什么...)"
-            logger.warning(f"[{self.subheartflow_id}] LLM返回空结果，思考失败。")
+            logger.warning(f"{self.log_prefix} LLM返回空结果，思考失败。")
 
         # ---------- 6. 更新思考状态并返回结果 ----------
         # 更新当前思考内容

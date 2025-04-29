@@ -235,6 +235,10 @@ class BotConfig:
     memory_forget_time: int = 24  # 记忆遗忘时间（小时）
     memory_forget_percentage: float = 0.01  # 记忆遗忘比例
 
+    consolidate_memory_interval: int = 1000  # 记忆整合间隔（秒）
+    consolidation_similarity_threshold: float = 0.7  # 相似度阈值
+    consolidate_memory_percentage: float = 0.01  # 检查节点比例
+
     memory_ban_words: list = field(
         default_factory=lambda: ["表情包", "图片", "回复", "聊天记录"]
     )  # 添加新的配置项默认值
@@ -593,6 +597,16 @@ class BotConfig:
                 )
                 config.build_memory_sample_length = memory_config.get(
                     "build_memory_sample_length", config.build_memory_sample_length
+                )
+            if config.INNER_VERSION in SpecifierSet(">=1.5.1"):
+                config.consolidate_memory_interval = memory_config.get(
+                    "consolidate_memory_interval", config.consolidate_memory_interval
+                )
+                config.consolidation_similarity_threshold = memory_config.get(
+                    "consolidation_similarity_threshold", config.consolidation_similarity_threshold
+                )
+                config.consolidate_memory_percentage = memory_config.get(
+                    "consolidate_memory_percentage", config.consolidate_memory_percentage
                 )
 
         def remote(parent: dict):

@@ -5,6 +5,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock, Event
 import sys
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# 添加项目根目录到 sys.path
+
 import tqdm
 
 from src.common.logger import get_module_logger

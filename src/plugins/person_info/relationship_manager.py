@@ -4,8 +4,8 @@ import math
 from bson.decimal128 import Decimal128
 from .person_info import person_info_manager
 import time
-import re
-import traceback
+# import re
+# import traceback
 
 
 logger = get_logger("relation")
@@ -100,36 +100,6 @@ class RelationshipManager:
         # await person_info_manager.update_one_field(person_id, "user_cardname", user_cardname)
         # await person_info_manager.update_one_field(person_id, "user_avatar", user_avatar)
         await person_info_manager.qv_person_name(person_id, user_nickname, user_cardname, user_avatar)
-
-    @staticmethod
-    async def convert_all_person_sign_to_person_name(input_text: str):
-        """将所有人的<platform:user_id:nickname:cardname>格式转换为person_name"""
-        try:
-            # 使用正则表达式匹配<platform:user_id:nickname:cardname>格式
-            all_person = person_info_manager.person_name_list
-
-            pattern = r"<([^:]+):(\d+):([^:]+):([^>]+)>"
-            matches = re.findall(pattern, input_text)
-
-            # 遍历匹配结果，将<platform:user_id:nickname:cardname>替换为person_name
-            result_text = input_text
-            for platform, user_id, nickname, cardname in matches:
-                person_id = person_info_manager.get_person_id(platform, user_id)
-                # 默认使用昵称作为人名
-                person_name = nickname.strip() if nickname.strip() else cardname.strip()
-
-                if person_id in all_person:
-                    if all_person[person_id] is not None:
-                        person_name = all_person[person_id]
-
-                    # print(f"将<{platform}:{user_id}:{nickname}:{cardname}>替换为{person_name}")
-
-                result_text = result_text.replace(f"<{platform}:{user_id}:{nickname}:{cardname}>", person_name)
-
-            return result_text
-        except Exception:
-            logger.error(traceback.format_exc())
-            return input_text
 
     async def calculate_update_relationship_value(self, chat_stream: ChatStream, label: str, stance: str) -> tuple:
         """计算并变更关系值

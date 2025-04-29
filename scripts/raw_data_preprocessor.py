@@ -2,9 +2,13 @@ import json
 import os
 from pathlib import Path
 import sys  # 新增系统模块导入
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.common.logger import get_module_logger
 
 logger = get_module_logger("LPMM数据库-原始数据处理")
+
+# 添加项目根目录到 sys.path
 
 
 def check_and_create_dirs():

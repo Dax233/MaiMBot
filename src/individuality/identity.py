@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from typing import List
-import random
 
 
 @dataclass
@@ -85,27 +84,6 @@ class Identity:
         instance.gender = gender
         instance.appearance = appearance
         return instance
-
-    def get_prompt(self, x_person, level):
-        """
-        获取身份特征的prompt
-        """
-        if x_person == 2:
-            prompt_identity = "你"
-        elif x_person == 1:
-            prompt_identity = "我"
-        else:
-            prompt_identity = "他"
-
-        if level == 1:
-            identity_detail = self.identity_detail
-            random.shuffle(identity_detail)
-            prompt_identity += identity_detail[0]
-        elif level == 2:
-            for detail in self.identity_detail:
-                prompt_identity += f",{detail}"
-        prompt_identity += "。"
-        return prompt_identity
 
     def to_dict(self) -> dict:
         """将身份特征转换为字典格式"""

@@ -18,19 +18,33 @@ class MemoryConfig:
     # 记忆过滤相关配置
     memory_ban_words: List[str]  # 记忆过滤词列表
 
+    # 新增：记忆整合相关配置
+    consolidation_similarity_threshold: float  # 相似度阈值
+    consolidate_memory_percentage: float  # 检查节点比例
+    consolidate_memory_interval: int  # 记忆整合间隔
+
     llm_topic_judge: str  # 话题判断模型
     llm_summary_by_topic: str  # 话题总结模型
 
     @classmethod
     def from_global_config(cls, global_config):
         """从全局配置创建记忆系统配置"""
+        # 使用 getattr 提供默认值，防止全局配置缺少这些项
         return cls(
-            memory_build_distribution=global_config.memory_build_distribution,
-            build_memory_sample_num=global_config.build_memory_sample_num,
-            build_memory_sample_length=global_config.build_memory_sample_length,
-            memory_compress_rate=global_config.memory_compress_rate,
-            memory_forget_time=global_config.memory_forget_time,
-            memory_ban_words=global_config.memory_ban_words,
-            llm_topic_judge=global_config.llm_topic_judge,
-            llm_summary_by_topic=global_config.llm_summary_by_topic,
+            memory_build_distribution=getattr(
+                global_config, "memory_build_distribution", (24, 12, 0.5, 168, 72, 0.5)
+            ),  # 添加默认值
+            build_memory_sample_num=getattr(global_config, "build_memory_sample_num", 5),
+            build_memory_sample_length=getattr(global_config, "build_memory_sample_length", 30),
+            memory_compress_rate=getattr(global_config, "memory_compress_rate", 0.1),
+            memory_forget_time=getattr(global_config, "memory_forget_time", 24 * 7),
+            memory_ban_words=getattr(global_config, "memory_ban_words", []),
+            # 新增加载整合配置，并提供默认值
+            consolidation_similarity_threshold=getattr(global_config, "consolidation_similarity_threshold", 0.7),
+            consolidate_memory_percentage=getattr(global_config, "consolidate_memory_percentage", 0.01),
+            consolidate_memory_interval=getattr(global_config, "consolidate_memory_interval", 1000),
+            llm_topic_judge=getattr(global_config, "llm_topic_judge", "default_judge_model"),  # 添加默认模型名
+            llm_summary_by_topic=getattr(
+                global_config, "llm_summary_by_topic", "default_summary_model"
+            ),  # 添加默认模型名
         )

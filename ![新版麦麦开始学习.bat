@@ -19,7 +19,7 @@ if %ERRORLEVEL% neq 0 (
 )
 
 REM 运行预处理脚本
-python "%~dp0raw_data_preprocessor.py"
+python "%~dp0scripts\raw_data_preprocessor.py"
 if %ERRORLEVEL% neq 0 (
     echo 错误: raw_data_preprocessor.py 执行失败
     pause
@@ -27,7 +27,7 @@ if %ERRORLEVEL% neq 0 (
 )
 
 REM 运行信息提取脚本
-python "%~dp0info_extraction.py"
+python "%~dp0scripts\info_extraction.py"
 if %ERRORLEVEL% neq 0 (
     echo 错误: info_extraction.py 执行失败
     pause
@@ -35,7 +35,7 @@ if %ERRORLEVEL% neq 0 (
 )
 
 REM 运行OpenIE导入脚本
-python "%~dp0import_openie.py"
+python "%~dp0scripts\import_openie.py"
 if %ERRORLEVEL% neq 0 (
     echo 错误: import_openie.py 执行失败
     pause

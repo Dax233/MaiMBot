@@ -5,7 +5,7 @@ from ...individuality.individuality import Individuality
 from src.plugins.utils.prompt_builder import Prompt, global_prompt_manager
 from src.plugins.utils.chat_message_builder import build_readable_messages, get_raw_msg_before_timestamp_with_chat
 from src.plugins.person_info.relationship_manager import relationship_manager
-from src.plugins.chat.utils import get_embedding, parse_text_timestamps
+from src.plugins.chat.utils import get_embedding
 import time
 from typing import Union, Optional
 from ...common.database import db
@@ -25,7 +25,7 @@ def init_prompt():
 {chat_target}
 {chat_talking_prompt}
 现在你想要在群里发言或者回复。\n
-你需要扮演一位网名叫{bot_name}的人进行回复，这个人的特点是："{prompt_personality} {prompt_identity}"。
+你需要扮演一位网名叫{bot_name}的人进行回复，这个人的特点是："{prompt_personality}"。
 你正在{chat_target_2},现在请你读读之前的聊天记录，然后给出日常且口语化的回复，平淡一些，你可以参考贴吧，知乎或者微博的回复风格。
 看到以上聊天记录，你刚刚在想：
 
@@ -49,7 +49,7 @@ def init_prompt():
 
     # Planner提示词 - 优化版
     Prompt(
-        """你的名字是{bot_name}，一名大二女生，正在QQ群聊中。需要基于以下信息决定如何参与对话：
+        """你的名字是{bot_name},{prompt_personality}，你现在正在一个群聊中。需要基于以下信息决定如何参与对话：
 {structured_info_block}
 {chat_content_block}
 你的内心想法：
@@ -163,9 +163,7 @@ class PromptBuilder:
 
     async def _build_prompt_focus(self, reason, current_mind_info, structured_info, chat_stream) -> tuple[str, str]:
         individuality = Individuality.get_instance()
-        prompt_personality = individuality.get_prompt(type="personality", x_person=2, level=1)
-        prompt_identity = individuality.get_prompt(type="identity", x_person=2, level=1)
-
+        prompt_personality = individuality.get_prompt(x_person=0, level=2)
         # 日程构建
         # schedule_prompt = f'''你现在正在做的事情是：{bot_schedule.get_current_num_task(num = 1,time_info = False)}'''
 
@@ -300,7 +298,6 @@ response_language = "Recommend Chinese"
             chat_talking_prompt=chat_talking_prompt,
             bot_name=global_config.BOT_NICKNAME,
             prompt_personality=prompt_personality,
-            prompt_identity=prompt_identity,
             chat_target_2=await global_prompt_manager.get_prompt_async("chat_target_group2")
             if chat_in_group
             else await global_prompt_manager.get_prompt_async("chat_target_private2"),
@@ -310,27 +307,11 @@ response_language = "Recommend Chinese"
             moderation_prompt=await global_prompt_manager.get_prompt_async("moderation_prompt"),
         )
 
-        prompt = await relationship_manager.convert_all_person_sign_to_person_name(prompt)
-        prompt = parse_text_timestamps(prompt, mode="lite")
-
         return prompt
 
     async def _build_prompt_normal(self, chat_stream, message_txt: str, sender_name: str = "某人") -> tuple[str, str]:
-        # 开始构建prompt
-        prompt_personality = "你"
-        # person
         individuality = Individuality.get_instance()
-
-        personality_core = individuality.personality.personality_core
-        prompt_personality += personality_core
-
-        personality_sides = individuality.personality.personality_sides
-        random.shuffle(personality_sides)
-        prompt_personality += f",{personality_sides[0]}"
-
-        identity_detail = individuality.identity.identity_detail
-        random.shuffle(identity_detail)
-        prompt_personality += f",{identity_detail[0]}"
+        prompt_personality = individuality.get_prompt(x_person=2, level=2)
 
         # 关系
         who_chat_in_group = [

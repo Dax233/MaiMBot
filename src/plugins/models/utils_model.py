@@ -739,7 +739,7 @@ class LLMRequest:
 
         return response
 
-    async def generate_response_tool_async(self, prompt: str, tools: list, **kwargs) -> Union[str, Tuple]:
+    async def generate_response_tool_async(self, prompt: str, tools: list, **kwargs) -> tuple[str, str, list]:
         """异步方式根据输入的提示生成模型的响应"""
         # 构建请求体，不硬编码max_tokens
         data = {
@@ -750,16 +750,17 @@ class LLMRequest:
             "tools": tools,
         }
 
-        logger.debug(f"向模型 {self.model_name} 发送工具调用请求，包含 {len(tools)} 个工具")
         response = await self._execute_request(endpoint="/chat/completions", payload=data, prompt=prompt)
+        logger.debug(f"向模型 {self.model_name} 发送工具调用请求，包含 {len(tools)} 个工具，返回结果: {response}")
         # 检查响应是否包含工具调用
-        if isinstance(response, tuple) and len(response) == 3:
+        if len(response) == 3:
             content, reasoning_content, tool_calls = response
             logger.debug(f"收到工具调用响应，包含 {len(tool_calls) if tool_calls else 0} 个工具调用")
             return content, reasoning_content, tool_calls
         else:
+            content, reasoning_content = response
             logger.debug("收到普通响应，无工具调用")
-            return response
+            return content, reasoning_content, None
 
     async def get_embedding(self, text: str) -> Union[list, None]:
         """异步方法：获取文本的embedding向量

@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Dict, List
 import json
 from pathlib import Path
-import random
 
 
 @dataclass
@@ -119,28 +118,3 @@ class Personality:
         for key, value in data.items():
             setattr(instance, key, value)
         return instance
-
-    def get_prompt(self, x_person, level):
-        # 开始构建prompt
-        if x_person == 2:
-            prompt_personality = "你"
-        elif x_person == 1:
-            prompt_personality = "我"
-        else:
-            prompt_personality = "他"
-        # person
-
-        prompt_personality += self.personality_core
-
-        if level == 2:
-            personality_sides = self.personality_sides
-            random.shuffle(personality_sides)
-            prompt_personality += f",{personality_sides[0]}"
-        elif level == 3:
-            personality_sides = self.personality_sides
-            for side in personality_sides:
-                prompt_personality += f",{side}"
-
-        prompt_personality += "。"
-
-        return prompt_personality

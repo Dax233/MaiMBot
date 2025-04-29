@@ -4,7 +4,10 @@
 #     print("未找到quick_algo库，无法使用quick_algo算法")
 #     print("请安装quick_algo库 - 在lib.quick_algo中，执行命令：python setup.py build_ext --inplace")
 
+import sys
+import os
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from typing import Dict, List
 
 from src.plugins.knowledge.src.lpmmconfig import PG_NAMESPACE, global_config
@@ -15,8 +18,9 @@ from src.plugins.knowledge.src.kg_manager import KGManager
 from src.common.logger import get_module_logger
 from src.plugins.knowledge.src.utils.hash import get_sha256
 
-# 添加在现有导入之后
-import sys
+
+# 添加项目根目录到 sys.path
+
 
 logger = get_module_logger("LPMM知识库-OpenIE导入")
 

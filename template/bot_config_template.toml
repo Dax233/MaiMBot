@@ -1,5 +1,5 @@
 [inner]
-version = "1.5.0"
+version = "1.5.1"
 
 #----以下是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 #如果你想要修改配置文件，请在修改后将version的值进行变更
@@ -48,12 +48,10 @@ personality_sides = [
 identity_detail = [
     "身份特点",
     "身份特点",
-]# 条数任意，不能为0, 该选项还在调试中，可能未完全生效
+]# 条数任意，不能为0, 该选项还在调试中
 #外貌特征
-height = 170 # 身高 单位厘米 该选项还在调试中，暂时未生效
-weight = 50 # 体重 单位千克 该选项还在调试中，暂时未生效
-age = 20 # 年龄 单位岁 该选项还在调试中，暂时未生效
-gender = "男" # 性别 该选项还在调试中，暂时未生效
+age = 20 # 年龄 单位岁 
+gender = "男" # 性别 
 appearance = "用几句话描述外貌特征" # 外貌特征 该选项还在调试中，暂时未生效
 
 [schedule]
@@ -129,14 +127,18 @@ check_prompt = "符合公序良俗" # 表情包过滤要求，只有符合该要
 
 [memory]
 build_memory_interval = 2000 # 记忆构建间隔 单位秒   间隔越低，麦麦学习越多，但是冗余信息也会增多
-build_memory_distribution = [4.0,2.0,0.6,24.0,8.0,0.4] # 记忆构建分布，参数：分布1均值，标准差，权重，分布2均值，标准差，权重
-build_memory_sample_num = 10 # 采样数量，数值越高记忆采样次数越多
-build_memory_sample_length = 20 # 采样长度，数值越高一段记忆内容越丰富
+build_memory_distribution = [6.0,3.0,0.6,32.0,12.0,0.4] # 记忆构建分布，参数：分布1均值，标准差，权重，分布2均值，标准差，权重
+build_memory_sample_num = 8 # 采样数量，数值越高记忆采样次数越多
+build_memory_sample_length = 40 # 采样长度，数值越高一段记忆内容越丰富
 memory_compress_rate = 0.1 # 记忆压缩率 控制记忆精简程度 建议保持默认,调高可以获得更多信息，但是冗余信息也会增多
 
 forget_memory_interval = 1000 # 记忆遗忘间隔 单位秒   间隔越低，麦麦遗忘越频繁，记忆更精简，但更难学习
 memory_forget_time = 24 #多长时间后的记忆会被遗忘 单位小时 
 memory_forget_percentage = 0.01 # 记忆遗忘比例 控制记忆遗忘程度 越大遗忘越多 建议保持默认
+
+consolidate_memory_interval = 1000 # 记忆整合间隔 单位秒   间隔越低，麦麦整合越频繁，记忆更精简
+consolidation_similarity_threshold = 0.7 # 相似度阈值
+consolidation_check_percentage = 0.01 # 检查节点比例
 
 #不希望记忆的词，已经记忆的不会受到影响
 memory_ban_words = [ 

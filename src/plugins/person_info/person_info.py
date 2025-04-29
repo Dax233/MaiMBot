@@ -180,10 +180,10 @@ class PersonInfoManager:
         existing_names = ""
         while current_try < max_retries:
             individuality = Individuality.get_instance()
-            prompt_personality = individuality.get_prompt(type="personality", x_person=2, level=1)
+            prompt_personality = individuality.get_prompt(x_person=2, level=1)
             bot_name = individuality.personality.bot_nickname
 
-            qv_name_prompt = f"你是{bot_name}，你{prompt_personality}"
+            qv_name_prompt = f"你是{bot_name}，{prompt_personality}"
             qv_name_prompt += f"现在你想给一个用户取一个昵称，用户是的qq昵称是{user_nickname}，"
             qv_name_prompt += f"用户的qq群昵称名是{user_cardname}，"
             if user_avatar:

@@ -1,6 +1,7 @@
 from typing import Optional
 from .personality import Personality
 from .identity import Identity
+import random
 
 
 class Individuality:
@@ -8,14 +9,15 @@ class Individuality:
 
     _instance = None
 
-    def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
     def __init__(self):
+        if Individuality._instance is not None:
+            raise RuntimeError("Individuality 类是单例，请使用 get_instance() 方法获取实例。")
+
+        # 正常初始化实例属性
         self.personality: Optional[Personality] = None
         self.identity: Optional[Identity] = None
+
+        self.name = ""
 
     @classmethod
     def get_instance(cls) -> "Individuality":
@@ -25,7 +27,13 @@ class Individuality:
             Individuality: 单例实例
         """
         if cls._instance is None:
-            cls._instance = cls()
+            # 实例不存在，调用 cls() 创建新实例
+            # cls() 会调用 __init__
+            # 因为此时 cls._instance 仍然是 None，__init__ 会正常执行初始化
+            new_instance = cls()
+            # 将新创建的实例赋值给类变量 _instance
+            cls._instance = new_instance
+        # 返回（新创建的或已存在的）单例实例
         return cls._instance
 
     def initialize(
@@ -63,6 +71,8 @@ class Individuality:
             identity_detail=identity_detail, height=height, weight=weight, age=age, gender=gender, appearance=appearance
         )
 
+        self.name = bot_nickname
+
     def to_dict(self) -> dict:
         """将个体特征转换为字典格式"""
         return {
@@ -80,16 +90,148 @@ class Individuality:
             instance.identity = Identity.from_dict(data["identity"])
         return instance
 
-    def get_prompt(self, type, x_person, level):
+    def get_personality_prompt(self, level: int, x_person: int = 2) -> str:
         """
-        获取个体特征的prompt
+        获取人格特征的prompt
+
+        Args:
+            level (int): 详细程度 (1: 核心, 2: 核心+随机侧面, 3: 核心+所有侧面)
+            x_person (int, optional): 人称代词 (0: 无人称, 1: 我, 2: 你). 默认为 2.
+
+        Returns:
+            str: 生成的人格prompt字符串
         """
-        if type == "personality":
-            return self.personality.get_prompt(x_person, level)
-        elif type == "identity":
-            return self.identity.get_prompt(x_person, level)
+        if x_person not in [0, 1, 2]:
+            return "无效的人称代词，请使用 0 (无人称), 1 (我) 或 2 (你)。"
+        if not self.personality:
+            return "人格特征尚未初始化。"
+
+        if x_person == 2:
+            p_pronoun = "你"
+            prompt_personality = f"{p_pronoun}{self.personality.personality_core}"
+        elif x_person == 1:
+            p_pronoun = "我"
+            prompt_personality = f"{p_pronoun}{self.personality.personality_core}"
+        else:  # x_person == 0
+            p_pronoun = ""  # 无人称
+            # 对于无人称，直接描述核心特征
+            prompt_personality = f"{self.personality.personality_core}"
+
+        # 根据level添加人格侧面
+        if level >= 2 and self.personality.personality_sides:
+            personality_sides = list(self.personality.personality_sides)
+            random.shuffle(personality_sides)
+            if level == 2:
+                prompt_personality += f"，有时也会{personality_sides[0]}"
+            elif level == 3:
+                sides_str = "、".join(personality_sides)
+                prompt_personality += f"，有时也会{sides_str}"
+        prompt_personality += "。"
+        return prompt_personality
+
+    def get_identity_prompt(self, level: int, x_person: int = 2) -> str:
+        """
+        获取身份特征的prompt
+
+        Args:
+            level (int): 详细程度 (1: 随机细节, 2: 所有细节+外貌年龄性别, 3: 同2)
+            x_person (int, optional): 人称代词 (0: 无人称, 1: 我, 2: 你). 默认为 2.
+
+        Returns:
+            str: 生成的身份prompt字符串
+        """
+        if x_person not in [0, 1, 2]:
+            return "无效的人称代词，请使用 0 (无人称), 1 (我) 或 2 (你)。"
+        if not self.identity:
+            return "身份特征尚未初始化。"
+
+        if x_person == 2:
+            i_pronoun = "你"
+        elif x_person == 1:
+            i_pronoun = "我"
+        else:  # x_person == 0
+            i_pronoun = ""  # 无人称
+
+        identity_parts = []
+
+        # 根据level添加身份细节
+        if level >= 1 and self.identity.identity_detail:
+            identity_detail = list(self.identity.identity_detail)
+            random.shuffle(identity_detail)
+            if level == 1:
+                identity_parts.append(f"身份是{identity_detail[0]}")
+            elif level >= 2:
+                details_str = "、".join(identity_detail)
+                identity_parts.append(f"身份是{details_str}")
+
+        # 根据level添加其他身份信息
+        if level >= 3:
+            if self.identity.appearance:
+                identity_parts.append(f"{self.identity.appearance}")
+            if self.identity.age > 0:
+                identity_parts.append(f"年龄大约{self.identity.age}岁")
+            if self.identity.gender:
+                identity_parts.append(f"性别是{self.identity.gender}")
+
+        if identity_parts:
+            details_str = "，".join(identity_parts)
+            if x_person in [1, 2]:
+                return f"{i_pronoun}，{details_str}。"
+            else:  # x_person == 0
+                # 无人称时，直接返回细节，不加代词和开头的逗号
+                return f"{details_str}。"
         else:
-            return ""
+            if x_person in [1, 2]:
+                return f"{i_pronoun}的身份信息不完整。"
+            else:  # x_person == 0
+                return "身份信息不完整。"
+
+    def get_prompt(self, level: int, x_person: int = 2) -> str:
+        """
+        获取合并的个体特征prompt
+
+        Args:
+            level (int): 详细程度 (1: 核心/随机细节, 2: 核心+侧面/细节+其他, 3: 全部)
+            x_person (int, optional): 人称代词 (0: 无人称, 1: 我, 2: 你). 默认为 2.
+
+        Returns:
+            str: 生成的合并prompt字符串
+        """
+        if x_person not in [0, 1, 2]:
+            return "无效的人称代词，请使用 0 (无人称), 1 (我) 或 2 (你)。"
+
+        if not self.personality or not self.identity:
+            return "个体特征尚未完全初始化。"
+
+        # 调用新的独立方法
+        prompt_personality = self.get_personality_prompt(level, x_person)
+        prompt_identity = self.get_identity_prompt(level, x_person)
+
+        # 移除可能存在的错误信息，只合并有效的 prompt
+        valid_prompts = []
+        if "尚未初始化" not in prompt_personality and "无效的人称" not in prompt_personality:
+            valid_prompts.append(prompt_personality)
+        if (
+            "尚未初始化" not in prompt_identity
+            and "无效的人称" not in prompt_identity
+            and "信息不完整" not in prompt_identity
+        ):
+            # 从身份 prompt 中移除代词和句号，以便更好地合并
+            identity_content = prompt_identity
+            if x_person == 2 and identity_content.startswith("你，"):
+                identity_content = identity_content[2:]
+            elif x_person == 1 and identity_content.startswith("我，"):
+                identity_content = identity_content[2:]
+            # 对于 x_person == 0，身份提示不带前缀，无需移除
+
+            if identity_content.endswith("。"):
+                identity_content = identity_content[:-1]
+            valid_prompts.append(identity_content)
+
+        # --- 合并 Prompt ---
+        final_prompt = " ".join(valid_prompts)
+
+        return final_prompt.strip()
 
     def get_traits(self, factor):
         """
