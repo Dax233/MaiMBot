@@ -382,7 +382,7 @@ class SubHeartflow:
             # 初始化并启动 HeartFChatting
             if await self.heart_fc_instance._initialize():
                 await self.heart_fc_instance.start()
-                logger.info(f"{log_prefix} 麦麦已成功进入专注聊天模式 (新实例已启动)。")
+                logger.info(f"{log_prefix} 枫已成功进入专注聊天模式 (新实例已启动)。")
                 return True
             else:
                 logger.error(f"{log_prefix} HeartFChatting 初始化失败，无法进入专注模式。")
@@ -439,7 +439,7 @@ class SubHeartflow:
             self.history_chat_state.append((current_state, self.chat_state_last_time))
 
             logger.info(
-                f"{log_prefix} 麦麦的聊天状态从 {current_state.value} （持续了 {self.chat_state_last_time} 秒） 变更为 {new_state.value}"
+                f"{log_prefix} 枫的聊天状态从 {current_state.value} （持续了 {self.chat_state_last_time} 秒） 变更为 {new_state.value}"
             )
 
             self.chat_state.chat_status = new_state

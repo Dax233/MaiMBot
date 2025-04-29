@@ -232,7 +232,7 @@ class HeartFChatting:
         self.log_prefix = f"[{chat_manager.get_stream_name(self.stream_id) or self.stream_id}]"
 
         self._initialized = True
-        logger.info(f"麦麦感觉到了，可以开始认真水群{self.log_prefix} ")
+        logger.info(f"枫感觉到了，可以开始认真水群{self.log_prefix} ")
         return True
 
     async def start(self):
@@ -350,9 +350,9 @@ class HeartFChatting:
         except asyncio.CancelledError:
             # 设置了关闭标志位后被取消是正常流程
             if not self._shutting_down:
-                logger.warning(f"{self.log_prefix} HeartFChatting: 麦麦的认真水群(HFC)循环意外被取消")
+                logger.warning(f"{self.log_prefix} HeartFChatting: 枫的认真水群(HFC)循环意外被取消")
             else:
-                logger.info(f"{self.log_prefix} HeartFChatting: 麦麦的认真水群(HFC)循环已取消 (正常关闭)")
+                logger.info(f"{self.log_prefix} HeartFChatting: 枫的认真水群(HFC)循环已取消 (正常关闭)")
         except Exception as e:
             logger.error(f"{self.log_prefix} HeartFChatting: 意外错误: {e}")
             logger.error(traceback.format_exc())
@@ -420,7 +420,7 @@ class HeartFChatting:
 
             # if await self._check_new_messages(planner_start_db_time):
             #     if random.random() < 0.2:
-            #         logger.info(f"{self.log_prefix} 看到了新消息，麦麦决定重新观察和规划...")
+            #         logger.info(f"{self.log_prefix} 看到了新消息，枫决定重新观察和规划...")
             #         # 重新规划
             #         with Timer("重新决策", cycle_timers):
             #             self._current_cycle.replanned = True
