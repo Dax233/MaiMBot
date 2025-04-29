@@ -374,7 +374,7 @@ class Conversation:
                     f"[私聊][{self.private_name}]经过 {reply_attempt_count} 次尝试，追问回复决定打回动作决策。打回原因: {check_reason}"
                 )
                 conversation_info.done_action[action_index].update(
-                    {"status": "recall", "final_reason": f"追问尝试{reply_attempt_count}次后失败: {check_reason}"}
+                    {"status": "recall", "final_reason": f"追问尝试{reply_attempt_count}次后打回: {check_reason}"}
                 )
 
             else:
@@ -383,7 +383,7 @@ class Conversation:
                     f"[私聊][{self.private_name}]经过 {reply_attempt_count} 次尝试，未能生成合适的追问回复。最终原因: {check_reason}"
                 )
                 conversation_info.done_action[action_index].update(
-                    {"status": "recall", "final_reason": f"追问尝试{reply_attempt_count}次后打回: {check_reason}"}
+                    {"status": "recall", "final_reason": f"追问尝试{reply_attempt_count}次后失败: {check_reason}"}
                 )
                 # 重置状态: 追问失败，下次用初始 prompt
                 self.conversation_info.last_successful_reply_action = None

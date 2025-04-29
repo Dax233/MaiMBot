@@ -93,8 +93,7 @@ class ActionPlanner:
             max_tokens=1500,
             request_type="action_planning",
         )
-        self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=3)
-        self.identity_detail_info = Individuality.get_instance().get_prompt(type="identity", x_person=2, level=2)
+        self.personality_info = Individuality.get_instance().get_prompt(x_person=2, level=3)
         self.name = global_config.BOT_NICKNAME
         self.private_name = private_name
         self.chat_observer = ChatObserver.get_instance(stream_id, private_name)
@@ -244,21 +243,7 @@ class ActionPlanner:
             chat_history_text = "处理聊天记录时出错。\n"
 
         # 构建 Persona 文本 (persona_text)
-        # (这部分逻辑不变)
-        identity_details_only = self.identity_detail_info
-        identity_addon = ""
-        if isinstance(identity_details_only, str):
-            pronouns = ["你", "我", "他"]
-            for p in pronouns:
-                if identity_details_only.startswith(p):
-                    identity_details_only = identity_details_only[len(p) :]
-                    break
-            if identity_details_only.endswith("。"):
-                identity_details_only = identity_details_only[:-1]
-            cleaned_details = identity_details_only.strip(",， ")
-            if cleaned_details:
-                identity_addon = f"并且{cleaned_details}"
-        persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"
+        persona_text = f"你的名字是{self.name}，{self.personality_info}。"
 
         # 构建行动历史和上一次行动结果 (action_history_summary, last_action_context)
         # (这部分逻辑不变)

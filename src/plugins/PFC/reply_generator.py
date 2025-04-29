@@ -68,8 +68,7 @@ class ReplyGenerator:
             max_tokens=300,
             request_type="reply_generation",
         )
-        self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=3)
-        self.identity_detail_info = Individuality.get_instance().get_prompt(type="identity", x_person=2, level=2)
+        self.personality_info = Individuality.get_instance().get_prompt(x_person=2, level=3)
         self.name = global_config.BOT_NICKNAME
         self.private_name = private_name
         self.chat_observer = ChatObserver.get_instance(stream_id, private_name)
@@ -130,20 +129,7 @@ class ReplyGenerator:
             chat_history_text = "还没有聊天记录。"
 
         # 构建 Persona 文本 (persona_text)
-        identity_details_only = self.identity_detail_info
-        identity_addon = ""
-        if isinstance(identity_details_only, str):
-            pronouns = ["你", "我", "他"]
-            for p in pronouns:
-                if identity_details_only.startswith(p):
-                    identity_details_only = identity_details_only[len(p) :]
-                    break
-            if identity_details_only.endswith("。"):
-                identity_details_only = identity_details_only[:-1]
-            cleaned_details = identity_details_only.strip(",， ")
-            if cleaned_details:
-                identity_addon = f"并且{cleaned_details}"
-        persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"
+        persona_text = f"你的名字是{self.name}，{self.personality_info}。"
 
         # --- 选择 Prompt ---
         if action_type == "send_new_message":

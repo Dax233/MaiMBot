@@ -23,8 +23,7 @@ class GoalAnalyzer:
             model=global_config.llm_normal, temperature=0.7, max_tokens=1000, request_type="conversation_goal"
         )
 
-        self.personality_info = Individuality.get_instance().get_prompt(type="personality", x_person=2, level=3)
-        self.identity_detail_info = Individuality.get_instance().get_prompt(type="identity", x_person=2, level=2)
+        self.personality_info = Individuality.get_instance().get_prompt(x_person=2, level=3)
         self.name = global_config.BOT_NICKNAME
         self.nick_name = global_config.BOT_ALIAS_NAMES
         self.private_name = private_name
@@ -79,21 +78,7 @@ class GoalAnalyzer:
 
             # await observation_info.clear_unprocessed_messages()
 
-        identity_details_only = self.identity_detail_info
-        identity_addon = ""
-        if isinstance(identity_details_only, str):
-            pronouns = ["你", "我", "他"]
-            for p in pronouns:
-                if identity_details_only.startswith(p):
-                    identity_details_only = identity_details_only[len(p) :]
-                    break
-            if identity_details_only.endswith("。"):
-                identity_details_only = identity_details_only[:-1]
-            cleaned_details = identity_details_only.strip(",， ")
-            if cleaned_details:
-                identity_addon = f"并且{cleaned_details}"
-
-        persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"
+        persona_text = f"你的名字是{self.name}，{self.personality_info}。"
         # 构建action历史文本
         action_history_list = conversation_info.done_action
         action_history_text = "你之前做的事情是："
@@ -328,21 +313,8 @@ response_language = "Recommend Chinese"
             timestamp_mode="relative",
             read_mark=0.0,
         )
-        identity_details_only = self.identity_detail_info
-        identity_addon = ""
-        if isinstance(identity_details_only, str):
-            pronouns = ["你", "我", "他"]
-            for p in pronouns:
-                if identity_details_only.startswith(p):
-                    identity_details_only = identity_details_only[len(p) :]
-                    break
-            if identity_details_only.endswith("。"):
-                identity_details_only = identity_details_only[:-1]
-            cleaned_details = identity_details_only.strip(",， ")
-            if cleaned_details:
-                identity_addon = f"并且{cleaned_details}"
 
-        persona_text = f"你的名字是{self.name}，{self.personality_info}{identity_addon}。"
+        persona_text = f"你的名字是{self.name}，{self.personality_info}。"
         # ===> Persona 文本构建结束 <===
 
         # --- 修改 Prompt 字符串，使用 persona_text ---
