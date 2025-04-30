@@ -264,6 +264,13 @@ class SubHeartflowManager:
             current_state = self.mai_state_info.get_current_state()
             focused_limit = current_state.get_focused_chat_max_num()
 
+            # --- 新增：检查是否允许进入 FOCUS 模式 --- #
+            if not global_config.allow_focus_mode:
+                if int(time.time()) % 60 == 0:  # 每60秒输出一次日志避免刷屏
+                    logger.debug(f"{log_prefix} 配置不允许进入 FOCUSED 状态 (allow_focus_mode=False)")
+                return  # 如果不允许，直接返回
+            # --- 结束新增 ---
+
             logger.debug(f"{log_prefix} 当前状态 ({current_state.value}) 开始尝试提升到FOCUSED状态")
 
             if int(time.time()) % 20 == 0:  # 每20秒输出一次

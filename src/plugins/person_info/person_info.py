@@ -137,34 +137,55 @@ class PersonInfoManager:
     @staticmethod
     def _extract_json_from_text(text: str) -> dict:
         """从文本中提取JSON数据的高容错方法"""
+        parsed_json = None
         try:
             # 尝试直接解析
-            return json.loads(text)
+            parsed_json = json.loads(text)
+            # 如果解析结果是列表，尝试取第一个元素
+            if isinstance(parsed_json, list):
+                if parsed_json:  # 检查列表是否为空
+                    parsed_json = parsed_json[0]
+                else:  # 如果列表为空，重置为 None，走后续逻辑
+                    parsed_json = None
+            # 确保解析结果是字典
+            if isinstance(parsed_json, dict):
+                return parsed_json
+
         except json.JSONDecodeError:
-            try:
-                # 尝试找到JSON格式的部分
-                json_pattern = r"\{[^{}]*\}"
-                matches = re.findall(json_pattern, text)
-                if matches:
-                    return json.loads(matches[0])
+            # 解析失败，继续尝试其他方法
+            pass
+        except Exception as e:
+            logger.warning(f"尝试直接解析JSON时发生意外错误: {e}")
+            pass  # 继续尝试其他方法
 
-                # 如果上面都失败了，尝试提取键值对
-                nickname_pattern = r'"nickname"[:\s]+"([^"]+)"'
-                reason_pattern = r'"reason"[:\s]+"([^"]+)"'
+        # 如果直接解析失败或结果不是字典
+        try:
+            # 尝试找到JSON对象格式的部分
+            json_pattern = r"\{[^{}]*\}"
+            matches = re.findall(json_pattern, text)
+            if matches:
+                parsed_obj = json.loads(matches[0])
+                if isinstance(parsed_obj, dict):  # 确保是字典
+                    return parsed_obj
 
-                nickname_match = re.search(nickname_pattern, text)
-                reason_match = re.search(reason_pattern, text)
+            # 如果上面都失败了，尝试提取键值对
+            nickname_pattern = r'"nickname"[:\s]+"([^"]+)"'
+            reason_pattern = r'"reason"[:\s]+"([^"]+)"'
 
-                if nickname_match:
-                    return {
-                        "nickname": nickname_match.group(1),
-                        "reason": reason_match.group(1) if reason_match else "未提供理由",
-                    }
-            except Exception as e:
-                logger.error(f"JSON提取失败: {str(e)}")
+            nickname_match = re.search(nickname_pattern, text)
+            reason_match = re.search(reason_pattern, text)
 
-            # 如果所有方法都失败了，返回空结果
-            return {"nickname": "", "reason": ""}
+            if nickname_match:
+                return {
+                    "nickname": nickname_match.group(1),
+                    "reason": reason_match.group(1) if reason_match else "未提供理由",
+                }
+        except Exception as e:
+            logger.error(f"后备JSON提取失败: {str(e)}")
+
+        # 如果所有方法都失败了，返回默认字典
+        logger.warning(f"无法从文本中提取有效的JSON字典: {text}")
+        return {"nickname": "", "reason": ""}
 
     async def qv_person_name(self, person_id: str, user_nickname: str, user_cardname: str, user_avatar: str):
         """给某个用户取名"""

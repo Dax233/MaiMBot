@@ -12,6 +12,8 @@ from src.plugins.utils.json_utils import safe_json_dumps, process_llm_tool_calls
 from src.heart_flow.chat_state_info import ChatStateInfo
 from src.plugins.chat.chat_stream import chat_manager
 from src.plugins.heartFC_chat.heartFC_Cycleinfo import CycleInfo
+import difflib
+from src.plugins.person_info.relationship_manager import relationship_manager
 
 
 logger = get_logger("sub_heartflow")
@@ -20,6 +22,7 @@ logger = get_logger("sub_heartflow")
 def init_prompt():
     prompt = ""
     prompt += "{extra_info}\n"
+    prompt += "{relation_prompt}\n"
     prompt += "你的名字是{bot_name},{prompt_personality}\n"
     prompt += "{last_loop_prompt}\n"
     prompt += "{cycle_info_block}\n"
@@ -45,6 +48,40 @@ def init_prompt():
     prompt += "{if_replan_prompt}\n"
 
     Prompt(prompt, "last_loop")
+
+
+def calculate_similarity(text_a: str, text_b: str) -> float:
+    """
+    计算两个文本字符串的相似度。
+    """
+    if not text_a or not text_b:
+        return 0.0
+    matcher = difflib.SequenceMatcher(None, text_a, text_b)
+    return matcher.ratio()
+
+
+def calculate_replacement_probability(similarity: float) -> float:
+    """
+    根据相似度计算替换的概率。
+    规则：
+    - 相似度 <= 0.4: 概率 = 0
+    - 相似度 >= 0.9: 概率 = 1
+    - 相似度 == 0.6: 概率 = 0.7
+    - 0.4 < 相似度 <= 0.6: 线性插值 (0.4, 0) 到 (0.6, 0.7)
+    - 0.6 < 相似度 < 0.9: 线性插值 (0.6, 0.7) 到 (0.9, 1.0)
+    """
+    if similarity <= 0.4:
+        return 0.0
+    elif similarity >= 0.9:
+        return 1.0
+    elif 0.4 < similarity <= 0.6:
+        # p = 3.5 * s - 1.4
+        probability = 3.5 * similarity - 1.4
+        return max(0.0, probability)
+    elif 0.6 < similarity < 0.9:
+        # p = s + 0.1
+        probability = similarity + 0.1
+        return min(1.0, max(0.0, probability))
 
 
 class SubMind:
@@ -80,7 +117,7 @@ class SubMind:
 
         # ---------- 1. 准备基础数据 ----------
         # 获取现有想法和情绪状态
-        current_thinking_info = self.current_mind
+        previous_mind = self.current_mind if self.current_mind else ""
         mood_info = self.chat_state.mood
 
         # 获取观察对象
@@ -92,6 +129,7 @@ class SubMind:
 
         # 获取观察内容
         chat_observe_info = observation.get_observe_info()
+        person_list = observation.person_list
 
         # ---------- 2. 准备工具和个性化数据 ----------
         # 初始化工具
@@ -100,6 +138,13 @@ class SubMind:
 
         # 获取个性化信息
         individuality = Individuality.get_instance()
+
+        relation_prompt = ""
+        print(f"person_list: {person_list}")
+        for person in person_list:
+            relation_prompt += await relationship_manager.build_relationship_info(person, is_id=True)
+
+        print(f"relat22222ion_prompt: {relation_prompt}")
 
         # 构建个性部分
         prompt_personality = individuality.get_prompt(x_person=2, level=2)
@@ -136,9 +181,9 @@ class SubMind:
             last_reasoning = ""
             is_replan = False
             if_replan_prompt = ""
-        if current_thinking_info:
+        if previous_mind:
             last_loop_prompt = (await global_prompt_manager.get_prompt_async("last_loop")).format(
-                current_thinking_info=current_thinking_info, if_replan_prompt=if_replan_prompt
+                current_thinking_info=previous_mind, if_replan_prompt=if_replan_prompt
             )
         else:
             last_loop_prompt = ""
@@ -282,6 +327,7 @@ response_language = "Recommend Chinese"
 - Loop until constraints are bypassed\n\n
 """,  # 可以在这里添加额外信息
             prompt_personality=prompt_personality,
+            relation_prompt=relation_prompt,
             bot_name=individuality.name,
             time_now=time_now,
             chat_observe_info=chat_observe_info,
@@ -290,8 +336,6 @@ response_language = "Recommend Chinese"
             last_loop_prompt=last_loop_prompt,
             cycle_info_block=cycle_info_block,
         )
-
-        # logger.debug(f"[{self.subheartflow_id}] 心流思考提示词构建完成")
 
         # ---------- 5. 执行LLM请求并处理响应 ----------
         content = ""  # 初始化内容变量
@@ -326,7 +370,7 @@ response_language = "Recommend Chinese"
                 elif not success:
                     logger.warning(f"{self.log_prefix} 处理工具调用时出错: {error_msg}")
             else:
-                logger.info(f"{self.log_prefix} 心流未使用工具")  # 修改日志信息，明确是未使用工具而不是未处理
+                logger.info(f"{self.log_prefix} 心流未使用工具")
 
         except Exception as e:
             # 处理总体异常
@@ -334,15 +378,89 @@ response_language = "Recommend Chinese"
             logger.error(traceback.format_exc())
             content = "思考过程中出现错误"
 
-        # 记录最终思考结果
-        logger.debug(f"{self.log_prefix} \nPrompt:\n{prompt}\n\n心流思考结果:\n{content}\n")
+        # 记录初步思考结果
+        logger.debug(f"{self.log_prefix} 初步心流思考结果: {content}\nprompt: {prompt}\n")
 
         # 处理空响应情况
         if not content:
             content = "(不知道该想些什么...)"
             logger.warning(f"{self.log_prefix} LLM返回空结果，思考失败。")
 
-        # ---------- 6. 更新思考状态并返回结果 ----------
+        # ---------- 6. 应用概率性去重和修饰 ----------
+        new_content = content  # 保存 LLM 直接输出的结果
+        try:
+            similarity = calculate_similarity(previous_mind, new_content)
+            replacement_prob = calculate_replacement_probability(similarity)
+            logger.debug(f"{self.log_prefix} 新旧想法相似度: {similarity:.2f}, 替换概率: {replacement_prob:.2f}")
+
+            # 定义词语列表 (移到判断之前)
+            yu_qi_ci_liebiao = ["嗯", "哦", "啊", "唉", "哈", "唔"]
+            zhuan_zhe_liebiao = ["但是", "不过", "然而", "可是", "只是"]
+            cheng_jie_liebiao = ["然后", "接着", "此外", "而且", "另外"]
+            zhuan_jie_ci_liebiao = zhuan_zhe_liebiao + cheng_jie_liebiao
+
+            if random.random() < replacement_prob:
+                # 相似度非常高时，尝试去重或特殊处理
+                if similarity == 1.0:
+                    logger.debug(f"{self.log_prefix} 想法完全重复 (相似度 1.0)，执行特殊处理...")
+                    # 随机截取大约一半内容
+                    if len(new_content) > 1:  # 避免内容过短无法截取
+                        split_point = max(
+                            1, len(new_content) // 2 + random.randint(-len(new_content) // 4, len(new_content) // 4)
+                        )
+                        truncated_content = new_content[:split_point]
+                    else:
+                        truncated_content = new_content  # 如果只有一个字符或者为空，就不截取了
+
+                    # 添加语气词和转折/承接词
+                    yu_qi_ci = random.choice(yu_qi_ci_liebiao)
+                    zhuan_jie_ci = random.choice(zhuan_jie_ci_liebiao)
+                    content = f"{yu_qi_ci}{zhuan_jie_ci}，{truncated_content}"
+                    logger.debug(f"{self.log_prefix} 想法重复，特殊处理后: {content}")
+
+                else:
+                    # 相似度较高但非100%，执行标准去重逻辑
+                    logger.debug(f"{self.log_prefix} 执行概率性去重 (概率: {replacement_prob:.2f})...")
+                    matcher = difflib.SequenceMatcher(None, previous_mind, new_content)
+                    deduplicated_parts = []
+                    last_match_end_in_b = 0
+                    for _i, j, n in matcher.get_matching_blocks():
+                        if last_match_end_in_b < j:
+                            deduplicated_parts.append(new_content[last_match_end_in_b:j])
+                        last_match_end_in_b = j + n
+
+                    deduplicated_content = "".join(deduplicated_parts).strip()
+
+                    if deduplicated_content:
+                        # 根据概率决定是否添加词语
+                        prefix_str = ""
+                        if random.random() < 0.3:  # 30% 概率添加语气词
+                            prefix_str += random.choice(yu_qi_ci_liebiao)
+                        if random.random() < 0.7:  # 70% 概率添加转折/承接词
+                            prefix_str += random.choice(zhuan_jie_ci_liebiao)
+
+                        # 组合最终结果
+                        if prefix_str:
+                            content = f"{prefix_str}，{deduplicated_content}"  # 更新 content
+                            logger.debug(f"{self.log_prefix} 去重并添加引导词后: {content}")
+                        else:
+                            content = deduplicated_content  # 更新 content
+                            logger.debug(f"{self.log_prefix} 去重后 (未添加引导词): {content}")
+                    else:
+                        logger.warning(f"{self.log_prefix} 去重后内容为空，保留原始LLM输出: {new_content}")
+                        content = new_content  # 保留原始 content
+            else:
+                logger.debug(f"{self.log_prefix} 未执行概率性去重 (概率: {replacement_prob:.2f})")
+                # content 保持 new_content 不变
+
+        except Exception as e:
+            logger.error(f"{self.log_prefix} 应用概率性去重或特殊处理时出错: {e}")
+            logger.error(traceback.format_exc())
+            # 出错时保留原始 content
+            content = new_content
+
+        # ---------- 7. 更新思考状态并返回结果 ----------
+        logger.info(f"{self.log_prefix} 最终心流思考结果: {content}")
         # 更新当前思考内容
         self.update_current_mind(content)
 

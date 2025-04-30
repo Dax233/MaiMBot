@@ -1,6 +1,7 @@
 import asyncio
 import time
 import traceback
+import random  # <--- 添加导入
 from typing import List, Optional, Dict, Any, Deque, Callable, Coroutine
 from collections import deque
 from src.plugins.chat.message import MessageRecv, BaseMessageInfo, MessageThinking, MessageSending
@@ -31,6 +32,8 @@ from src.individuality.individuality import Individuality
 
 INITIAL_DURATION = 60.0
 
+WAITING_TIME_THRESHOLD = 300  # 等待新消息时间阈值，单位秒
+
 
 logger = get_logger("interest")  # Logger Name Changed
 
@@ -45,10 +48,11 @@ class ActionManager:
     def __init__(self):
         # 初始化为默认动作集
         self._available_actions: Dict[str, str] = DEFAULT_ACTIONS.copy()
+        self._original_actions_backup: Optional[Dict[str, str]] = None  # 用于临时移除时的备份
 
     def get_available_actions(self) -> Dict[str, str]:
         """获取当前可用的动作集"""
-        return self._available_actions
+        return self._available_actions.copy()  # 返回副本以防外部修改
 
     def add_action(self, action_name: str, description: str) -> bool:
         """
@@ -80,6 +84,30 @@ class ActionManager:
             return False
         del self._available_actions[action_name]
         return True
+
+    def temporarily_remove_actions(self, actions_to_remove: List[str]):
+        """
+        临时移除指定的动作，备份原始动作集。
+        如果已经有备份，则不重复备份。
+        """
+        if self._original_actions_backup is None:
+            self._original_actions_backup = self._available_actions.copy()
+
+        actions_actually_removed = []
+        for action_name in actions_to_remove:
+            if action_name in self._available_actions:
+                del self._available_actions[action_name]
+                actions_actually_removed.append(action_name)
+        # logger.debug(f"临时移除了动作: {actions_actually_removed}") # 可选日志
+
+    def restore_actions(self):
+        """
+        恢复之前备份的原始动作集。
+        """
+        if self._original_actions_backup is not None:
+            self._available_actions = self._original_actions_backup.copy()
+            self._original_actions_backup = None
+            # logger.debug("恢复了原始动作集") # 可选日志
 
     def clear_actions(self):
         """清空所有动作"""
@@ -151,7 +179,7 @@ class HeartFChatting:
     其生命周期现在由其关联的 SubHeartflow 的 FOCUSED 状态控制。
     """
 
-    CONSECUTIVE_NO_REPLY_THRESHOLD = 5  # 连续不回复的阈值
+    CONSECUTIVE_NO_REPLY_THRESHOLD = 3  # 连续不回复的阈值
 
     def __init__(
         self,
@@ -214,6 +242,7 @@ class HeartFChatting:
         self._current_cycle: Optional[CycleInfo] = None
         self._lian_xu_bu_hui_fu_ci_shu: int = 0  # <--- 新增：连续不回复计数器
         self._shutting_down: bool = False  # <--- 新增：关闭标志位
+        self._lian_xu_deng_dai_shi_jian: float = 0.0  # <--- 新增：累计等待时间
 
     async def _initialize(self) -> bool:
         """
@@ -489,6 +518,7 @@ class HeartFChatting:
             logger.error(f"{self.log_prefix} 处理{action}时出错: {e}")
             # 出错时也重置计数器
             self._lian_xu_bu_hui_fu_ci_shu = 0
+            self._lian_xu_deng_dai_shi_jian = 0.0  # 重置累计等待时间
             return False, ""
 
     async def _handle_text_reply(self, reasoning: str, emoji_query: str, cycle_timers: dict) -> tuple[bool, str]:
@@ -511,6 +541,7 @@ class HeartFChatting:
         """
         # 重置连续不回复计数器
         self._lian_xu_bu_hui_fu_ci_shu = 0
+        self._lian_xu_deng_dai_shi_jian = 0.0  # 重置累计等待时间
 
         # 获取锚点消息
         anchor_message = await self._get_anchor_message()
@@ -566,6 +597,7 @@ class HeartFChatting:
             bool: 是否发送成功
         """
         logger.info(f"{self.log_prefix} 决定回复表情({emoji_query}): {reasoning}")
+        self._lian_xu_deng_dai_shi_jian = 0.0  # 重置累计等待时间（即使不计数也保持一致性）
 
         try:
             anchor = await self._get_anchor_message()
@@ -601,23 +633,41 @@ class HeartFChatting:
         observation = self.observations[0] if self.observations else None
 
         try:
+            dang_qian_deng_dai = 0.0  # 初始化本次等待时间
             with Timer("等待新消息", cycle_timers):
                 # 等待新消息、超时或关闭信号，并获取结果
                 await self._wait_for_new_message(observation, planner_start_db_time, self.log_prefix)
+            # 从计时器获取实际等待时间
+            dang_qian_deng_dai = cycle_timers.get("等待新消息", 0.0)
 
             if not self._shutting_down:
                 self._lian_xu_bu_hui_fu_ci_shu += 1
+                self._lian_xu_deng_dai_shi_jian += dang_qian_deng_dai  # 累加等待时间
                 logger.debug(
-                    f"{self.log_prefix} 连续不回复计数增加: {self._lian_xu_bu_hui_fu_ci_shu}/{self.CONSECUTIVE_NO_REPLY_THRESHOLD}"
+                    f"{self.log_prefix} 连续不回复计数增加: {self._lian_xu_bu_hui_fu_ci_shu}/{self.CONSECUTIVE_NO_REPLY_THRESHOLD}, "
+                    f"本次等待: {dang_qian_deng_dai:.2f}秒, 累计等待: {self._lian_xu_deng_dai_shi_jian:.2f}秒"
                 )
 
-                # 检查是否达到阈值
-                if self._lian_xu_bu_hui_fu_ci_shu >= self.CONSECUTIVE_NO_REPLY_THRESHOLD:
+                # 检查是否同时达到次数和时间阈值
+                time_threshold = 0.66 * WAITING_TIME_THRESHOLD * self.CONSECUTIVE_NO_REPLY_THRESHOLD
+                if (
+                    self._lian_xu_bu_hui_fu_ci_shu >= self.CONSECUTIVE_NO_REPLY_THRESHOLD
+                    and self._lian_xu_deng_dai_shi_jian >= time_threshold
+                ):
                     logger.info(
-                        f"{self.log_prefix} 连续不回复达到阈值 ({self._lian_xu_bu_hui_fu_ci_shu}次)，调用回调请求状态转换"
+                        f"{self.log_prefix} 连续不回复达到阈值 ({self._lian_xu_bu_hui_fu_ci_shu}次) "
+                        f"且累计等待时间达到 {self._lian_xu_deng_dai_shi_jian:.2f}秒 (阈值 {time_threshold}秒)，"
+                        f"调用回调请求状态转换"
                     )
-                    # 调用回调。注意：这里不重置计数器，依赖回调函数成功改变状态来隐式重置上下文。
+                    # 调用回调。注意：这里不重置计数器和时间，依赖回调函数成功改变状态来隐式重置上下文。
                     await self.on_consecutive_no_reply_callback()
+                elif self._lian_xu_bu_hui_fu_ci_shu >= self.CONSECUTIVE_NO_REPLY_THRESHOLD:
+                    # 仅次数达到阈值，但时间未达到
+                    logger.debug(
+                        f"{self.log_prefix} 连续不回复次数达到阈值 ({self._lian_xu_bu_hui_fu_ci_shu}次) "
+                        f"但累计等待时间 {self._lian_xu_deng_dai_shi_jian:.2f}秒 未达到时间阈值 ({time_threshold}秒)，暂不调用回调"
+                    )
+                # else: 次数和时间都未达到阈值，不做处理
 
             return True
 
@@ -658,8 +708,8 @@ class HeartFChatting:
                 return True
 
             # 检查超时 (放在检查新消息和关闭之后)
-            if time.monotonic() - wait_start_time > 120:
-                logger.warning(f"{log_prefix} 等待新消息超时(20秒)")
+            if time.monotonic() - wait_start_time > WAITING_TIME_THRESHOLD:
+                logger.warning(f"{log_prefix} 等待新消息超时({WAITING_TIME_THRESHOLD}秒)")
                 return False
 
             try:
@@ -737,8 +787,52 @@ class HeartFChatting:
 
         参数:
             current_mind: 子思维的当前思考结果
+            cycle_timers: 计时器字典
+            is_re_planned: 是否为重新规划
         """
         logger.info(f"{self.log_prefix}[Planner] 开始{'重新' if is_re_planned else ''}执行规划器")
+
+        # --- 新增：检查历史动作并调整可用动作 ---
+        lian_xu_wen_ben_hui_fu = 0  # 连续文本回复次数
+        actions_to_remove_temporarily = []
+        probability_roll = random.random()  # 在循环外掷骰子一次，用于概率判断
+
+        # 反向遍历最近的循环历史
+        for cycle in reversed(self._cycle_history):
+            # 只关心实际执行了动作的循环
+            if cycle.action_taken:
+                if cycle.action_type == "text_reply":
+                    lian_xu_wen_ben_hui_fu += 1
+                else:
+                    break  # 遇到非文本回复，中断计数
+            # 检查最近的3个循环即可，避免检查过多历史 (如果历史很长)
+            if len(self._cycle_history) > 0 and cycle.cycle_id <= self._cycle_history[0].cycle_id + (
+                len(self._cycle_history) - 4
+            ):
+                break
+
+        logger.debug(f"{self.log_prefix}[Planner] 检测到连续文本回复次数: {lian_xu_wen_ben_hui_fu}")
+
+        # 根据连续次数决定临时移除哪些动作
+        if lian_xu_wen_ben_hui_fu >= 3:
+            logger.info(f"{self.log_prefix}[Planner] 连续回复 >= 3 次，强制移除 text_reply 和 emoji_reply")
+            actions_to_remove_temporarily.extend(["text_reply", "emoji_reply"])
+        elif lian_xu_wen_ben_hui_fu == 2:
+            if probability_roll < 0.8:  # 80% 概率
+                logger.info(f"{self.log_prefix}[Planner] 连续回复 2 次，80% 概率移除 text_reply 和 emoji_reply (触发)")
+                actions_to_remove_temporarily.extend(["text_reply", "emoji_reply"])
+            else:
+                logger.info(
+                    f"{self.log_prefix}[Planner] 连续回复 2 次，80% 概率移除 text_reply 和 emoji_reply (未触发)"
+                )
+        elif lian_xu_wen_ben_hui_fu == 1:
+            if probability_roll < 0.4:  # 40% 概率
+                logger.info(f"{self.log_prefix}[Planner] 连续回复 1 次，40% 概率移除 text_reply (触发)")
+                actions_to_remove_temporarily.append("text_reply")
+            else:
+                logger.info(f"{self.log_prefix}[Planner] 连续回复 1 次，40% 概率移除 text_reply (未触发)")
+        # 如果 lian_xu_wen_ben_hui_fu == 0，则不移除任何动作
+        # --- 结束：检查历史动作 ---
 
         # 获取观察信息
         observation = self.observations[0]
@@ -754,6 +848,13 @@ class HeartFChatting:
         emoji_query = ""  # <--- 在这里初始化 emoji_query
 
         try:
+            # --- 新增：应用临时动作移除 ---
+            if actions_to_remove_temporarily:
+                self.action_manager.temporarily_remove_actions(actions_to_remove_temporarily)
+                logger.debug(
+                    f"{self.log_prefix}[Planner] 临时移除的动作: {actions_to_remove_temporarily}, 当前可用: {list(self.action_manager.get_available_actions().keys())}"
+                )
+
             # --- 构建提示词 ---
             replan_prompt_str = ""
             if is_re_planned:
@@ -767,6 +868,7 @@ class HeartFChatting:
             # --- 调用 LLM ---
             try:
                 planner_tools = self.action_manager.get_planner_tool_definition()
+                logger.debug(f"{self.log_prefix}[Planner] 本次使用的工具定义: {planner_tools}")  # 记录本次使用的工具
                 _response_text, _reasoning_content, tool_calls = await self.planner_llm.generate_response_tool_async(
                     prompt=prompt,
                     tools=planner_tools,
@@ -810,15 +912,25 @@ class HeartFChatting:
                     extracted_action = arguments.get("action", "no_reply")
                     # 验证动作
                     if extracted_action not in self.action_manager.get_available_actions():
+                        # 如果LLM返回了一个此时不该用的动作（因为被临时移除了）
+                        # 或者完全无效的动作
                         logger.warning(
-                            f"{self.log_prefix}[Planner] LLM返回了未授权的动作: {extracted_action}，使用默认动作no_reply"
+                            f"{self.log_prefix}[Planner] LLM返回了当前不可用或无效的动作: {extracted_action}，将强制使用 'no_reply'"
                         )
                         action = "no_reply"
-                        reasoning = f"LLM返回了未授权的动作: {extracted_action}"
+                        reasoning = f"LLM返回了当前不可用的动作: {extracted_action}"
                         emoji_query = ""
-                        llm_error = False  # 视为非LLM错误，只是逻辑修正
+                        llm_error = False  # 视为逻辑修正而非 LLM 错误
+                        # --- 检查 'no_reply' 是否也恰好被移除了 (极端情况) ---
+                        if "no_reply" not in self.action_manager.get_available_actions():
+                            logger.error(
+                                f"{self.log_prefix}[Planner] 严重错误：'no_reply' 动作也不可用！无法执行任何动作。"
+                            )
+                            action = "error"  # 回退到错误状态
+                            reasoning = "无法执行任何有效动作，包括 no_reply"
+                            llm_error = True
                     else:
-                        # 动作有效，使用提取的值
+                        # 动作有效且可用，使用提取的值
                         action = extracted_action
                         reasoning = arguments.get("reasoning", "未提供理由")
                         emoji_query = arguments.get("emoji_query", "")
@@ -837,8 +949,20 @@ class HeartFChatting:
                 reasoning = f"验证工具调用失败: {error_msg}"
                 logger.warning(f"{self.log_prefix}[Planner] {reasoning}")
             else:  # not valid_tool_calls
-                reasoning = "LLM未返回有效的工具调用"
-                logger.warning(f"{self.log_prefix}[Planner] {reasoning}")
+                # 如果没有有效的工具调用，我们需要检查 'no_reply' 是否是当前唯一可用的动作
+                available_actions = list(self.action_manager.get_available_actions().keys())
+                if available_actions == ["no_reply"]:
+                    logger.info(
+                        f"{self.log_prefix}[Planner] LLM未返回工具调用，但当前唯一可用动作是 'no_reply'，将执行 'no_reply'"
+                    )
+                    action = "no_reply"
+                    reasoning = "LLM未返回工具调用，且当前仅 'no_reply' 可用"
+                    emoji_query = ""
+                    llm_error = False  # 视为逻辑选择而非错误
+                else:
+                    reasoning = "LLM未返回有效的工具调用"
+                    logger.warning(f"{self.log_prefix}[Planner] {reasoning}")
+                    # llm_error 保持为 True
             # 如果 llm_error 仍然是 True，说明在处理过程中有错误发生
 
         except Exception as llm_e:
@@ -847,6 +971,14 @@ class HeartFChatting:
             action = "error"
             reasoning = f"Planner内部处理错误: {llm_e}"
             llm_error = True
+        # --- 新增：确保动作恢复 ---
+        finally:
+            if actions_to_remove_temporarily:  # 只有当确实移除了动作时才需要恢复
+                self.action_manager.restore_actions()
+                logger.debug(
+                    f"{self.log_prefix}[Planner] 恢复了原始动作集, 当前可用: {list(self.action_manager.get_available_actions().keys())}"
+                )
+        # --- 结束：确保动作恢复 ---
         # --- 结束 LLM 决策 --- #
 
         return {

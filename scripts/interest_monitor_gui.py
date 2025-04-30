@@ -19,6 +19,7 @@ REFRESH_INTERVAL_MS = 200  # 刷新间隔 (毫秒) - 可以适当调长，因为
 WINDOW_TITLE = "Interest Monitor (Live History)"
 MAX_HISTORY_POINTS = 1000  # 图表上显示的最大历史点数 (可以增加)
 MAX_STREAMS_TO_DISPLAY = 15  # 最多显示多少个聊天流的折线图 (可以增加)
+MAX_QUEUE_SIZE = 30  # 新增：历史想法队列最大长度
 
 # *** 添加 Matplotlib 中文字体配置 ***
 # 尝试使用 'SimHei' 或 'Microsoft YaHei'，如果找不到，matplotlib 会回退到默认字体
@@ -60,6 +61,10 @@ class InterestMonitorApp:
         self.single_stream_threshold = tk.StringVar(value="阈值: N/A")
         self.single_stream_last_active = tk.StringVar(value="活跃: N/A")
         self.single_stream_last_interaction = tk.StringVar(value="交互: N/A")
+
+        # 新增：历史想法队列
+        self.main_mind_history = deque(maxlen=MAX_QUEUE_SIZE)
+        self.last_main_mind_timestamp = 0  # 记录最后一条main_mind的时间戳
 
         # --- UI 元素 ---
 
@@ -143,6 +148,24 @@ class InterestMonitorApp:
         self.canvas_widget_single = self.canvas_single.get_tk_widget()
         self.canvas_widget_single.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
+        # --- 新增第三个选项卡：麦麦历史想法 ---
+        self.frame_mind_history = ttk.Frame(self.notebook, padding="5 5 5 5")
+        self.notebook.add(self.frame_mind_history, text="麦麦历史想法")
+
+        # 聊天框样式的文本框（只读）+ 滚动条
+        self.mind_text_scroll = tk.Scrollbar(self.frame_mind_history)
+        self.mind_text_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.mind_text = tk.Text(
+            self.frame_mind_history,
+            height=25,
+            state="disabled",
+            wrap="word",
+            font=("微软雅黑", 12),
+            yscrollcommand=self.mind_text_scroll.set,
+        )
+        self.mind_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=1, padx=5, pady=5)
+        self.mind_text_scroll.config(command=self.mind_text.yview)
+
         # --- 初始化和启动刷新 ---
         self.update_display()  # 首次加载并开始刷新循环
 
@@ -153,6 +176,78 @@ class InterestMonitorApp:
     def get_random_color(self):
         """生成随机颜色用于区分线条"""
         return "#{:06x}".format(random.randint(0, 0xFFFFFF))
+
+    def load_main_mind_history(self):
+        """只读取包含main_mind的日志行，维护历史想法队列"""
+        if not os.path.exists(LOG_FILE_PATH):
+            return
+
+        main_mind_entries = []
+        try:
+            with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        log_entry = json.loads(line.strip())
+                        if "main_mind" in log_entry:
+                            ts = log_entry.get("timestamp", 0)
+                            main_mind_entries.append((ts, log_entry))
+                    except Exception:
+                        continue
+            main_mind_entries.sort(key=lambda x: x[0])
+            recent_entries = main_mind_entries[-MAX_QUEUE_SIZE:]
+            self.main_mind_history.clear()
+            for _ts, entry in recent_entries:
+                self.main_mind_history.append(entry)
+            if recent_entries:
+                self.last_main_mind_timestamp = recent_entries[-1][0]
+            # 首次加载时刷新
+            self.refresh_mind_text()
+        except Exception:
+            pass
+
+    def update_main_mind_history(self):
+        """实时监控log文件，发现新main_mind数据则更新队列和展示（仅有新数据时刷新）"""
+        if not os.path.exists(LOG_FILE_PATH):
+            return
+
+        new_entries = []
+        try:
+            with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
+                for line in reversed(list(f)):
+                    try:
+                        log_entry = json.loads(line.strip())
+                        if "main_mind" in log_entry:
+                            ts = log_entry.get("timestamp", 0)
+                            if ts > self.last_main_mind_timestamp:
+                                new_entries.append((ts, log_entry))
+                            else:
+                                break
+                    except Exception:
+                        continue
+            if new_entries:
+                for ts, entry in sorted(new_entries):
+                    if len(self.main_mind_history) >= MAX_QUEUE_SIZE:
+                        self.main_mind_history.popleft()
+                    self.main_mind_history.append(entry)
+                    self.last_main_mind_timestamp = ts
+                self.refresh_mind_text()  # 只有有新数据时才刷新
+        except Exception:
+            pass
+
+    def refresh_mind_text(self):
+        """刷新聊天框样式的历史想法展示"""
+        self.mind_text.config(state="normal")
+        self.mind_text.delete(1.0, tk.END)
+        for entry in self.main_mind_history:
+            ts = entry.get("timestamp", 0)
+            dt_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S") if ts else ""
+            main_mind = entry.get("main_mind", "")
+            mai_state = entry.get("mai_state", "")
+            subflow_count = entry.get("subflow_count", "")
+            msg = f"[{dt_str}] 状态:{mai_state} 子流:{subflow_count}\n{main_mind}\n\n"
+            self.mind_text.insert(tk.END, msg)
+        self.mind_text.see(tk.END)
+        self.mind_text.config(state="disabled")
 
     def load_and_update_history(self):
         """从 history log 文件加载数据并更新历史记录"""
@@ -537,8 +632,14 @@ class InterestMonitorApp:
     def update_display(self):
         """主更新循环"""
         try:
-            self.load_and_update_history()  # 从文件加载数据并更新内部状态
+            # --- 新增：首次加载历史想法 ---
+            if not hasattr(self, "_main_mind_loaded"):
+                self.load_main_mind_history()
+                self._main_mind_loaded = True
+            else:
+                self.update_main_mind_history()  # 只有有新main_mind数据时才刷新界面
             # *** 修改：分别调用两个图表的更新方法 ***
+            self.load_and_update_history()  # 从文件加载数据并更新内部状态
             self.update_all_streams_plot()  # 更新所有流的图表
             self.update_single_stream_plot()  # 更新单个流的图表
         except Exception as e:

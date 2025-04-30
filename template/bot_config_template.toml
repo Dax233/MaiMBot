@@ -17,7 +17,7 @@ version = "1.5.1"
 #     主版本号：当你做了不兼容的 API 修改，
 #     次版本号：当你做了向下兼容的功能性新增，
 #     修订号：当你做了向下兼容的问题修正。
-# 先行版本号及版本编译信息可以加到“主版本号.次版本号.修订号”的后面，作为延伸。
+# 先行版本号及版本编译信息可以加到"主版本号.次版本号.修订号"的后面，作为延伸。
 #----以上是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 
 [bot]
@@ -66,19 +66,19 @@ time_zone = "Asia/Shanghai" # 给你的机器人设置时区，可以解决运�
 nonebot-qq="http://127.0.0.1:18002/api/message"
 
 [response] #群聊的回复策略
-enable_heart_flowC = true 
-# 该功能还在完善中
-# 是否启用heart_flowC(心流聊天,HFC)模式
-# 启用后麦麦会自主选择进入heart_flowC模式(持续一段时间），进行主动的观察和回复，并给出回复，比较消耗token
-
 #一般回复参数
 model_reasoning_probability = 0.7 # 麦麦回答时选择推理模型 模型的概率
 model_normal_probability = 0.3 # 麦麦回答时选择一般模型 模型的概率
 
-[heartflow] #启用启用heart_flowC(心流聊天)模式时生效，需要填写以下参数
+[heartflow] 
+allow_focus_mode = true # 是否允许进入FOCUSED状态
+# 是否启用heart_flowC(心流聊天,HFC)模式
+# 启用后麦麦会自主选择进入heart_flowC模式(持续一段时间），进行主动的观察和回复，并给出回复，比较消耗token
 reply_trigger_threshold = 3.0 # 心流聊天触发阈值，越低越容易进入心流聊天
 probability_decay_factor_per_second = 0.2 # 概率衰减因子，越大衰减越快，越高越容易退出心流聊天
 default_decay_rate_per_second = 0.98 # 默认衰减率，越大衰减越快，越高越难进入心流聊天
+
+
 
 sub_heart_flow_stop_time = 500 # 子心流停止时间，超过这个时间没有回复，子心流会停止，间隔 单位秒
 
@@ -161,7 +161,7 @@ reaction = "有人说你是人机或者机器人，否定这一事实，攻击�
 [[keywords_reaction.rules]] # 就像这样复制
 enable = false # 仅作示例，不会触发
 keywords = ["测试关键词回复","test",""]
-reaction = "回答“测试成功”"
+reaction = "回答“测试成功”" # 修复错误的引号
 
 [[keywords_reaction.rules]] # 使用正则表达式匹配句式
 enable = false # 仅作示例，不会触发

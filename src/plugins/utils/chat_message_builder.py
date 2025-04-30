@@ -213,17 +213,22 @@ async def _build_readable_messages_internal(
             original_len = len(content)
             limit = -1  # 默认不截断
 
-            if percentile < 0.6:  # 60% 之前的消息 (即最旧的 60%)
-                limit = 170
-            elif percentile < 0.8:  # 60% 到 80% 之前的消息 (即中间的 20%)
-                limit = 250
+            if percentile < 0.2:  # 60% 之前的消息 (即最旧的 60%)
+                limit = 50
+                replace_content = "......（记不清了）"
+            elif percentile < 0.5:  # 60% 之前的消息 (即最旧的 60%)
+                limit = 100
+                replace_content = "......（有点记不清了）"
+            elif percentile < 0.7:  # 60% 到 80% 之前的消息 (即中间的 20%)
+                limit = 200
+                replace_content = "......（内容太长了）"
             elif percentile < 1.0:  # 80% 到 100% 之前的消息 (即较新的 20%)
-                limit = 500
-            # 最新的 20% (理论上 percentile 会趋近 1，但这里不需要显式处理，因为 limit 默认为 -1)
+                limit = 300
+                replace_content = "......（太长了）"
 
             truncated_content = content
             if limit > 0 and original_len > limit:
-                truncated_content = f"{content[:limit]}......（内容太长）"
+                truncated_content = f"{content[:limit]}{replace_content}"
 
             message_details.append((timestamp, name, truncated_content))
     else:
@@ -343,7 +348,10 @@ async def build_readable_messages(
             messages_before_mark, replace_bot_name, merge_messages, timestamp_mode, truncate
         )
         formatted_after, _ = await _build_readable_messages_internal(
-            messages_after_mark, replace_bot_name, merge_messages, timestamp_mode, truncate
+            messages_after_mark,
+            replace_bot_name,
+            merge_messages,
+            timestamp_mode,
         )
 
         readable_read_mark = translate_timestamp_to_human_readable(read_mark, mode=timestamp_mode)
@@ -359,3 +367,33 @@ async def build_readable_messages(
         else:
             # 理论上不应该发生，但作为保险
             return read_mark_line.strip()  # 如果前后都无消息，只返回标记行
+
+
+async def get_person_id_list(messages: List[Dict[str, Any]]) -> List[str]:
+    """
+    从消息列表中提取不重复的 person_id 列表 (忽略机器人自身)。
+
+    Args:
+        messages: 消息字典列表。
+
+    Returns:
+        一个包含唯一 person_id 的列表。
+    """
+    person_ids_set = set()  # 使用集合来自动去重
+
+    for msg in messages:
+        user_info = msg.get("user_info", {})
+        platform = user_info.get("platform")
+        user_id = user_info.get("user_id")
+
+        # 检查必要信息是否存在 且 不是机器人自己
+        if not all([platform, user_id]) or user_id == global_config.BOT_QQ:
+            continue
+
+        person_id = person_info_manager.get_person_id(platform, user_id)
+
+        # 只有当获取到有效 person_id 时才添加
+        if person_id:
+            person_ids_set.add(person_id)
+
+    return list(person_ids_set)  # 将集合转换为列表返回

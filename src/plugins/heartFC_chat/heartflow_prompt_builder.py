@@ -85,6 +85,7 @@ def init_prompt():
 - 遵守回复原则
 - 必须调用工具并包含action和reasoning
 - 你可以选择文字回复(text_reply)，纯表情回复(emoji_reply)，不回复(no_reply)
+- 并不是所有选择都可用
 - 选择text_reply或emoji_reply时必须提供emoji_query
 - 保持回复自然，符合日常聊天习惯""",
         "planner_prompt",
@@ -108,7 +109,7 @@ def init_prompt():
     Prompt(
         """
 {memory_prompt}
-{relation_prompt_all}
+{relation_prompt}
 {prompt_info}
 {schedule_prompt}
 {chat_target}
@@ -347,6 +348,9 @@ response_language = "Recommend Chinese"
         relation_prompt = ""
         for person in who_chat_in_group:
             relation_prompt += await relationship_manager.build_relationship_info(person)
+            print(f"relation_prompt: {relation_prompt}")
+
+        print(f"relat11111111ion_prompt: {relation_prompt}")
 
         # 心情
         mood_manager = MoodManager.get_instance()
@@ -547,7 +551,6 @@ response_language = "Recommend Chinese"
 """
         prompt += await global_prompt_manager.format_prompt(
             "reasoning_prompt_main",
-            relation_prompt_all=await global_prompt_manager.get_prompt_async("relationship_prompt"),
             relation_prompt=relation_prompt,
             sender_name=sender_name,
             memory_prompt=memory_prompt,

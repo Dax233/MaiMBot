@@ -10,6 +10,7 @@ from src.plugins.utils.chat_message_builder import (
     build_readable_messages,
     get_raw_msg_by_timestamp_with_chat,
     num_new_messages_since,
+    get_person_id_list,
 )
 
 logger = get_logger("observation")
@@ -45,6 +46,8 @@ class ChattingObservation(Observation):
         self.mid_memorys = []
         self.max_mid_memory_len = global_config.compress_length_limit
         self.mid_memory_info = ""
+
+        self.person_list = []
 
         self.llm_summary = LLMRequest(
             model=global_config.llm_observation, temperature=0.7, max_tokens=300, request_type="chat_observation"
@@ -239,6 +242,10 @@ response_language = "Recommend Chinese"
             read_mark=last_obs_time_mark,
             truncate=True,
         )
+
+        self.person_list = await get_person_id_list(self.talking_message)
+
+        # print(f"self.11111person_list: {self.person_list}")
 
         logger.trace(
             f"Chat {self.chat_id} - 压缩早期记忆：{self.mid_memory_info}\n现在聊天内容：{self.talking_message_str}"

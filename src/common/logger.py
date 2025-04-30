@@ -809,6 +809,22 @@ LPMM_GET_KNOWLEDGE_TOOL_STYLE_CONFIG = {
     },
 }
 
+INIT_STYLE_CONFIG = {
+    "advanced": {
+        "console_format": (
+            "<white>{time:YYYY-MM-DD HH:mm:ss}</white> | "
+            "<level>{level: <8}</level> | "
+            "<light-yellow>初始化</light-yellow> | "
+            "<level>{message}</level>"
+        ),
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 初始化 | {message}",
+    },
+    "simple": {
+        "console_format": "<level>{time:MM-DD HH:mm}</level> | <light-green>初始化</light-green> | {message}",
+        "file_format": "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[module]: <15} | 初始化 | {message}",
+    },
+}
+
 
 # 根据SIMPLE_OUTPUT选择配置
 MAIN_STYLE_CONFIG = MAIN_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else MAIN_STYLE_CONFIG["advanced"]
@@ -878,6 +894,7 @@ CHAT_MESSAGE_STYLE_CONFIG = (
     CHAT_MESSAGE_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else CHAT_MESSAGE_STYLE_CONFIG["advanced"]
 )
 CHAT_IMAGE_STYLE_CONFIG = CHAT_IMAGE_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else CHAT_IMAGE_STYLE_CONFIG["advanced"]
+INIT_STYLE_CONFIG = INIT_STYLE_CONFIG["simple"] if SIMPLE_OUTPUT else INIT_STYLE_CONFIG["advanced"]
 
 
 def is_registered_module(record: dict) -> bool:

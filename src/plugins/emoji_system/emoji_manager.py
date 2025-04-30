@@ -22,7 +22,8 @@ logger = get_logger("emoji")
 BASE_DIR = os.path.join("data")
 EMOJI_DIR = os.path.join(BASE_DIR, "emoji")  # 表情包存储目录
 EMOJI_REGISTED_DIR = os.path.join(BASE_DIR, "emoji_registed")  # 已注册的表情包注册目录
-MAX_EMOJI_FOR_PROMPT = 20  # 最大表情包描述于图片替换的 prompt 中
+MAX_EMOJI_FOR_PROMPT = 20  # 最大允许的表情包描述数量于图片替换的 prompt 中
+
 
 """
 还没经过测试，有些地方数据库和内存数据同步可能不完全

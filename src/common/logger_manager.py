@@ -40,6 +40,7 @@ from src.common.logger import (
     MESSAGE_BUFFER_STYLE_CONFIG,
     CHAT_MESSAGE_STYLE_CONFIG,
     CHAT_IMAGE_STYLE_CONFIG,
+    INIT_STYLE_CONFIG,
 )
 
 # 可根据实际需要补充更多模块配置
@@ -84,6 +85,7 @@ MODULE_LOGGER_CONFIGS = {
     "message_buffer": MESSAGE_BUFFER_STYLE_CONFIG,  # 消息缓冲
     "chat_message": CHAT_MESSAGE_STYLE_CONFIG,  # 聊天消息
     "chat_image": CHAT_IMAGE_STYLE_CONFIG,  # 聊天图片
+    "init": INIT_STYLE_CONFIG,  # 初始化
     # ...如有更多模块，继续添加...
 }
 

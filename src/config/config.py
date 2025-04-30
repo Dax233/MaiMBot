@@ -182,10 +182,10 @@ class BotConfig:
 
     # [heartflow] # 启用启用heart_flowC(心流聊天)模式时生效, 需要填写token消耗量巨大的相关模型
     # 启用后麦麦会自主选择进入heart_flowC模式(持续一段时间), 进行长时间高质量的聊天
-    enable_heart_flowC: bool = True  # 是否启用heart_flowC(心流聊天, HFC)模式
     reply_trigger_threshold: float = 3.0  # 心流聊天触发阈值，越低越容易触发
     probability_decay_factor_per_second: float = 0.2  # 概率衰减因子，越大衰减越快
     default_decay_rate_per_second: float = 0.98  # 默认衰减率，越大衰减越慢
+    allow_focus_mode: bool = True  # 是否允许子心流进入 FOCUSED 状态
 
     # sub_heart_flow_update_interval: int = 60  # 子心流更新频率，间隔 单位秒
     # sub_heart_flow_freeze_time: int = 120  # 子心流冻结时间，超过这个时间没有回复，子心流会冻结，间隔 单位秒
@@ -418,10 +418,6 @@ class BotConfig:
                 "model_normal_probability", config.model_normal_probability
             )
 
-            # 添加 enable_heart_flowC 的加载逻辑 (假设它在 [response] 部分)
-            if config.INNER_VERSION in SpecifierSet(">=1.4.0"):
-                config.enable_heart_flowC = response_config.get("enable_heart_flowC", config.enable_heart_flowC)
-
         def heartflow(parent: dict):
             heartflow_config = parent["heartflow"]
             config.sub_heart_flow_stop_time = heartflow_config.get(
@@ -445,6 +441,8 @@ class BotConfig:
                 config.default_decay_rate_per_second = heartflow_config.get(
                     "default_decay_rate_per_second", config.default_decay_rate_per_second
                 )
+            if config.INNER_VERSION in SpecifierSet(">=1.5.1"):
+                config.allow_focus_mode = heartflow_config.get("allow_focus_mode", config.allow_focus_mode)
 
         def willing(parent: dict):
             willing_config = parent["willing"]
