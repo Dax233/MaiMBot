@@ -282,10 +282,10 @@ class RelationshipManager:
         if is_id:
             person_id = person
         else:
-            print(f"person: {person}")
+            # print(f"person: {person}")
             person_id = person_info_manager.get_person_id(person[0], person[1])
         person_name = await person_info_manager.get_value(person_id, "person_name")
-        print(f"person_name: {person_name}")
+        # print(f"person_name: {person_name}")
         relationship_value = await person_info_manager.get_value(person_id, "relationship_value")
         level_num = self.calculate_level_num(relationship_value)
 

@@ -216,7 +216,6 @@ response_language = "Recommend Chinese"
             payload = {
                 "model": self.llm_model_tool.model_name,
                 "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": global_config.max_response_length,
                 "tools": tools,
                 "temperature": 0.2,
             }

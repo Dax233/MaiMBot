@@ -525,9 +525,9 @@ class Conversation:
                     )
                 action_successful = True
             except Exception as fetch_err:
-                logger.error(f"[私聊][{self.private_name}]获取知识时出错: {fetch_err}")
+                logger.error(f"[私聊][{self.private_name}]获取知识时出错: {str(fetch_err)}")
                 conversation_info.done_action[action_index].update(
-                    {"status": "recall", "final_reason": f"获取知识失败: {fetch_err}"}
+                    {"status": "recall", "final_reason": f"获取知识失败: {str(fetch_err)}"}
                 )
                 self.conversation_info.last_successful_reply_action = None  # 重置状态
 

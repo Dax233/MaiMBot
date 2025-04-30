@@ -77,7 +77,7 @@ class BaseWillingManager(ABC):
             if not issubclass(manager_class, cls):
                 raise TypeError(f"Manager class {manager_class.__name__} is not a subclass of {cls.__name__}")
             else:
-                logger.info(f"成功载入willing模式：{manager_type}")
+                logger.info(f"普通回复模式：{manager_type}")
             return manager_class()
         except (ImportError, AttributeError, TypeError) as e:
             module = importlib.import_module(".mode_classical", __package__)
@@ -110,7 +110,7 @@ class BaseWillingManager(ABC):
     def delete(self, message_id: str):
         del_message = self.ongoing_messages.pop(message_id, None)
         if not del_message:
-            logger.debug(f"删除异常，当前消息{message_id}不存在")
+            logger.debug(f"尝试删除不存在的消息 ID: {message_id}，可能已被其他流程处理，喵~")
 
     @abstractmethod
     async def async_task_starter(self) -> None:
