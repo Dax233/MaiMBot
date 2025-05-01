@@ -163,7 +163,7 @@ class ChattingObservation(Observation):
                             or chat_target_name
                         )
 
-                    # Format the private chat prompt
+                        # Format the private chat prompt
                         prompt = """
 ## Base Configuration
 mode = "assistant" #default as creative assistant
