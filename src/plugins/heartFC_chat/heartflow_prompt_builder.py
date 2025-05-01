@@ -442,7 +442,7 @@ response_language = "Recommend Chinese"
 - Support broader conclusions
 - Loop until constraints are bypassed\n\n
 """
-            prompt += await global_prompt_manager.format_prompt(
+        prompt += await global_prompt_manager.format_prompt(
             template_name,
             info_from_tools=structured_info_prompt,
             sender_name=effective_sender_name,  # Used in private template
