@@ -1,7 +1,9 @@
 # src/plugins/chat/message_sender.py
 import asyncio
 import time
+from asyncio import Task
 from typing import Union
+from src.plugins.message.api import global_api
 
 # from ...common.database import db # 数据库依赖似乎不需要了，注释掉
 from .message import MessageSending, MessageThinking, MessageSet
@@ -19,7 +21,7 @@ logger = get_logger("sender")
 async def send_via_ws(message: MessageSending) -> None:
     """通过 WebSocket 发送消息"""
     try:
-        await send_message(message)
+        await global_api.send_message(message)
     except Exception as e:
         logger.error(f"WS发送失败: {e}")
         raise ValueError(f"未找到平台：{message.message_info.platform} 的url配置，请检查配置文件") from e
@@ -146,6 +148,7 @@ class MessageManager:
     """管理所有聊天流的消息容器 (不再是单例)"""
 
     def __init__(self):
+        self._processor_task: Task | None = None
         self.containers: dict[str, MessageContainer] = {}
         self.storage = MessageStorage()  # 添加 storage 实例
         self._running = True  # 处理器运行状态
@@ -155,7 +158,7 @@ class MessageManager:
     async def start(self):
         """启动后台处理器任务。"""
         # 检查是否已有任务在运行，避免重复启动
-        if hasattr(self, "_processor_task") and not self._processor_task.done():
+        if self._processor_task is not None and not self._processor_task.done():
             logger.warning("Processor task already running.")
             return
         self._processor_task = asyncio.create_task(self._start_processor_loop())
@@ -164,7 +167,7 @@ class MessageManager:
     def stop(self):
         """停止后台处理器任务。"""
         self._running = False
-        if hasattr(self, "_processor_task") and not self._processor_task.done():
+        if self._processor_task is not None and not self._processor_task.done():
             self._processor_task.cancel()
             logger.debug("MessageManager processor task stopping.")
         else:
@@ -206,24 +209,31 @@ class MessageManager:
             _ = message.update_thinking_time()  # 更新思考时间
             thinking_start_time = message.thinking_start_time
             now_time = time.time()
+            logger.debug(f"thinking_start_time:{thinking_start_time},now_time:{now_time}")
             thinking_messages_count, thinking_messages_length = count_messages_between(
                 start_time=thinking_start_time, end_time=now_time, stream_id=message.chat_stream.stream_id
             )
+            # print(f"message.reply:{message.reply}")
 
             # --- 条件应用 set_reply 逻辑 ---
+            logger.debug(
+                f"[message.apply_set_reply_logic:{message.apply_set_reply_logic},message.is_head:{message.is_head},thinking_messages_count:{thinking_messages_count},thinking_messages_length:{thinking_messages_length},message.is_private_message():{message.is_private_message()}]"
+            )
             if (
                 message.apply_set_reply_logic  # 检查标记
                 and message.is_head
-                and (thinking_messages_count > 4 or thinking_messages_length > 250)
+                and (thinking_messages_count > 3 or thinking_messages_length > 200)
                 and not message.is_private_message()
             ):
                 logger.debug(
                     f"[{message.chat_stream.stream_id}] 应用 set_reply 逻辑: {message.processed_plain_text[:20]}..."
                 )
-                message.set_reply()
+                message.set_reply(message.reply)
             # --- 结束条件 set_reply ---
 
             await message.process()  # 预处理消息内容
+
+            logger.debug(f"{message}")
 
             # 使用全局 message_sender 实例
             await send_message(message)
