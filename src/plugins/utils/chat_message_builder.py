@@ -44,7 +44,7 @@ def get_raw_msg_by_timestamp_with_chat(
     # 只有当 limit 为 0 时才应用外部 sort
     sort_order = [("time", 1)] if limit == 0 else None
     # 直接将 limit_mode 传递给 find_messages
-    return find_messages(filter=filter_query, sort=sort_order, limit=limit, limit_mode=limit_mode)
+    return find_messages(message_filter=filter_query, sort=sort_order, limit=limit, limit_mode=limit_mode)
 
 
 def get_raw_msg_by_timestamp_with_chat_users(
