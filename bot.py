@@ -119,7 +119,6 @@ async def graceful_shutdown():
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-
     except Exception as e:
         logger.error(f"枫关闭失败: {e}")
 
@@ -131,9 +130,7 @@ def check_eula():
     privacy_file = Path("PRIVACY.md")
 
     eula_updated = True
-    eula_new_hash = None
     privacy_updated = True
-    privacy_new_hash = None
 
     eula_confirmed = False
     privacy_confirmed = False
