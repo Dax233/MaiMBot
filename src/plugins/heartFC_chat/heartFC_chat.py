@@ -490,7 +490,7 @@ class HeartFChatting:
             else:
                 action_str = "不回复"
 
-            logger.info(f"{self.log_prefix} 麦麦决定'{action_str}', 原因'{reasoning}'")
+            logger.info(f"{self.log_prefix} 枫决定'{action_str}', 原因'{reasoning}'")
 
             return await self._handle_action(
                 action, reasoning, planner_result.get("emoji_query", ""), cycle_timers, planner_start_db_time
@@ -999,7 +999,7 @@ class HeartFChatting:
             logger.debug(f"{self.log_prefix}[Planner] 大模型建议文字回复带表情: '{emoji_query}'")
             if random.random() > EMOJI_SEND_PRO:
                 logger.info(
-                    f"{self.log_prefix}但是麦麦这次不想加表情 ({1 - EMOJI_SEND_PRO:.0%})，忽略表情 '{emoji_query}'"
+                    f"{self.log_prefix}但是枫这次不想加表情 ({1 - EMOJI_SEND_PRO:.0%})，忽略表情 '{emoji_query}'"
                 )
                 emoji_query = ""  # 清空表情请求
             else:
