@@ -247,7 +247,6 @@ def _to_emoji_objects(data):
     emoji_objects = []
     load_errors = 0
     emoji_data_list = list(data)
-
     for emoji_data in emoji_data_list:
         full_path = emoji_data.get("full_path")
         if not full_path:
@@ -289,7 +288,6 @@ def _to_emoji_objects(data):
         except Exception as e:
             logger.error(f"[加载错误] 处理数据库记录时出错 ({full_path}): {str(e)}")
             load_errors += 1
-        return emoji_objects, load_errors
     return emoji_objects, load_errors
 
 
