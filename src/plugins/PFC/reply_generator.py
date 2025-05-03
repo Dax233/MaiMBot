@@ -8,7 +8,7 @@ from src.common.database import db
 from src.plugins.chat.utils import get_embedding
 # --- NEW IMPORT ---
 # 从 heartflow 导入知识检索和数据库查询函数/实例
-from src.plugins.heartFC_chat.heartflow_prompt_builder import prompt_builder, get_info_from_db
+from src.plugins.heartFC_chat.heartflow_prompt_builder import prompt_builder
 # --- END NEW IMPORT ---
 # 可能用于旧知识库提取主题 (如果需要回退到旧方法)
 # import jieba # 如果报错说找不到 jieba，可能需要安装: pip install jieba

@@ -6,7 +6,7 @@ from src.common.database import db
 from src.plugins.chat.utils import get_embedding
 # --- NEW IMPORT ---
 # 从 heartflow 导入知识检索和数据库查询函数/实例
-from src.plugins.heartFC_chat.heartflow_prompt_builder import prompt_builder, get_info_from_db
+from src.plugins.heartFC_chat.heartflow_prompt_builder import prompt_builder
 # --- END NEW IMPORT ---
 # import jieba # 如果需要旧版知识库的回退，可能需要
 # import re    # 如果需要旧版知识库的回退，可能需要
