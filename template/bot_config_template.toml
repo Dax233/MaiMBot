@@ -1,5 +1,5 @@
 [inner]
-version = "1.6.1"
+version = "1.6.2"
 
 #----以下是给开发人员阅读的，如果你只是部署了麦麦，不需要阅读----
 #如果你想要修改配置文件，请在修改后将version的值进行变更
@@ -128,7 +128,7 @@ enable_nickname_mapping = false  # 绰号映射功能总开关（默认关闭，
 max_nicknames_in_prompt = 10  # Prompt 中最多注入的绰号数量（防止token数量爆炸）
 nickname_probability_smoothing = 1  # 绰号加权随机选择的平滑因子
 nickname_queue_max_size = 100  # 绰号处理队列最大容量
-nickname_process_sleep_interval = 5  # 绰号处理进程休眠间隔（秒）
+nickname_process_sleep_interval = 60  # 绰号处理进程休眠间隔（秒）
 
 [memory]
 build_memory_interval = 2000 # 记忆构建间隔 单位秒   间隔越低，麦麦学习越多，但是冗余信息也会增多

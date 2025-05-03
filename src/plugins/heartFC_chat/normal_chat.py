@@ -20,7 +20,7 @@ from src.plugins.person_info.relationship_manager import relationship_manager
 from src.plugins.respon_info_catcher.info_catcher import info_catcher_manager
 from src.plugins.utils.timer_calculator import Timer
 from src.heart_flow.utils_chat import get_chat_type_and_target_info
-from src.plugins.group_nickname.nickname_utils import trigger_nickname_analysis_if_needed
+from src.plugins.group_nickname.nickname_manager import nickname_manager
 
 
 logger = get_logger("chat")
@@ -179,8 +179,11 @@ class NormalChat:
         """更新关系情绪"""
         ori_response = ",".join(response_set)
         stance, emotion = await self.gpt._get_emotion_tags(ori_response, message.processed_plain_text)
+        user_info = message.message_info.user_info
+        platform = user_info.platform
         await relationship_manager.calculate_update_relationship_value(
-            chat_stream=self.chat_stream,
+            user_info,
+            platform,
             label=emotion,
             stance=stance,  # 使用 self.chat_stream
         )
@@ -314,7 +317,7 @@ class NormalChat:
             # 检查 first_bot_msg 是否为 None (例如思考消息已被移除的情况)
             if first_bot_msg:
                 info_catcher.catch_after_response(timing_results["消息发送"], response_set, first_bot_msg)
-                await trigger_nickname_analysis_if_needed(message, response_set, self.chat_stream)
+                await nickname_manager.trigger_nickname_analysis(message, response_set, self.chat_stream)
             else:
                 logger.warning(f"[{self.stream_name}] 思考消息 {thinking_id} 在发送前丢失，无法记录 info_catcher")
 

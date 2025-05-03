@@ -16,7 +16,7 @@ from packaging.specifiers import SpecifierSet, InvalidSpecifier
 from src.common.logger_manager import get_logger
 from rich.traceback import install
 
-install(show_locals=True, extra_lines=3)
+install(extra_lines=3)
 
 
 # 配置主程序日志格式
@@ -279,7 +279,7 @@ class BotConfig:
     MAX_NICKNAMES_IN_PROMPT: int = 10  # Prompt 中最多注入的绰号数量
     NICKNAME_PROBABILITY_SMOOTHING: int = 1  # 绰号加权随机选择的平滑因子
     NICKNAME_QUEUE_MAX_SIZE: int = 100  # 绰号处理队列最大容量
-    NICKNAME_PROCESS_SLEEP_INTERVAL: float = 5  # 绰号处理进程休眠间隔（秒）
+    NICKNAME_PROCESS_SLEEP_INTERVAL: float = 60  # 绰号处理进程休眠间隔（秒）
 
     # 模型配置
     llm_reasoning: dict[str, str] = field(default_factory=lambda: {})
@@ -411,16 +411,23 @@ class BotConfig:
                 config.steal_emoji = emoji_config.get("steal_emoji", config.steal_emoji)
 
         def group_nickname(parent: dict):
-            gn_config = parent.get("group_nickname", {})
-            config.ENABLE_NICKNAME_MAPPING = gn_config.get("enable_nickname_mapping", config.ENABLE_NICKNAME_MAPPING)
-            config.MAX_NICKNAMES_IN_PROMPT = gn_config.get("max_nicknames_in_prompt", config.MAX_NICKNAMES_IN_PROMPT)
-            config.NICKNAME_PROBABILITY_SMOOTHING = gn_config.get(
-                "nickname_probability_smoothing", config.NICKNAME_PROBABILITY_SMOOTHING
-            )
-            config.NICKNAME_QUEUE_MAX_SIZE = gn_config.get("nickname_queue_max_size", config.NICKNAME_QUEUE_MAX_SIZE)
-            config.NICKNAME_PROCESS_SLEEP_INTERVAL = gn_config.get(
-                "nickname_process_sleep_interval", config.NICKNAME_PROCESS_SLEEP_INTERVAL
-            )
+            if config.INNER_VERSION in SpecifierSet(">=1.6.2"):
+                gn_config = parent.get("group_nickname", {})
+                config.ENABLE_NICKNAME_MAPPING = gn_config.get(
+                    "enable_nickname_mapping", config.ENABLE_NICKNAME_MAPPING
+                )
+                config.MAX_NICKNAMES_IN_PROMPT = gn_config.get(
+                    "max_nicknames_in_prompt", config.MAX_NICKNAMES_IN_PROMPT
+                )
+                config.NICKNAME_PROBABILITY_SMOOTHING = gn_config.get(
+                    "nickname_probability_smoothing", config.NICKNAME_PROBABILITY_SMOOTHING
+                )
+                config.NICKNAME_QUEUE_MAX_SIZE = gn_config.get(
+                    "nickname_queue_max_size", config.NICKNAME_QUEUE_MAX_SIZE
+                )
+                config.NICKNAME_PROCESS_SLEEP_INTERVAL = gn_config.get(
+                    "nickname_process_sleep_interval", config.NICKNAME_PROCESS_SLEEP_INTERVAL
+                )
 
         def bot(parent: dict):
             # 机器人基础配置
