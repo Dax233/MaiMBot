@@ -1,11 +1,6 @@
 # 用于访问记忆系统
 from src.plugins.memory_system.Hippocampus import HippocampusManager
-# 用于访问新的知识库 (LPMM)
-from src.plugins.knowledge.knowledge_lib import qa_manager
-# 用于访问数据库 (旧知识库需要)
-from src.common.database import db
-# 用于获取文本的嵌入向量 (旧知识库需要)
-from src.plugins.chat.utils import get_embedding
+
 # --- NEW IMPORT ---
 # 从 heartflow 导入知识检索和数据库查询函数/实例
 from src.plugins.heartFC_chat.heartflow_prompt_builder import prompt_builder
@@ -13,7 +8,7 @@ from src.plugins.heartFC_chat.heartflow_prompt_builder import prompt_builder
 # 可能用于旧知识库提取主题 (如果需要回退到旧方法)
 # import jieba # 如果报错说找不到 jieba，可能需要安装: pip install jieba
 # import re    # 正则表达式库，通常 Python 自带
-from typing import Tuple, List, Dict, Any,Union
+from typing import Tuple, List, Dict, Any
 from src.common.logger import get_module_logger
 from ..models.utils_model import LLMRequest
 from ...config.config import global_config
@@ -23,7 +18,6 @@ from src.individuality.individuality import Individuality
 from .observation_info import ObservationInfo
 from .conversation_info import ConversationInfo
 from src.plugins.utils.chat_message_builder import build_readable_messages
-import time
 
 logger = get_module_logger("reply_generator")
 
@@ -129,15 +123,15 @@ class ReplyGenerator:
         try:
             related_memory = await HippocampusManager.get_instance().get_memory_from_text(
                 text=text,
-                max_memory_num=2, # 最多获取 2 条记忆
-                max_memory_length=2, # 每条记忆长度限制（这个参数含义可能需确认）
-                max_depth=3, # 搜索深度
-                fast_retrieval=False # 是否快速检索
+                max_memory_num=2,  # 最多获取 2 条记忆
+                max_memory_length=2,  # 每条记忆长度限制（这个参数含义可能需确认）
+                max_depth=3,  # 搜索深度
+                fast_retrieval=False,  # 是否快速检索
             )
             if related_memory:
                 for memory in related_memory:
                     # memory[0] 是记忆ID, memory[1] 是记忆内容
-                    related_memory_info += memory[1] + "\n" # 将记忆内容拼接起来
+                    related_memory_info += memory[1] + "\n"  # 将记忆内容拼接起来
                 if related_memory_info:
                     memory_prompt = f"你回忆起：\n{related_memory_info.strip()}\n(以上是你的回忆，不一定是目前聊天里的人说的，回忆中别人说的事情也不一定是准确的，请记住)\n"
                     logger.debug(f"[私聊][{self.private_name}]自动检索到记忆: {related_memory_info.strip()[:100]}...")
@@ -193,7 +187,6 @@ class ReplyGenerator:
         else:
             goals_str = "- 目前没有明确对话目标\n"  # 简化无目标情况
 
-
         # 获取聊天历史记录 (chat_history_text)
         chat_history_text = observation_info.chat_history_str
         if observation_info.new_messages_count > 0 and observation_info.unprocessed_messages:
@@ -229,7 +222,9 @@ class ReplyGenerator:
                 # 提取知识 (调用导入的 prompt_builder.get_prompt_info)
                 logger.debug(f"[私聊][{self.private_name}]开始自动检索知识 (使用导入函数)...")
                 # 使用导入的 prompt_builder 实例及其方法
-                retrieved_knowledge_str = await prompt_builder.get_prompt_info(message=retrieval_context, threshold=0.38)
+                retrieved_knowledge_str = await prompt_builder.get_prompt_info(
+                    message=retrieval_context, threshold=0.38
+                )
                 # --- END MODIFIED KNOWLEDGE RETRIEVAL ---
 
                 if retrieved_knowledge_str:
@@ -350,8 +345,10 @@ response_language = "Recommend Chinese"
             goals_str=goals_str,
             chat_history_text=chat_history_text,
             # knowledge_info_str=knowledge_info_str, # 移除了这个旧的知识展示方式
-            retrieved_memory_str=retrieved_memory_str if retrieved_memory_str else "无相关记忆。", # 如果为空则提示无
-            retrieved_knowledge_str=retrieved_knowledge_str if retrieved_knowledge_str else "无相关知识。" # 如果为空则提示无
+            retrieved_memory_str=retrieved_memory_str if retrieved_memory_str else "无相关记忆。",  # 如果为空则提示无
+            retrieved_knowledge_str=retrieved_knowledge_str
+            if retrieved_knowledge_str
+            else "无相关知识。",  # 如果为空则提示无
         )
 
         # --- 调用 LLM 生成 ---
