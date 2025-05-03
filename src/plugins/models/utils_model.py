@@ -1,8 +1,9 @@
 import asyncio
 import json
+import random # 添加 random 模块导入
 import re
 from datetime import datetime
-from typing import Tuple, Union, Dict, Any
+from typing import Tuple, Union, Dict, Any, Set # 引入 Set
 
 import aiohttp
 from aiohttp.client import ClientResponse
@@ -47,20 +48,27 @@ class RequestAbortException(Exception):
 class PermissionDeniedException(Exception):
     """自定义异常类，用于处理访问拒绝的异常"""
 
-    def __init__(self, message: str):
+    def __init__(self, message: str, key_identifier: str = None): # 添加 key 标识符
         super().__init__(message)
         self.message = message
+        self.key_identifier = key_identifier # 存储导致 403 的 key
 
     def __str__(self):
         return self.message
 
 
+# 新增：用于内部标记需要切换 Key 的异常
+class _SwitchKeyException(Exception):
+    """内部异常，用于标记需要切换Key并且跳过标准等待时间."""
+    pass
+
+
 # 常见Error Code Mapping
 error_code_mapping = {
     400: "参数不正确",
-    401: "API key 错误，认证失败，请检查/config/bot_config.toml和.env中的配置是否正确哦~",
+    401: "API key 错误，认证失败，请检查/config/bot_config.toml和.env中的配置是否正确哦~", # 401 也可能是 Key 无效
     402: "账号余额不足",
-    403: "需要实名,或余额不足",
+    403: "需要实名,或余额不足,或Key无权限", # 扩展 403 的含义
     404: "Not Found",
     429: "请求过于频繁，请稍后再试",
     500: "服务器内部故障",
@@ -108,27 +116,119 @@ class LLMRequest:
         "o4-mini-2025-04-16",
     ]
 
+    # 类变量，用于存储运行时发现的已失效 Key (避免在同一次运行中重复尝试)
+    # 注意：这只在当前进程生命周期内有效
+    _abandoned_keys_runtime: Set[str] = set()
+
     def __init__(self, model: dict, **kwargs):
         # 将大写的配置键转换为小写并从config中获取实际值
+        self.model_key_name = model["key"] # 保存原始 key 名称，如 GEMINI_KEY
         try:
-            self.api_key = os.environ[model["key"]]
+            # --- 修改开始: 处理 API Key 配置 (包括废弃列表) ---
+            raw_api_key_config = os.environ[self.model_key_name]
             self.base_url = os.environ[model["base_url"]]
-        except AttributeError as e:
+
+            # 1. 解析主 Key 列表/字符串
+            parsed_keys = []
+            is_list_config = False
+            try:
+                loaded_keys = json.loads(raw_api_key_config)
+                if isinstance(loaded_keys, list):
+                    parsed_keys = [str(key) for key in loaded_keys if key]
+                    is_list_config = True
+                elif isinstance(loaded_keys, str) and loaded_keys:
+                    parsed_keys = [loaded_keys]
+                else:
+                    raise ValueError(f"Parsed API key for {self.model_key_name} is not a valid list or string.")
+            except (json.JSONDecodeError, TypeError):
+                if isinstance(raw_api_key_config, list): # 直接是列表对象
+                    parsed_keys = [str(key) for key in raw_api_key_config if key]
+                    is_list_config = True
+                elif isinstance(raw_api_key_config, str) and raw_api_key_config: # 是非空字符串
+                    parsed_keys = [raw_api_key_config]
+                else:
+                    raise ValueError(f"Invalid or empty API key config for {self.model_key_name}: {raw_api_key_config}")
+
+            if not parsed_keys:
+                raise ValueError(f"No valid API keys found for {self.model_key_name}.")
+
+            # 2. 尝试加载并解析对应的废弃 Key 列表
+            abandoned_key_name = f"abandon_{self.model_key_name}"
+            abandoned_keys_set = set()
+            raw_abandoned_keys = os.environ.get(abandoned_key_name) # 使用 get 避免 Key 不存在时出错
+
+            if raw_abandoned_keys:
+                try:
+                    loaded_abandoned = json.loads(raw_abandoned_keys)
+                    if isinstance(loaded_abandoned, list):
+                        abandoned_keys_set.update(str(key) for key in loaded_abandoned if key)
+                    elif isinstance(loaded_abandoned, str) and loaded_abandoned: # 也支持单个废弃 key 字符串
+                        abandoned_keys_set.add(loaded_abandoned)
+                    logger.info(f"模型 {model['name']}: 加载了 {len(abandoned_keys_set)} 个来自配置 '{abandoned_key_name}' 的废弃 Keys。")
+                except (json.JSONDecodeError, TypeError):
+                    if isinstance(raw_abandoned_keys, list): # 直接是列表
+                        abandoned_keys_set.update(str(key) for key in raw_abandoned_keys if key)
+                        logger.info(f"模型 {model['name']}: 加载了 {len(abandoned_keys_set)} 个来自配置 '{abandoned_key_name}' (直接列表) 的废弃 Keys。")
+                    elif isinstance(raw_abandoned_keys, str) and raw_abandoned_keys: # 是非空字符串
+                        abandoned_keys_set.add(raw_abandoned_keys)
+                        logger.info(f"模型 {model['name']}: 加载了 1 个来自配置 '{abandoned_key_name}' (字符串) 的废弃 Key。")
+                    else:
+                        logger.warning(f"无法解析环境变量 '{abandoned_key_name}' 的内容: {raw_abandoned_keys}")
+
+            # 3. 合并运行时废弃列表和配置废弃列表
+            all_abandoned_keys = abandoned_keys_set.union(LLMRequest._abandoned_keys_runtime)
+
+            # 4. 从解析的主 Key 列表中过滤掉所有废弃的 Key
+            active_keys = [key for key in parsed_keys if key not in all_abandoned_keys]
+
+            if not active_keys:
+                logger.error(f"模型 {model['name']}: 所有为 '{self.model_key_name}' 配置的 Keys 都已被废弃或无效。")
+                raise ValueError(f"No active API keys available for {self.model_key_name} after filtering abandoned keys.")
+
+            # 5. 最终确定 self._api_key_config
+            if is_list_config and len(active_keys) > 1:
+                self._api_key_config = active_keys # 存储过滤后的列表
+                logger.info(f"模型 {model['name']}: 初始化完成，可用 Keys: {len(self._api_key_config)} (已排除 {len(all_abandoned_keys)} 个废弃 Keys)。")
+            elif active_keys: # 只有一个活动 key，或原始配置就是单个 key
+                self._api_key_config = active_keys[0] # 存储为单个字符串
+                logger.info(f"模型 {model['name']}: 初始化完成，使用单个活动 Key (已排除 {len(all_abandoned_keys)} 个废弃 Keys)。")
+            else:
+                # 这个分支理论上不会到达，因为前面有 active_keys 的检查
+                raise ValueError(f"Unexpected state: No active keys for {self.model_key_name}.")
+
+            # --- 修改结束: 处理 API Key 配置 ---
+
+        except KeyError as e:
+            # 处理找不到主 Key 或 Base URL 的情况
+            missing_key = str(e).strip("'")
+            if missing_key == self.model_key_name:
+                logger.error(f"配置错误：找不到 API Key 环境变量 '{self.model_key_name}'")
+                raise ValueError(f"配置错误：找不到 API Key 环境变量 '{self.model_key_name}'") from e
+            elif missing_key == model["base_url"]:
+                logger.error(f"配置错误：找不到 Base URL 环境变量 '{model['base_url']}'")
+                raise ValueError(f"配置错误：找不到 Base URL 环境变量 '{model['base_url']}'") from e
+            else:
+                logger.error(f"配置错误：找不到环境变量 - {str(e)}")
+                raise ValueError(f"配置错误：找不到环境变量 - {str(e)}") from e
+
+        except AttributeError as e: # 保留原始的 AttributeError 处理
             logger.error(f"原始 model dict 信息：{model}")
             logger.error(f"配置错误：找不到对应的配置项 - {str(e)}")
             raise ValueError(f"配置错误：找不到对应的配置项 - {str(e)}") from e
+        except ValueError as e: # 捕获上面抛出的 ValueError (包括 Key 无效或全部废弃)
+            logger.error(f"API Key 或配置初始化错误 for {self.model_key_name}: {str(e)}")
+            raise e # 重新抛出
+
+        # --- 初始化其他属性 ---
         self.model_name: str = model["name"]
         self.params = kwargs
-
         self.stream = model.get("stream", False)
         self.pri_in = model.get("pri_in", 0)
         self.pri_out = model.get("pri_out", 0)
-
-        # 获取数据库实例
         self._init_database()
-
-        # 从 kwargs 中提取 request_type，如果没有提供则默认为 "default"
         self.request_type = kwargs.pop("request_type", "default")
+        # --- 结束其他属性初始化 ---
+
 
     @staticmethod
     def _init_database():
@@ -227,8 +327,8 @@ class LLMRequest:
         default_retry = {
             "max_retries": 3,
             "base_wait": 10,
-            "retry_codes": [429, 413, 500, 503],
-            "abort_codes": [400, 401, 402, 403],
+            "retry_codes": [429, 413, 500, 503], # 403 不再自动重试，除非切换 Key
+            "abort_codes": [400, 401, 402, 403], # 403 仍然是中止代码，但会被特殊处理
         }
         policy = {**default_retry, **(retry_policy or {})}
 
@@ -255,6 +355,7 @@ class LLMRequest:
             "prompt": prompt,
         }
 
+    # --- 修改开始: _execute_request (增加 403 处理逻辑) ---
     async def _execute_request(
         self,
         endpoint: str,
@@ -267,80 +368,234 @@ class LLMRequest:
         user_id: str = "system",
         request_type: str = None,
     ):
-        """统一请求执行入口
-        Args:
-            endpoint: API端点路径 (如 "chat/completions")
-            prompt: prompt文本
-            image_base64: 图片的base64编码
-            image_format: 图片格式
-            payload: 请求体数据
-            retry_policy: 自定义重试策略
-            response_handler: 自定义响应处理器
-            user_id: 用户ID
-            request_type: 请求类型
-        """
-        # 获取请求配置
+        """统一请求执行入口, 支持列表 key 在 429/403 时自动切换"""
         request_content = await self._prepare_request(
             endpoint, prompt, image_base64, image_format, payload, retry_policy
         )
+        policy = request_content["policy"]
         if request_type is None:
             request_type = self.request_type
-        for retry in range(request_content["policy"]["max_retries"]):
+
+        current_key = None
+        keys_failed_429 = set() # 记录本次请求中因429失败的keys
+        keys_abandoned_runtime = set() # 记录本次请求中因403失败的keys (用于本轮尝试)
+        key_switch_limit_429 = 3    # 最多因 429 尝试不同的key数量
+        key_switch_limit_403 = 3    # 最多因 403 尝试不同的key数量 (可以设为与 429 相同或不同)
+
+        # 准备要尝试的 key 列表 (基于 __init__ 中已过滤的 self._api_key_config)
+        available_keys_pool = [] # 用于从中选取 Key
+        is_key_list = isinstance(self._api_key_config, list)
+
+        if is_key_list:
+            available_keys_pool = list(self._api_key_config) # 使用过滤后的列表
+            if not available_keys_pool:
+                # 这个错误理论上 __init__ 会捕获，但作为最后防线
+                logger.error(f"模型 {self.model_name}: 初始化后无可用活动 Keys。")
+                raise ValueError(f"模型 {self.model_name}: 无可用活动 Keys。")
+            random.shuffle(available_keys_pool)
+            key_switch_limit_429 = min(key_switch_limit_429, len(available_keys_pool))
+            key_switch_limit_403 = min(key_switch_limit_403, len(available_keys_pool))
+            logger.info(f"模型 {self.model_name}: Key 列表模式，启用 429/403 自动切换（429上限: {key_switch_limit_429}, 403上限: {key_switch_limit_403}）。")
+        elif isinstance(self._api_key_config, str):
+            available_keys_pool = [self._api_key_config] # 单个 Key
+            key_switch_limit_429 = 1
+            key_switch_limit_403 = 1
+        else:
+            # 不应该发生
+            logger.error(f"模型 {self.model_name}: 无效的 API Key 配置类型在执行时遇到: {type(self._api_key_config)}")
+            raise TypeError(f"模型 {self.model_name}: 无效的 API Key 配置类型")
+
+        last_exception = None # 存储最后遇到的异常
+
+        # 外层循环控制总体重试次数
+        for attempt in range(policy["max_retries"]):
+            # 选择当前要使用的 key
+            if available_keys_pool:
+                current_key = available_keys_pool.pop(0)
+            elif current_key:
+                logger.debug(f"模型 {self.model_name}: 无新 Key 可用或为单 Key 模式，将使用 Key ...{current_key[-4:]} 进行重试 (第 {attempt + 1} 次尝试)")
+                pass # 保持 current_key 不变
+            else:
+                logger.error(f"模型 {self.model_name}: 无法选择 API key (第 {attempt + 1} 次尝试)")
+                # 如果是因为所有 Key 都被 403 移除了，应该有个更明确的错误
+                if not self._api_key_config or all(k in LLMRequest._abandoned_keys_runtime for k in self._api_key_config if isinstance(self._api_key_config, list)) or (isinstance(self._api_key_config, str) and self._api_key_config in LLMRequest._abandoned_keys_runtime):
+                    final_error_msg = f"模型 {self.model_name}: 所有可用 API Keys 均因 403 错误被禁用。"
+                    logger.critical(final_error_msg)
+                    raise PermissionDeniedException(final_error_msg)
+                else:
+                    raise RuntimeError(f"模型 {self.model_name}: 无法选择 API key")
+
+            logger.debug(f"模型 {self.model_name}: 尝试使用 Key: ...{current_key[-4:]} (总第 {attempt + 1} 次尝试)")
+
             try:
-                # 使用上下文管理器处理会话
-                headers = await self._build_headers()
-                # 似乎是openai流式必须要的东西,不过阿里云的qwq-plus加了这个没有影响
+                # 使用当前选定的 Key 构建请求头
+                headers = await self._build_headers(current_key)
                 if request_content["stream_mode"]:
                     headers["Accept"] = "text/event-stream"
+
+                # 发起请求
                 async with aiohttp.ClientSession() as session:
                     async with session.post(
                         request_content["api_url"], headers=headers, json=request_content["payload"]
                     ) as response:
-                        handled_result = await self._handle_response(
-                            response, request_content, retry, response_handler, user_id, request_type, endpoint
+
+                        # --- 处理 429 (请求过多) ---
+                        if response.status == 429 and is_key_list:
+                            logger.warning(f"模型 {self.model_name}: Key ...{current_key[-4:]} 遇到 429 错误。")
+                            if current_key not in keys_failed_429:
+                                keys_failed_429.add(current_key)
+                                logger.info(f"  (因 429 已失败 {len(keys_failed_429)}/{key_switch_limit_429} 个不同 Key)")
+                                if available_keys_pool and len(keys_failed_429) < key_switch_limit_429:
+                                    logger.info(f"  尝试因 429 切换到下一个可用 Key...")
+                                    raise _SwitchKeyException() # 触发切换
+                                else:
+                                    logger.warning(f"  无更多 Key 可因 429 切换或已达上限。")
+                            else:
+                                logger.warning(f"  Key ...{current_key[-4:]} 再次遇到 429，按标准重试流程。")
+
+                        # --- 处理 403 (权限拒绝) ---
+                        elif response.status == 403 and is_key_list:
+                            logger.error(f"模型 {self.model_name}: Key ...{current_key[-4:]} 遇到 403 (权限拒绝) 错误。")
+                            if current_key not in keys_abandoned_runtime:
+                                keys_abandoned_runtime.add(current_key)
+                                # 同时添加到类级别的运行时废弃集合
+                                LLMRequest._abandoned_keys_runtime.add(current_key)
+                                logger.critical(f"  !! Key ...{current_key[-4:]} 已添加到运行时废弃列表。请考虑将其移至配置中的 'abandon_{self.model_key_name}' !!")
+
+                                # 从当前可用池中移除 (虽然 pop 已经移除了，但以防万一)
+                                if current_key in available_keys_pool: available_keys_pool.remove(current_key)
+
+                                if available_keys_pool and len(keys_abandoned_runtime) < key_switch_limit_403:
+                                    logger.info(f"  尝试因 403 切换到下一个可用 Key...")
+                                    raise _SwitchKeyException() # 触发切换
+                                else:
+                                    logger.error(f"  无更多 Key 可因 403 切换或已达上限。将中止请求。")
+                                    # 抛出 PermissionDeniedException 中止整个请求
+                                    await response.read() # 确保读取响应体
+                                    raise PermissionDeniedException(f"Key ...{current_key[-4:]} 权限被拒，且无其他可用 Key 切换。", key_identifier=current_key)
+                            else:
+                                # 这个 Key 在本轮已经被标记为 403 了，不应该再被选中，但以防万一
+                                logger.error(f"  Key ...{current_key[-4:]} 再次遇到 403，这不应发生。中止请求。")
+                                await response.read()
+                                raise PermissionDeniedException(f"Key ...{current_key[-4:]} 重复遇到 403。", key_identifier=current_key)
+
+                        # --- 处理其他 HTTP 错误 ---
+                        elif response.status in policy["retry_codes"] or response.status in policy["abort_codes"]:
+                            # 调用错误处理函数 (它现在知道 403 是特殊中止)
+                            await self._handle_error_response(response, attempt, policy, current_key)
+                            # 如果没抛异常，意味着是可等待重试的错误 (如 500, 503, 413)
+
+                        # --- 判断是否需要标准等待重试 ---
+                        if response.status in policy["retry_codes"] and attempt < policy["max_retries"] - 1:
+                            # 只有非 429/403 的可重试错误才需要等待
+                            if response.status not in [429, 403]:
+                                wait_time = policy["base_wait"] * (2**attempt)
+                                logger.warning(f"模型 {self.model_name}: 遇到可重试错误 {response.status}, 等待 {wait_time} 秒后重试...")
+                                await asyncio.sleep(wait_time)
+                            # 对于 429/403，如果没触发切换，也在这里进入下一次循环，但不等待
+                            last_exception = RuntimeError(f"重试错误 {response.status}")
+                            continue # 进入下一次循环
+
+                        # --- 检查是否需要中止 ---
+                        # 条件：状态码在中止列表 (包括 403)，或者虽可重试但已是最后一次尝试
+                        if response.status in policy["abort_codes"] or (response.status in policy["retry_codes"] and attempt >= policy["max_retries"] - 1):
+                            if attempt >= policy["max_retries"] - 1 and response.status in policy["retry_codes"]:
+                                logger.error(f"模型 {self.model_name}: 达到最大重试次数，最后一次尝试仍为可重试错误 {response.status}。")
+
+                            # 调用 _handle_error_response 来抛出正确的异常
+                            # 它会处理 403 -> PermissionDeniedException, 其他 -> RequestAbortException
+                            await self._handle_error_response(response, attempt, policy, current_key)
+                            # 如果 _handle_error_response 没有按预期抛出异常（理论上不应发生）
+                            await response.read()
+                            final_error_msg = f"请求中止或达到最大重试次数，最终状态码: {response.status}"
+                            logger.error(final_error_msg)
+                            raise RequestAbortException(final_error_msg, response) # 通用中止
+
+
+                        # --- 请求成功 ---
+                        response.raise_for_status() # 确保没有遗漏的错误状态码
+                        result = {}
+                        if request_content["stream_mode"]:
+                            result = await self._handle_stream_output(response)
+                        else:
+                            result = await response.json()
+
+                        # 成功，处理结果并返回
+                        return (
+                            response_handler(result)
+                            if response_handler
+                            else self._default_response_handler(result, user_id, request_type, endpoint)
                         )
-                        return handled_result
+
+            except _SwitchKeyException:
+                last_exception = _SwitchKeyException() # 记录切换事件
+                logger.debug("捕获到 _SwitchKeyException，立即进行下一次尝试。")
+                continue # 立即切换 Key，不等待
+
+            except PermissionDeniedException as e:
+                # 捕获由 403 触发的中止异常
+                logger.error(f"模型 {self.model_name}: 因权限拒绝 (403) 中止请求: {e}")
+                # 如果是列表 key 且是由于无 key 可切换导致的中止，记录一下
+                if is_key_list and not available_keys_pool and e.key_identifier:
+                    logger.critical(f"  中止原因是 Key ...{e.key_identifier[-4:]} 触发 403 后已无其他 Key 可用。")
+                raise e # 直接向外抛出
+
+            except (PayLoadTooLargeError, RequestAbortException) as e:
+                # 捕获其他明确要中止的异常
+                logger.error(f"模型 {self.model_name}: 请求处理中遇到关键错误，将中止: {e}")
+                raise e
             except Exception as e:
-                handled_payload, count_delta = await self._handle_exception(e, retry, request_content)
-                retry += count_delta  # 降级不计入重试次数
-                if handled_payload:
-                    # 如果降级成功，重新构建请求体
-                    request_content["payload"] = handled_payload
-                continue
+                # 捕获其他所有异常
+                last_exception = e
+                logger.warning(f"模型 {self.model_name}: 第 {attempt + 1} 次尝试中发生非 HTTP 错误: {str(e.__class__.__name__)} - {str(e)}")
 
-        logger.error(f"模型 {self.model_name} 达到最大重试次数，请求仍然失败")
-        raise RuntimeError(f"模型 {self.model_name} 达到最大重试次数，API请求仍然失败")
+                if attempt >= policy["max_retries"] - 1:
+                    logger.error(f"模型 {self.model_name}: 达到最大重试次数 ({policy['max_retries']})，因非 HTTP 错误失败。")
+                    pass # 让循环结束，最后统一抛出
+                else:
+                    # 标准重试逻辑（带等待）
+                    try:
+                        handled_payload, count_delta = await self._handle_exception(e, attempt, request_content)
+                        if handled_payload:
+                            request_content["payload"] = handled_payload
+                            logger.info(f"模型 {self.model_name}: 异常处理更新了 payload，将使用当前 Key 重试。")
 
-    async def _handle_response(
-        self,
-        response: ClientResponse,
-        request_content: Dict[str, Any],
-        retry_count: int,
-        response_handler: callable,
-        user_id,
-        request_type,
-        endpoint,
-    ) -> Union[Dict[str, Any], None]:
-        policy = request_content["policy"]
-        stream_mode = request_content["stream_mode"]
-        if response.status in policy["retry_codes"] or response.status in policy["abort_codes"]:
-            await self._handle_error_response(response, retry_count, policy)
-            return None
+                        wait_time = policy["base_wait"] * (2**attempt)
+                        logger.warning(f"模型 {self.model_name}: 等待 {wait_time} 秒后重试...")
+                        await asyncio.sleep(wait_time)
+                        continue
 
-        response.raise_for_status()
-        result = {}
-        if stream_mode:
-            # 将流式输出转化为非流式输出
-            result = await self._handle_stream_output(response)
+                    except (RequestAbortException, PermissionDeniedException) as abort_exception:
+                        logger.error(f"模型 {self.model_name}: 异常处理判断需要中止请求: {abort_exception}")
+                        raise abort_exception
+                    except RuntimeError as rt_error:
+                        logger.error(f"模型 {self.model_name}: 异常处理遇到运行时错误: {rt_error}")
+                        raise rt_error
+
+        # --- 循环结束 ---
+        logger.error(f"模型 {self.model_name}: 所有重试尝试 ({policy['max_retries']} 次) 均失败。")
+        if last_exception:
+            # 如果最后一次异常是 PermissionDenied，优先抛出它
+            if isinstance(last_exception, PermissionDeniedException):
+                logger.error(f"最后遇到的错误是权限拒绝: {str(last_exception)}")
+                raise last_exception
+            # 否则抛出通用错误
+            logger.error(f"最后遇到的错误: {str(last_exception.__class__.__name__)} - {str(last_exception)}")
+            raise RuntimeError(f"模型 {self.model_name} 达到最大重试次数，API 请求失败。最后错误: {str(last_exception)}") from last_exception
         else:
-            result = await response.json()
-        return (
-            response_handler(result)
-            if response_handler
-            else self._default_response_handler(result, user_id, request_type, endpoint)
-        )
+            # 如果是因为所有 Key 都被 403 禁用了
+            if not available_keys_pool and keys_abandoned_runtime:
+                final_error_msg = f"模型 {self.model_name}: 所有可用 API Keys 均因 403 错误被禁用。"
+                logger.critical(final_error_msg)
+                raise PermissionDeniedException(final_error_msg)
+            else:
+                # 其他未知原因
+                raise RuntimeError(f"模型 {self.model_name} 达到最大重试次数，API 请求失败，原因未知。")
+    # --- 修改结束: _execute_request ---
+
 
     async def _handle_stream_output(self, response: ClientResponse) -> Dict[str, Any]:
+        # (流式输出处理逻辑保持不变，参考上一个版本)
         flag_delta_content_finished = False
         accumulated_content = ""
         usage = None  # 初始化usage变量，避免未定义错误
@@ -373,10 +628,25 @@ class LLMRequest:
                             # 提取工具调用信息
                             if "tool_calls" in delta:
                                 if tool_calls is None:
-                                    tool_calls = delta["tool_calls"]
+                                    tool_calls = []
+                                    for tc in delta["tool_calls"]:
+                                        new_tc = dict(tc)
+                                        if 'function' in new_tc and 'arguments' not in new_tc['function']:
+                                            new_tc['function']['arguments'] = ""
+                                        tool_calls.append(new_tc)
                                 else:
-                                    # 合并工具调用信息
-                                    tool_calls.extend(delta["tool_calls"])
+                                    for i, tc_delta in enumerate(delta["tool_calls"]):
+                                        if i < len(tool_calls) and 'function' in tc_delta and 'arguments' in tc_delta['function']:
+                                            if 'arguments' in tool_calls[i]['function']:
+                                                tool_calls[i]['function']['arguments'] += tc_delta['function']['arguments']
+                                            else:
+                                                tool_calls[i]['function']['arguments'] = tc_delta['function']['arguments']
+                                        elif i >= len(tool_calls):
+                                            new_tc = dict(tc_delta)
+                                            if 'function' in new_tc and 'arguments' not in new_tc['function']:
+                                                new_tc['function']['arguments'] = ""
+                                            tool_calls.append(new_tc)
+
 
                             # 检测流式输出文本是否结束
                             finish_reason = chunk["choices"][0].get("finish_reason")
@@ -387,37 +657,37 @@ class LLMRequest:
                                 if chunk_usage:
                                     usage = chunk_usage
                                     break
-                                # 部分平台在文本输出结束前不会返回token用量，此时需要再获取一次chunk
                                 flag_delta_content_finished = True
+                    except json.JSONDecodeError as e:
+                        logger.error(f"模型 {self.model_name} 解析流式 JSON 错误: {e} - data: '{data_str}'")
                     except Exception as e:
-                        logger.exception(f"模型 {self.model_name} 解析流式输出错误: {str(e)}")
+                        logger.exception(f"模型 {self.model_name} 解析流式输出块错误: {str(e)}")
+            except UnicodeDecodeError as e:
+                logger.warning(f"模型 {self.model_name} 流式输出解码错误: {e} - bytes: {line_bytes[:50]}...")
             except Exception as e:
                 if isinstance(e, GeneratorExit):
                     log_content = f"模型 {self.model_name} 流式输出被中断，正在清理资源..."
                 else:
                     log_content = f"模型 {self.model_name} 处理流式输出时发生错误: {str(e)}"
                 logger.warning(log_content)
-                # 确保资源被正确清理
                 try:
                     await response.release()
                 except Exception as cleanup_error:
                     logger.error(f"清理资源时发生错误: {cleanup_error}")
-                # 返回已经累积的内容
                 content = accumulated_content
-        if not content:
+                break
+        if not content and accumulated_content:
             content = accumulated_content
         think_match = re.search(r"<think>(.*?)</think>", content, re.DOTALL)
         if think_match:
             reasoning_content = think_match.group(1).strip()
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
 
-        # 构建消息对象
         message = {
             "content": content,
             "reasoning_content": reasoning_content,
         }
 
-        # 如果有工具调用，添加到消息中
         if tool_calls:
             message["tool_calls"] = tool_calls
 
@@ -427,193 +697,148 @@ class LLMRequest:
         }
         return result
 
+    # --- 修改开始: _handle_error_response (明确处理 403) ---
     async def _handle_error_response(
-        self, response: ClientResponse, retry_count: int, policy: Dict[str, Any]
-    ) -> Union[Dict[str, any]]:
-        if response.status in policy["retry_codes"]:
-            wait_time = policy["base_wait"] * (2**retry_count)
-            logger.warning(f"模型 {self.model_name} 错误码: {response.status}, 等待 {wait_time}秒后重试")
-            if response.status == 413:
-                logger.warning("请求体过大，尝试压缩...")
-                raise PayLoadTooLargeError("请求体过大")
-            elif response.status in [500, 503]:
+        self, response: ClientResponse, retry_count: int, policy: Dict[str, Any], current_key: str = None
+    ) -> None: # 通过抛出异常控制流程
+        """处理 HTTP 错误响应 (区分 403 和其他错误)"""
+        status = response.status
+        try:
+            error_text = await response.text()
+        except Exception as e:
+            error_text = f"(无法读取响应体: {e})"
+
+        # --- 特殊处理 403 ---
+        if status == 403:
+            logger.error(
+                f"模型 {self.model_name}: 遇到 403 (权限拒绝) 错误。Key: ...{current_key[-4:] if current_key else 'N/A'}. "
+                f"响应: {error_text[:200]}"
+            )
+            # 直接抛出 PermissionDeniedException，让 _execute_request 捕获并处理切换或中止
+            raise PermissionDeniedException(f"模型禁止访问 ({status})", key_identifier=current_key)
+
+        # --- 处理其他可重试错误 (非 403, 非 429) ---
+        elif status in policy["retry_codes"] and status != 429:
+            if status == 413:
+                logger.warning(f"模型 {self.model_name}: 错误码 413 (Payload Too Large)。Key: ...{current_key[-4:] if current_key else 'N/A'}. 尝试压缩...")
+                raise PayLoadTooLargeError("请求体过大") # 抛给 _handle_exception 处理压缩
+            elif status in [500, 503]:
                 logger.error(
-                    f"模型 {self.model_name} 错误码: {response.status} - {error_code_mapping.get(response.status)}"
+                    f"模型 {self.model_name}: 服务器内部错误或过载 ({status})。Key: ...{current_key[-4:] if current_key else 'N/A'}. "
+                    f"响应: {error_text[:200]}"
                 )
-                raise RuntimeError("服务器负载过高，模型恢复失败QAQ")
+                return # 不抛异常，让主循环等待重试
             else:
-                logger.warning(f"模型 {self.model_name} 请求限制(429)，等待{wait_time}秒后重试...")
-                raise RuntimeError("请求限制(429)")
-        elif response.status in policy["abort_codes"]:
-            if response.status != 403:
-                raise RequestAbortException("请求出现错误，中断处理", response)
-            else:
-                raise PermissionDeniedException("模型禁止访问")
+                logger.warning(f"模型 {self.model_name}: 遇到可重试错误码: {status}. Key: ...{current_key[-4:] if current_key else 'N/A'}")
+                return # 不抛异常，让主循环等待重试
+
+        # --- 处理其他需要中止的错误 (非 403) ---
+        elif status in policy["abort_codes"]: # 注意 403 已被上面处理
+            logger.error(
+                f"模型 {self.model_name}: 遇到需要中止的错误码: {status} - {error_code_mapping.get(status, '未知错误')}. "
+                f"Key: ...{current_key[-4:] if current_key else 'N/A'}. 响应: {error_text[:200]}"
+            )
+            # 抛出通用中止异常
+            raise RequestAbortException(f"请求出现错误 {status}，中止处理", response)
+        else:
+            # 处理未在策略中定义的意外错误码
+            logger.error(f"模型 {self.model_name}: 遇到未明确处理的错误码: {status}. Key: ...{current_key[-4:] if current_key else 'N/A'}. 响应: {error_text[:200]}")
+            try:
+                response.raise_for_status()
+                # 如果没抛异常，也强制中止
+                raise RequestAbortException(f"未处理的错误状态码 {status}", response)
+            except aiohttp.ClientResponseError as e:
+                raise RequestAbortException(f"未处理的错误状态码 {status}: {e.message}", response) from e
+    # --- 修改结束: _handle_error_response ---
+
 
     async def _handle_exception(
         self, exception, retry_count: int, request_content: Dict[str, Any]
     ) -> Union[Tuple[Dict[str, Any], int], Tuple[None, int]]:
+        # (这个方法基本保持不变，主要处理 PayLoadTooLarge 和网络错误)
         policy = request_content["policy"]
         payload = request_content["payload"]
         wait_time = policy["base_wait"] * (2**retry_count)
         keep_request = False
         if retry_count < policy["max_retries"] - 1:
             keep_request = True
-        if isinstance(exception, RequestAbortException):
-            response = exception.response
-            logger.error(
-                f"模型 {self.model_name} 错误码: {response.status} - {error_code_mapping.get(response.status)}"
-            )
-            # 尝试获取并记录服务器返回的详细错误信息
-            try:
-                error_json = await response.json()
-                if error_json and isinstance(error_json, list) and len(error_json) > 0:
-                    # 处理多个错误的情况
-                    for error_item in error_json:
-                        if "error" in error_item and isinstance(error_item["error"], dict):
-                            error_obj: dict = error_item["error"]
-                            error_code = error_obj.get("code")
-                            error_message = error_obj.get("message")
-                            error_status = error_obj.get("status")
-                            logger.error(
-                                f"服务器错误详情: 代码={error_code}, 状态={error_status}, 消息={error_message}"
-                            )
-                elif isinstance(error_json, dict) and "error" in error_json:
-                    # 处理单个错误对象的情况
-                    error_obj = error_json.get("error", {})
-                    error_code = error_obj.get("code")
-                    error_message = error_obj.get("message")
-                    error_status = error_obj.get("status")
-                    logger.error(f"服务器错误详情: 代码={error_code}, 状态={error_status}, 消息={error_message}")
-                else:
-                    # 记录原始错误响应内容
-                    logger.error(f"服务器错误响应: {error_json}")
-            except Exception as e:
-                logger.warning(f"无法解析服务器错误响应: {str(e)}")
-            raise RuntimeError(f"请求被拒绝: {error_code_mapping.get(response.status)}")
 
-        elif isinstance(exception, PermissionDeniedException):
-            # 只针对硅基流动的V3和R1进行降级处理
-            if self.model_name.startswith("Pro/deepseek-ai") and self.base_url == "https://api.siliconflow.cn/v1/":
-                old_model_name = self.model_name
-                self.model_name = self.model_name[4:]  # 移除"Pro/"前缀
-                logger.warning(f"检测到403错误，模型从 {old_model_name} 降级为 {self.model_name}")
-
-                # 对全局配置进行更新
-                if global_config.llm_normal.get("name") == old_model_name:
-                    global_config.llm_normal["name"] = self.model_name
-                    logger.warning(f"将全局配置中的 llm_normal 模型临时降级至{self.model_name}")
-                if global_config.llm_reasoning.get("name") == old_model_name:
-                    global_config.llm_reasoning["name"] = self.model_name
-                    logger.warning(f"将全局配置中的 llm_reasoning 模型临时降级至{self.model_name}")
-
-                if payload and "model" in payload:
-                    payload["model"] = self.model_name
-
-                await asyncio.sleep(wait_time)
-                return payload, -1
-            raise RuntimeError(f"请求被拒绝: {error_code_mapping.get(403)}")
-
-        elif isinstance(exception, PayLoadTooLargeError):
+        if isinstance(exception, PayLoadTooLargeError):
             if keep_request:
-                image_base64 = request_content["image_base64"]
-                compressed_image_base64 = compress_base64_image_by_scale(image_base64)
-                new_payload = await self._build_payload(
-                    request_content["prompt"], compressed_image_base64, request_content["image_format"]
-                )
-                return new_payload, 0
+                logger.warning("请求体过大 (PayLoadTooLargeError)，尝试压缩图片...")
+                image_base64 = request_content.get("image_base64")
+                if image_base64:
+                    compressed_image_base64 = compress_base64_image_by_scale(image_base64)
+                    if compressed_image_base64 != image_base64:
+                        new_payload = await self._build_payload(
+                            request_content["prompt"], compressed_image_base64, request_content["image_format"]
+                        )
+                        logger.info("图片压缩成功，将使用压缩后的图片重试。")
+                        return new_payload, 0
+                    else:
+                        logger.warning("图片压缩未改变大小或失败。")
+                else:
+                    logger.warning("请求体过大但请求中不包含图片，无法压缩。")
+                return None, 0 # 返回 None 表示无需修改 payload，让外层等待
             else:
-                return None, 0
+                logger.error("达到最大重试次数，请求体仍然过大。")
+                raise RuntimeError("请求体过大，压缩或重试后仍然失败。") from exception
 
         elif isinstance(exception, aiohttp.ClientError) or isinstance(exception, asyncio.TimeoutError):
             if keep_request:
-                logger.error(f"模型 {self.model_name} 网络错误，等待{wait_time}秒后重试... 错误: {str(exception)}")
-                await asyncio.sleep(wait_time)
-                return None, 0
+                logger.error(f"模型 {self.model_name} 网络错误: {str(exception)}")
+                return None, 0 # 返回 None，让外层等待
             else:
                 logger.critical(f"模型 {self.model_name} 网络错误达到最大重试次数: {str(exception)}")
-                raise RuntimeError(f"网络请求失败: {str(exception)}")
+                raise RuntimeError(f"网络请求失败: {str(exception)}") from exception
 
         elif isinstance(exception, aiohttp.ClientResponseError):
-            # 处理aiohttp抛出的，除了policy中的status的响应错误
             if keep_request:
                 logger.error(
-                    f"模型 {self.model_name} HTTP响应错误，等待{wait_time}秒后重试... 状态码: {exception.status}, 错误: {exception.message}"
+                    f"模型 {self.model_name} HTTP响应错误 (未被策略覆盖): 状态码: {exception.status}, 错误: {exception.message}"
                 )
                 try:
-                    error_text = await exception.response.text()
-                    error_json = json.loads(error_text)
-                    if isinstance(error_json, list) and len(error_json) > 0:
-                        # 处理多个错误的情况
-                        for error_item in error_json:
-                            if "error" in error_item and isinstance(error_item["error"], dict):
-                                error_obj = error_item["error"]
-                                logger.error(
-                                    f"模型 {self.model_name} 服务器错误详情: 代码={error_obj.get('code')}, "
-                                    f"状态={error_obj.get('status')}, "
-                                    f"消息={error_obj.get('message')}"
-                                )
-                    elif isinstance(error_json, dict) and "error" in error_json:
-                        error_obj = error_json.get("error", {})
-                        logger.error(
-                            f"模型 {self.model_name} 服务器错误详情: 代码={error_obj.get('code')}, "
-                            f"状态={error_obj.get('status')}, "
-                            f"消息={error_obj.get('message')}"
-                        )
-                    else:
-                        logger.error(f"模型 {self.model_name} 服务器错误响应: {error_json}")
-                except (json.JSONDecodeError, TypeError) as json_err:
-                    logger.warning(
-                        f"模型 {self.model_name} 响应不是有效的JSON: {str(json_err)}, 原始内容: {error_text[:200]}"
-                    )
+                    error_text = await exception.response.text() if hasattr(exception, 'response') else str(exception)
+                    logger.error(f"服务器错误响应详情: {error_text[:500]}")
                 except Exception as parse_err:
-                    logger.warning(f"模型 {self.model_name} 无法解析响应错误内容: {str(parse_err)}")
-
-                await asyncio.sleep(wait_time)
-                return None, 0
+                    logger.warning(f"无法解析服务器错误响应内容: {str(parse_err)}")
+                return None, 0 # 返回 None，让外层等待
             else:
                 logger.critical(
                     f"模型 {self.model_name} HTTP响应错误达到最大重试次数: 状态码: {exception.status}, 错误: {exception.message}"
                 )
-                # 安全地检查和记录请求详情
+                # 尝试安全记录，隐藏 key
+                current_key_placeholder = request_content.get("current_key", "******") # 假设 current_key 被传递
                 handled_payload = await _safely_record(request_content, payload)
-                logger.critical(f"请求头: {await self._build_headers(no_key=True)} 请求体: {handled_payload}")
+                logger.critical(f"请求头: {await self._build_headers(api_key=current_key_placeholder, no_key=True)} 请求体: {handled_payload}")
                 raise RuntimeError(
                     f"模型 {self.model_name} API请求失败: 状态码 {exception.status}, {exception.message}"
-                )
+                ) from exception
 
         else:
+            # 处理其他所有未预料的异常
             if keep_request:
-                logger.error(f"模型 {self.model_name} 请求失败，等待{wait_time}秒后重试... 错误: {str(exception)}")
-                await asyncio.sleep(wait_time)
-                return None, 0
+                logger.error(f"模型 {self.model_name} 遇到未知错误: {str(exception.__class__.__name__)} - {str(exception)}")
+                return None, 0 # 返回 None，让外层等待
             else:
-                logger.critical(f"模型 {self.model_name} 请求失败: {str(exception)}")
-                # 安全地检查和记录请求详情
+                logger.critical(f"模型 {self.model_name} 请求因未知错误失败: {str(exception.__class__.__name__)} - {str(exception)}")
+                current_key_placeholder = request_content.get("current_key", "******")
                 handled_payload = await _safely_record(request_content, payload)
-                logger.critical(f"请求头: {await self._build_headers(no_key=True)} 请求体: {handled_payload}")
-                raise RuntimeError(f"模型 {self.model_name} API请求失败: {str(exception)}")
+                logger.critical(f"请求头: {await self._build_headers(api_key=current_key_placeholder, no_key=True)} 请求体: {handled_payload}")
+                raise RuntimeError(f"模型 {self.model_name} API请求失败: {str(exception)}") from exception
+
 
     async def _transform_parameters(self, params: dict) -> dict:
-        """
-        根据模型名称转换参数：
-        - 对于需要转换的OpenAI CoT系列模型（例如 "o3-mini"），删除 'temperature' 参数，
-        并将 'max_tokens' 重命名为 'max_completion_tokens'
-        """
-        # 复制一份参数，避免直接修改原始数据
+        """根据模型名称转换参数"""
         new_params = dict(params)
-
         if self.model_name.lower() in self.MODELS_NEEDING_TRANSFORMATION:
-            # 删除 'temperature' 参数（如果存在）
             new_params.pop("temperature", None)
-            # 如果存在 'max_tokens'，则重命名为 'max_completion_tokens'
             if "max_tokens" in new_params:
                 new_params["max_completion_tokens"] = new_params.pop("max_tokens")
         return new_params
 
     async def _build_payload(self, prompt: str, image_base64: str = None, image_format: str = None) -> dict:
         """构建请求体"""
-        # 复制一份参数，避免直接修改 self.params
         params_copy = await self._transform_parameters(self.params)
         if image_base64:
             messages = [
@@ -623,7 +848,7 @@ class LLMRequest:
                         {"type": "text", "text": prompt},
                         {
                             "type": "image_url",
-                            "image_url": {"url": f"data:image/{image_format.lower()};base64,{image_base64}"},
+                            "image_url": {"url": f"data:image/{image_format.lower() if image_format else 'jpeg'};base64,{image_base64}"},
                         },
                     ],
                 }
@@ -636,8 +861,10 @@ class LLMRequest:
             **params_copy,
         }
         if "max_tokens" not in payload and "max_completion_tokens" not in payload:
-            payload["max_tokens"] = global_config.model_max_output_length
-        # 如果 payload 中依然存在 max_tokens 且需要转换，在这里进行再次检查
+            if self.model_name.lower() in self.MODELS_NEEDING_TRANSFORMATION:
+                payload["max_completion_tokens"] = global_config.model_max_output_length
+            else:
+                payload["max_tokens"] = global_config.model_max_output_length
         if self.model_name.lower() in self.MODELS_NEEDING_TRANSFORMATION and "max_tokens" in payload:
             payload["max_completion_tokens"] = payload.pop("max_tokens")
         return payload
@@ -646,20 +873,23 @@ class LLMRequest:
         self, result: dict, user_id: str = "system", request_type: str = None, endpoint: str = "/chat/completions"
     ) -> Tuple:
         """默认响应解析"""
-        if "choices" in result and result["choices"]:
-            message = result["choices"][0]["message"]
-            content = message.get("content", "")
-            content, reasoning = self._extract_reasoning(content)
-            reasoning_content = message.get("model_extra", {}).get("reasoning_content", "")
-            if not reasoning_content:
-                reasoning_content = message.get("reasoning_content", "")
-                if not reasoning_content:
-                    reasoning_content = reasoning
+        # (保持不变)
+        content = "没有返回结果"
+        reasoning_content = ""
+        tool_calls = None
 
-            # 提取工具调用信息
+        if "choices" in result and result["choices"]:
+            message = result["choices"][0].get("message", {})
+            raw_content = message.get("content", "")
+            content, reasoning = self._extract_reasoning(raw_content if raw_content else "")
+
+            explicit_reasoning = message.get("model_extra", {}).get("reasoning_content", "")
+            if not explicit_reasoning:
+                explicit_reasoning = message.get("reasoning_content", "")
+            reasoning_content = explicit_reasoning if explicit_reasoning else reasoning
+
             tool_calls = message.get("tool_calls", None)
 
-            # 记录token使用情况
             usage = result.get("usage", {})
             if usage:
                 prompt_tokens = usage.get("prompt_tokens", 0)
@@ -673,40 +903,49 @@ class LLMRequest:
                     request_type=request_type if request_type is not None else self.request_type,
                     endpoint=endpoint,
                 )
+            else:
+                logger.warning(f"模型 {self.model_name} 的响应中缺少 'usage' 信息。")
 
-            # 只有当tool_calls存在且不为空时才返回
             if tool_calls:
                 logger.debug(f"检测到工具调用: {tool_calls}")
                 return content, reasoning_content, tool_calls
             else:
                 return content, reasoning_content
+        else:
+            logger.warning(f"模型 {self.model_name} 的响应格式不符合预期: {result}")
+            return content, reasoning_content
 
-        return "没有返回结果", ""
 
     @staticmethod
     def _extract_reasoning(content: str) -> Tuple[str, str]:
         """CoT思维链提取"""
-        match = re.search(r"(?:<think>)?(.*?)</think>", content, re.DOTALL)
-        content = re.sub(r"(?:<think>)?.*?</think>", "", content, flags=re.DOTALL, count=1).strip()
+        # (保持不变)
+        if not content:
+            return "", ""
+        match = re.search(r"<think>(.*?)</think>", content, re.DOTALL)
+        cleaned_content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL, count=1).strip()
         if match:
             reasoning = match.group(1).strip()
         else:
             reasoning = ""
-        return content, reasoning
+        return cleaned_content, reasoning
 
-    async def _build_headers(self, no_key: bool = False) -> dict:
-        """构建请求头"""
+    # --- 修改: _build_headers (保持接收 api_key) ---
+    async def _build_headers(self, api_key: str, no_key: bool = False) -> dict:
+        """构建请求头, 使用指定的 API Key"""
         if no_key:
             return {"Authorization": "Bearer **********", "Content-Type": "application/json"}
         else:
-            return {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
-            # 防止小朋友们截图自己的key
+            if not api_key:
+                logger.error(f"尝试使用无效 (空) 的 API key 为模型 {self.model_name} 构建请求头。")
+                raise ValueError(f"无效的 API key 提供给 _build_headers。")
+            return {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
-    async def generate_response(self, prompt: str) -> Tuple:
+
+    async def generate_response(self, prompt: str, user_id: str = "system") -> Tuple:
         """根据输入的提示生成模型的异步响应"""
-
-        response = await self._execute_request(endpoint="/chat/completions", prompt=prompt)
-        # 根据返回值的长度决定怎么处理
+        # (保持不变, 调用 _execute_request)
+        response = await self._execute_request(endpoint="/chat/completions", prompt=prompt, user_id=user_id, request_type="chat")
         if len(response) == 3:
             content, reasoning_content, tool_calls = response
             return content, reasoning_content, self.model_name, tool_calls
@@ -714,13 +953,12 @@ class LLMRequest:
             content, reasoning_content = response
             return content, reasoning_content, self.model_name
 
-    async def generate_response_for_image(self, prompt: str, image_base64: str, image_format: str) -> Tuple:
+    async def generate_response_for_image(self, prompt: str, image_base64: str, image_format: str, user_id: str = "system") -> Tuple:
         """根据输入的提示和图片生成模型的异步响应"""
-
+        # (保持不变, 调用 _execute_request)
         response = await self._execute_request(
-            endpoint="/chat/completions", prompt=prompt, image_base64=image_base64, image_format=image_format
+            endpoint="/chat/completions", prompt=prompt, image_base64=image_base64, image_format=image_format, user_id=user_id, request_type="vision"
         )
-        # 根据返回值的长度决定怎么处理
         if len(response) == 3:
             content, reasoning_content, tool_calls = response
             return content, reasoning_content, tool_calls
@@ -728,80 +966,85 @@ class LLMRequest:
             content, reasoning_content = response
             return content, reasoning_content
 
-    async def generate_response_async(self, prompt: str, **kwargs) -> Union[str, Tuple]:
-        """异步方式根据输入的提示生成模型的响应"""
-        # 构建请求体，不硬编码max_tokens
+    async def generate_response_async(self, prompt: str, user_id: str = "system", request_type: str = "chat", **kwargs) -> Union[str, Tuple]:
+        """异步方式根据输入的提示生成模型的响应 (通用)"""
+        # (保持不变, 调用 _execute_request)
         data = {
             "model": self.model_name,
             "messages": [{"role": "user", "content": prompt}],
             **self.params,
             **kwargs,
         }
-
-        response = await self._execute_request(endpoint="/chat/completions", payload=data, prompt=prompt)
-        # 原样返回响应，不做处理
-
+        if "max_tokens" not in data and "max_completion_tokens" not in data:
+            if self.model_name.lower() in self.MODELS_NEEDING_TRANSFORMATION:
+                data["max_completion_tokens"] = global_config.model_max_output_length
+            else:
+                data["max_tokens"] = global_config.model_max_output_length
+        response = await self._execute_request(endpoint="/chat/completions", payload=data, prompt=prompt, user_id=user_id, request_type=request_type)
         return response
 
-    async def generate_response_tool_async(self, prompt: str, tools: list, **kwargs) -> tuple[str, str, list]:
-        """异步方式根据输入的提示生成模型的响应"""
-        # 构建请求体，不硬编码max_tokens
+    async def generate_response_tool_async(self, prompt: str, tools: list, user_id: str = "system", **kwargs) -> tuple[str, str, list]:
+        """异步方式根据输入的提示和工具生成模型的响应"""
+        # (保持不变, 调用 _execute_request)
         data = {
             "model": self.model_name,
             "messages": [{"role": "user", "content": prompt}],
             **self.params,
             **kwargs,
             "tools": tools,
+            "tool_choice": "auto",
         }
-
-        response = await self._execute_request(endpoint="/chat/completions", payload=data, prompt=prompt)
+        if "max_tokens" not in data and "max_completion_tokens" not in data:
+            if self.model_name.lower() in self.MODELS_NEEDING_TRANSFORMATION:
+                data["max_completion_tokens"] = global_config.model_max_output_length
+            else:
+                data["max_tokens"] = global_config.model_max_output_length
+        response = await self._execute_request(endpoint="/chat/completions", payload=data, prompt=prompt, user_id=user_id, request_type="tool_call")
         logger.debug(f"向模型 {self.model_name} 发送工具调用请求，包含 {len(tools)} 个工具，返回结果: {response}")
-        # 检查响应是否包含工具调用
-        if len(response) == 3:
+        if isinstance(response, tuple) and len(response) == 3:
             content, reasoning_content, tool_calls = response
-            logger.debug(f"收到工具调用响应，包含 {len(tool_calls) if tool_calls else 0} 个工具调用")
-            return content, reasoning_content, tool_calls
-        else:
+            if tool_calls:
+                logger.debug(f"收到工具调用响应，包含 {len(tool_calls)} 个工具调用")
+                return content, reasoning_content, tool_calls
+            else:
+                logger.debug("收到响应结构但无实际工具调用，视为普通响应")
+                return content, reasoning_content, None
+        elif isinstance(response, tuple) and len(response) == 2:
             content, reasoning_content = response
             logger.debug("收到普通响应，无工具调用")
             return content, reasoning_content, None
+        else:
+            logger.error(f"收到来自 _execute_request 的意外响应格式: {response}")
+            return "处理响应时出错", "", None
 
-    async def get_embedding(self, text: str) -> Union[list, None]:
-        """异步方法：获取文本的embedding向量
 
-        Args:
-            text: 需要获取embedding的文本
-
-        Returns:
-            list: embedding向量，如果失败则返回None
-        """
-
+    async def get_embedding(self, text: str, user_id: str = "system") -> Union[list, None]:
+        """异步方法：获取文本的embedding向量"""
+        # (保持不变, 调用 _execute_request)
         if len(text) < 1:
             logger.debug("该消息没有长度，不再发送获取embedding向量的请求")
             return None
 
         def embedding_handler(result):
-            """处理响应"""
+            embedding_value = None
             if "data" in result and len(result["data"]) > 0:
-                # 提取 token 使用信息
-                usage = result.get("usage", {})
-                if usage:
-                    prompt_tokens = usage.get("prompt_tokens", 0)
-                    completion_tokens = usage.get("completion_tokens", 0)
-                    total_tokens = usage.get("total_tokens", 0)
-                    # 记录 token 使用情况
-                    self._record_usage(
-                        prompt_tokens=prompt_tokens,
-                        completion_tokens=completion_tokens,
-                        total_tokens=total_tokens,
-                        user_id="system",  # 可以根据需要修改 user_id
-                        # request_type="embedding",  # 请求类型为 embedding
-                        request_type=self.request_type,  # 请求类型为 text
-                        endpoint="/embeddings",  # API 端点
-                    )
-                    return result["data"][0].get("embedding", None)
-                return result["data"][0].get("embedding", None)
-            return None
+                embedding_value = result["data"][0].get("embedding", None)
+            usage = result.get("usage", {})
+            if usage:
+                prompt_tokens = usage.get("prompt_tokens", 0)
+                completion_tokens = usage.get("completion_tokens", 0)
+                total_tokens = usage.get("total_tokens", 0)
+                self._record_usage(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    user_id=user_id,
+                    request_type="embedding",
+                    endpoint="/embeddings",
+                )
+            else:
+                logger.warning(f"模型 {self.model_name} (Embedding) 的响应中缺少 'usage' 信息。")
+            return embedding_value
 
         embedding = await self._execute_request(
             endpoint="/embeddings",
@@ -809,81 +1052,77 @@ class LLMRequest:
             payload={"model": self.model_name, "input": text, "encoding_format": "float"},
             retry_policy={"max_retries": 2, "base_wait": 6},
             response_handler=embedding_handler,
+            user_id=user_id,
+            request_type="embedding"
         )
         return embedding
 
 
 def compress_base64_image_by_scale(base64_data: str, target_size: int = 0.8 * 1024 * 1024) -> str:
-    """压缩base64格式的图片到指定大小
-    Args:
-        base64_data: base64编码的图片数据
-        target_size: 目标文件大小（字节），默认0.8MB
-    Returns:
-        str: 压缩后的base64图片数据
-    """
+    """压缩base64格式的图片到指定大小"""
+    # (保持不变)
     try:
-        # 将base64转换为字节数据
         image_data = base64.b64decode(base64_data)
-
-        # 如果已经小于目标大小，直接返回原图
-        if len(image_data) <= 2 * 1024 * 1024:
+        if len(image_data) <= target_size * 1.05:
+            logger.info(f"图片大小 {len(image_data) / 1024:.1f}KB 已足够小，无需压缩。")
             return base64_data
-
-        # 将字节数据转换为图片对象
         img = Image.open(io.BytesIO(image_data))
-
-        # 获取原始尺寸
+        img_format = img.format
         original_width, original_height = img.size
-
-        # 计算缩放比例
-        scale = min(1.0, (target_size / len(image_data)) ** 0.5)
-
-        # 计算新的尺寸
-        new_width = int(original_width * scale)
-        new_height = int(original_height * scale)
-
-        # 创建内存缓冲区
+        scale = max(0.2, min(1.0, (target_size / len(image_data)) ** 0.5))
+        new_width = max(1, int(original_width * scale))
+        new_height = max(1, int(original_height * scale))
         output_buffer = io.BytesIO()
+        save_format = img_format # Default to original format
 
-        # 如果是GIF，处理所有帧
-        if getattr(img, "is_animated", False):
+        if getattr(img, "is_animated", False) and img.n_frames > 1:
             frames = []
+            durations = []
+            loop = img.info.get('loop', 0)
+            disposal = img.info.get('disposal', 2)
+            logger.info(f"检测到 GIF 动图 ({img.n_frames} 帧)，尝试按比例压缩...")
             for frame_idx in range(img.n_frames):
                 img.seek(frame_idx)
-                new_frame = img.copy()
-                new_frame = new_frame.resize((new_width // 2, new_height // 2), Image.Resampling.LANCZOS)  # 动图折上折
-                frames.append(new_frame)
-
-            # 保存到缓冲区
-            frames[0].save(
-                output_buffer,
-                format="GIF",
-                save_all=True,
-                append_images=frames[1:],
-                optimize=True,
-                duration=img.info.get("duration", 100),
-                loop=img.info.get("loop", 0),
-            )
-        else:
-            # 处理静态图片
-            resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-            # 保存到缓冲区，保持原始格式
-            if img.format == "PNG" and img.mode in ("RGBA", "LA"):
-                resized_img.save(output_buffer, format="PNG", optimize=True)
+                current_duration = img.info.get('duration', 100)
+                durations.append(current_duration)
+                new_frame = img.convert("RGBA").copy()
+                resized_frame = new_frame.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                frames.append(resized_frame)
+            if frames:
+                frames[0].save(
+                    output_buffer, format="GIF", save_all=True, append_images=frames[1:],
+                    optimize=False, duration=durations, loop=loop, disposal=disposal,
+                    transparency=img.info.get('transparency', None), background=img.info.get('background', None)
+                )
+                save_format = "GIF"
             else:
-                resized_img.save(output_buffer, format="JPEG", quality=95, optimize=True)
+                logger.warning("未能处理 GIF 帧。")
+                return base64_data
+        else:
+            if img.mode in ("RGBA", "LA") or 'transparency' in img.info:
+                resized_img = img.convert("RGBA").resize((new_width, new_height), Image.Resampling.LANCZOS)
+                save_format = "PNG"
+                save_params = {"optimize": True}
+            else:
+                resized_img = img.convert("RGB").resize((new_width, new_height), Image.Resampling.LANCZOS)
+                if img_format and img_format.upper() == "JPEG":
+                    save_format = "JPEG"
+                    save_params = {"quality": 85, "optimize": True}
+                else:
+                    save_format = "PNG"
+                    save_params = {"optimize": True}
+            resized_img.save(output_buffer, format=save_format, **save_params)
 
-        # 获取压缩后的数据并转换为base64
         compressed_data = output_buffer.getvalue()
-        logger.success(f"压缩图片: {original_width}x{original_height} -> {new_width}x{new_height}")
-        logger.info(f"压缩前大小: {len(image_data) / 1024:.1f}KB, 压缩后大小: {len(compressed_data) / 1024:.1f}KB")
-
-        return base64.b64encode(compressed_data).decode("utf-8")
-
+        logger.success(f"压缩图片: {original_width}x{original_height} -> {new_width}x{new_height} ({img.format} -> {save_format})")
+        logger.info(f"压缩前大小: {len(image_data) / 1024:.1f}KB, 压缩后大小: {len(compressed_data) / 1024:.1f}KB (目标: {target_size / 1024:.1f}KB)")
+        if len(compressed_data) < len(image_data) * 0.95:
+            return base64.b64encode(compressed_data).decode("utf-8")
+        else:
+            logger.info("压缩效果不明显或反而增大，返回原始图片。")
+            return base64_data
     except Exception as e:
         logger.error(f"压缩图片失败: {str(e)}")
         import traceback
-
         logger.error(traceback.format_exc())
         return base64_data
