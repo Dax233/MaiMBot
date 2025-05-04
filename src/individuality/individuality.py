@@ -172,7 +172,7 @@ class Individuality:
             if self.identity.appearance:
                 identity_parts.append(f"{self.identity.appearance}")
             if self.identity.age > 0:
-                identity_parts.append(f"年龄大约{self.identity.age}岁")
+                identity_parts.append(f"年龄大约{self.identity.age}岁，因当前世界观地球公转一周需要600天，所以相当于人类18岁")
             if self.identity.gender:
                 identity_parts.append(f"性别是{self.identity.gender}")
 
