@@ -420,7 +420,7 @@ class BotConfig:
                 config.steal_emoji = emoji_config.get("steal_emoji", config.steal_emoji)
 
         def group_nickname(parent: dict):
-            if config.INNER_VERSION in SpecifierSet(">=1.6.1.1"):
+            if config.INNER_VERSION in SpecifierSet(">=1.6.1.4"):
                 group_nickname_config = parent.get("group_nickname", {})
                 config.enable_nickname_mapping = group_nickname_config.get(
                     "enable_nickname_mapping", config.enable_nickname_mapping
