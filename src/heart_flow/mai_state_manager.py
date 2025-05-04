@@ -15,7 +15,7 @@ logger = get_logger("mai_state")
 # `False`, it means that the debugging feature for unlimited focused chatting is disabled.
 # enable_unlimited_hfc_chat = True  # 调试用：无限专注聊天
 enable_unlimited_hfc_chat = False
-prevent_offline_state = True
+prevent_offline_state = False
 # 目前默认不启用OFFLINE状态
 
 # 不同状态下普通聊天的最大消息数
