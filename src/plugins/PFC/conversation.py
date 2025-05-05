@@ -5,9 +5,7 @@ import asyncio
 import datetime
 
 from src.plugins.utils.chat_message_builder import build_readable_messages, get_raw_msg_before_timestamp_with_chat
-
-from ...config.config import global_config # 确保导入 global_config
-from typing import Dict, Any, Optional, Set # 引入 Set
+from typing import Dict, Any, Optional, Set # <-- 添加 Set 类型提示
 from ..chat.message import Message
 from .pfc_types import ConversationState
 from .pfc import ChatObserver, GoalAnalyzer
@@ -130,54 +128,50 @@ class Conversation:
                 continue
 
             try:
-                # --- 记录规划开始时的时间戳和未处理消息的 ID 集合 ---
-                planning_marker_time = time.time()
-                # 获取规划开始时未处理消息的 ID 集合
-                initial_unprocessed_ids: Set[str] = {
-                    msg.get("message_id") for msg in self.observation_info.unprocessed_messages if msg.get("message_id")
-                }
-                logger.debug(f"[私聊][{self.private_name}]规划开始标记时间: {planning_marker_time}, 初始未处理消息ID数: {len(initial_unprocessed_ids)}")
+                # --- [修改点 1] 在规划前记录未处理消息的 ID 集合 ---
+                message_ids_before_planning = set()
+                initial_unprocessed_message_count = 0
+                if hasattr(self.observation_info, "unprocessed_messages"):
+                    message_ids_before_planning = {msg.get("message_id") for msg in self.observation_info.unprocessed_messages if msg.get("message_id")}
+                    initial_unprocessed_message_count = len(self.observation_info.unprocessed_messages)
+                    logger.debug(f"[私聊][{self.private_name}]规划开始，当前未处理消息数: {initial_unprocessed_message_count}, IDs: {message_ids_before_planning}")
+                else:
+                    logger.warning(f"[私聊][{self.private_name}]ObservationInfo missing 'unprocessed_messages' before planning.")
 
                 # --- 调用 Action Planner (保持不变) ---
                 action, reason = await self.action_planner.plan(
                     self.observation_info, self.conversation_info, self.conversation_info.last_successful_reply_action
                 )
 
-                # --- 规划后，精确计算规划期间收到的“用户”新消息数 ---
-                current_unprocessed_messages = self.observation_info.unprocessed_messages
-                new_messages_during_planning = []
+                # --- [修改点 2] 规划后检查是否有 *过多* 新消息到达 ---
+                current_unprocessed_messages = []
+                current_unprocessed_message_count = 0
+                if hasattr(self.observation_info, "unprocessed_messages"):
+                    current_unprocessed_messages = self.observation_info.unprocessed_messages
+                    current_unprocessed_message_count = len(current_unprocessed_messages)
+                else:
+                    logger.warning(f"[私聊][{self.private_name}]ObservationInfo missing 'unprocessed_messages' after planning.")
+
+                # 计算规划期间实际新增的消息数量
+                new_messages_during_planning_count = 0
                 for msg in current_unprocessed_messages:
                     msg_id = msg.get("message_id")
-                    # 检查消息ID是否不在初始集合中，且消息时间戳晚于规划开始时间（增加时间判断以防万一）
-                    if msg_id and msg_id not in initial_unprocessed_ids and msg.get("time", 0) >= planning_marker_time:
-                        new_messages_during_planning.append(msg)
+                    if msg_id and msg_id not in message_ids_before_planning:
+                        new_messages_during_planning_count += 1
 
-                # 计算这些新消息中来自用户的数量
-                new_user_messages_count = 0
-                for msg in new_messages_during_planning:
-                    user_info_dict = msg.get("user_info", {})
-                    sender_id = None
-                    if isinstance(user_info_dict, dict):
-                        sender_id = str(user_info_dict.get("user_id")) # 确保是字符串
-                    # 检查发送者ID是否不是机器人ID
-                    if sender_id and sender_id != self.bot_id:
-                        new_user_messages_count += 1
+                logger.debug(f"[私聊][{self.private_name}]规划结束，当前未处理消息数: {current_unprocessed_message_count}, 规划期间新增: {new_messages_during_planning_count}")
 
-                logger.debug(f"[私聊][{self.private_name}]规划期间共收到新消息: {len(new_messages_during_planning)} 条, 其中用户消息: {new_user_messages_count} 条")
-
-                # --- 根据用户新消息数决定是否重新规划 ---
-                planning_buffer = 2 # 用户指定的缓冲值
-                if new_user_messages_count > planning_buffer:
+                # **核心逻辑：判断是否中断** (保持不变)
+                if new_messages_during_planning_count > 2:
                     logger.info(
-                        f"[私聊][{self.private_name}]规划期间收到 {new_user_messages_count} 条用户新消息 (超过缓冲 {planning_buffer})，放弃当前计划 '{action}'，立即重新规划"
+                        f"[私聊][{self.private_name}]规划期间新增消息数 ({new_messages_during_planning_count}) 超过阈值(2)，取消本次行动 '{action}'，重新规划"
                     )
                     self.conversation_info.last_successful_reply_action = None
                     await asyncio.sleep(0.1)
                     continue # 跳过本轮后续处理，直接进入下一轮循环重新规划
 
-                # --- 如果规划期间用户新消息未超限，则继续执行规划的动作 ---
-                # 将 planning_marker_time 和 new_user_messages_count 传递给 _handle_action
-                await self._handle_action(action, reason, self.observation_info, self.conversation_info, planning_marker_time, new_user_messages_count)
+                # --- 执行动作 (移除 message_ids_before_planning 参数传递) ---
+                await self._handle_action(action, reason, self.observation_info, self.conversation_info)
 
                 # --- 检查是否需要结束对话 (逻辑保持不变) ---
                 goal_ended = False
@@ -237,9 +231,13 @@ class Conversation:
             logger.warning(f"[私聊][{self.private_name}]转换消息时出错: {e}")
             raise ValueError(f"无法将字典转换为 Message 对象: {e}") from e
 
-    # --- 修改：_handle_action 接收 planning_marker_time 和 new_user_messages_count ---
+    # --- [修改点 3] 修改 _handle_action 签名并调整内部逻辑 (移除 message_ids_before_planning 参数) ---
     async def _handle_action(
-        self, action: str, reason: str, observation_info: ObservationInfo, conversation_info: ConversationInfo, planning_marker_time: float, new_user_messages_during_planning: int
+        self,
+        action: str,
+        reason: str,
+        observation_info: ObservationInfo,
+        conversation_info: ConversationInfo
     ):
         """处理规划的行动"""
         logger.debug(f"[私聊][{self.private_name}]执行行动: {action}, 原因: {reason}")
@@ -340,19 +338,6 @@ class Conversation:
                 send_success = await self._send_reply() # 调用发送函数
 
                 if send_success:
-                    # 发送成功后，标记处理过的消息
-                    await observation_info.mark_messages_processed_up_to(planning_marker_time)
-
-                    # --- 核心逻辑修改：根据规划期间收到的“用户”新消息数决定下一步状态 ---
-                    if new_user_messages_during_planning > 0:
-                        logger.info(f"[私聊][{self.private_name}] 发送追问成功后，检测到规划期间有 {new_user_messages_during_planning} 条用户新消息，强制重置回复状态以进行新规划。")
-                        self.conversation_info.last_successful_reply_action = None # 强制重新规划
-                    else:
-                        # 只有在规划期间没有用户新消息时，才设置追问状态
-                        logger.info(f"[私聊][{self.private_name}] 发送追问成功，规划期间无用户新消息，允许下次进入追问状态。")
-                        self.conversation_info.last_successful_reply_action = "send_new_message"
-                    # --- 核心逻辑修改结束 ---
-
                     action_successful = True
                     reply_sent = True
                     logger.info(f"[私聊][{self.private_name}]成功发送 '{action}' 回复.")
@@ -418,155 +403,22 @@ class Conversation:
                  )
                  self.conversation_info.last_successful_reply_action = None
 
-                # 执行 Wait 操作
-                logger.info(f"[私聊][{self.private_name}]由于无法生成合适追问回复，执行 'wait' 操作...")
-                self.state = ConversationState.WAITING
-                await observation_info.mark_messages_processed_up_to(planning_marker_time)
-                await self.waiter.wait(self.conversation_info)
-                wait_action_record = {
-                    "action": "wait",
-                    "plan_reason": "因 send_new_message 多次尝试失败而执行的后备等待",
-                    "status": "done",
-                    "time": datetime.datetime.now().strftime("%H:%M:%S"),
-                    "final_reason": None,
-                }
-                conversation_info.done_action.append(wait_action_record)
-                action_successful = True
+                 if action == "send_new_message":
+                     logger.info(f"[私聊][{self.private_name}]由于无法生成合适追问回复，执行 'wait' 操作...")
+                     self.state = ConversationState.WAITING
+                     await self.waiter.wait(self.conversation_info)
+                     wait_action_record = {
+                         "action": "wait",
+                         "plan_reason": "因 send_new_message 多次尝试失败而执行的后备等待",
+                         "status": "done",
+                         "time": datetime.datetime.now().strftime("%H:%M:%S"),
+                         "final_reason": None,
+                     }
+                     conversation_info.done_action.append(wait_action_record)
+                     action_successful = True
+                     self.conversation_info.last_successful_reply_action = None
 
-        elif action == "direct_reply":
-            max_reply_attempts = 3
-            reply_attempt_count = 0
-            is_suitable = False
-            need_replan = False
-            check_reason = "未进行尝试"
-            final_reply_to_send = ""
-
-            while reply_attempt_count < max_reply_attempts and not is_suitable:
-                reply_attempt_count += 1
-                logger.info(
-                    f"[私聊][{self.private_name}]尝试生成首次回复 (第 {reply_attempt_count}/{max_reply_attempts} 次)..."
-                )
-                self.state = ConversationState.GENERATING
-
-                # 1. 生成回复
-                self.generated_reply = await self.reply_generator.generate(
-                    observation_info, conversation_info, action_type="direct_reply"
-                )
-                logger.info(
-                    f"[私聊][{self.private_name}]第 {reply_attempt_count} 次生成的首次回复: {self.generated_reply}"
-                )
-
-                # 2. 检查回复
-                self.state = ConversationState.CHECKING
-                try:
-                    current_goal_str = ""
-                    if conversation_info.goal_list:
-                        first_goal = conversation_info.goal_list[0]
-                        if isinstance(first_goal, dict):
-                            current_goal_str = first_goal.get("goal", "")
-                        elif isinstance(first_goal, str):
-                            current_goal_str = first_goal
-
-                    is_suitable, check_reason, need_replan = await self.reply_generator.check_reply(
-                        reply=self.generated_reply,
-                        goal=current_goal_str,
-                        chat_history=observation_info.chat_history,
-                        chat_history_str=observation_info.chat_history_str,
-                        retry_count=reply_attempt_count - 1,
-                    )
-                    logger.info(
-                        f"[私聊][{self.private_name}]第 {reply_attempt_count} 次首次回复检查结果: 合适={is_suitable}, 原因='{check_reason}', 需重新规划={need_replan}"
-                    )
-
-                    if not is_suitable:
-                         setattr(conversation_info, 'last_reply_rejection_reason', check_reason)
-                         setattr(conversation_info, 'last_rejected_reply_content', self.generated_reply)
-                    else:
-                         setattr(conversation_info, 'last_reply_rejection_reason', None)
-                         setattr(conversation_info, 'last_rejected_reply_content', None)
-
-                    if is_suitable:
-                        final_reply_to_send = self.generated_reply
-                        break
-                    elif need_replan:
-                        logger.warning(
-                            f"[私聊][{self.private_name}]第 {reply_attempt_count} 次首次回复检查建议重新规划，停止尝试。原因: {check_reason}"
-                        )
-                        break
-                except Exception as check_err:
-                    logger.error(
-                        f"[私聊][{self.private_name}]第 {reply_attempt_count} 次调用 ReplyChecker (首次回复) 时出错: {check_err}"
-                    )
-                    check_reason = f"第 {reply_attempt_count} 次检查过程出错: {check_err}"
-                    setattr(conversation_info, 'last_reply_rejection_reason', check_reason)
-                    setattr(conversation_info, 'last_rejected_reply_content', self.generated_reply)
-                    break
-
-            # 循环结束，处理最终结果
-            if is_suitable:
-                # 发送合适的回复
-                self.generated_reply = final_reply_to_send
-                send_success = await self._send_reply()
-
-                if send_success:
-                    # 发送成功后，标记处理过的消息
-                    await observation_info.mark_messages_processed_up_to(planning_marker_time)
-
-                    # --- 核心逻辑修改：根据规划期间收到的“用户”新消息数决定下一步状态 ---
-                    if new_user_messages_during_planning > 0:
-                        logger.info(f"[私聊][{self.private_name}] 发送首次回复成功后，检测到规划期间有 {new_user_messages_during_planning} 条用户新消息，强制重置回复状态以进行新规划。")
-                        self.conversation_info.last_successful_reply_action = None # 强制重新规划
-                    else:
-                        # 只有在规划期间没有用户新消息时，才设置追问状态
-                        logger.info(f"[私聊][{self.private_name}] 发送首次回复成功，规划期间无用户新消息，允许下次进入追问状态。")
-                        self.conversation_info.last_successful_reply_action = "direct_reply"
-                    # --- 核心逻辑修改结束 ---
-
-                    action_successful = True
-                else:
-                    logger.error(f"[私聊][{self.private_name}]发送首次回复失败")
-                    if action_index < len(conversation_info.done_action):
-                        conversation_info.done_action[action_index].update(
-                            {"status": "recall", "final_reason": f"发送首次回复失败: {final_reply_to_send}"}
-                        )
-                    self.conversation_info.last_successful_reply_action = None
-
-            elif need_replan:
-                logger.warning(
-                    f"[私聊][{self.private_name}]经过 {reply_attempt_count} 次尝试，首次回复决定打回动作决策。打回原因: {check_reason}"
-                )
-                if action_index < len(conversation_info.done_action):
-                    conversation_info.done_action[action_index].update(
-                        {"status": "recall", "final_reason": f"首次回复尝试{reply_attempt_count}次后打回: {check_reason}"}
-                    )
-                self.conversation_info.last_successful_reply_action = None
-
-            else:
-                logger.warning(
-                    f"[私聊][{self.private_name}]经过 {reply_attempt_count} 次尝试，未能生成合适的首次回复。最终原因: {check_reason}"
-                )
-                if action_index < len(conversation_info.done_action):
-                    conversation_info.done_action[action_index].update(
-                        {"status": "recall", "final_reason": f"首次回复尝试{reply_attempt_count}次后失败: {check_reason}"}
-                    )
-                self.conversation_info.last_successful_reply_action = None
-
-                # 执行 Wait 操作
-                logger.info(f"[私聊][{self.private_name}]由于无法生成合适首次回复，执行 'wait' 操作...")
-                self.state = ConversationState.WAITING
-                await observation_info.mark_messages_processed_up_to(planning_marker_time)
-                await self.waiter.wait(self.conversation_info)
-                wait_action_record = {
-                    "action": "wait",
-                    "plan_reason": "因 direct_reply 多次尝试失败而执行的后备等待",
-                    "status": "done",
-                    "time": datetime.datetime.now().strftime("%H:%M:%S"),
-                    "final_reason": None,
-                }
-                conversation_info.done_action.append(wait_action_record)
-                action_successful = True
-
-        # --- 其他动作的处理逻辑保持不变，但确保在成功后调用 mark_messages_processed_up_to ---
+        # --- 处理其他动作 (保持不变，确保状态重置) ---
         elif action == "rethink_goal":
             self.state = ConversationState.RETHINKING
             try:
@@ -590,7 +442,6 @@ class Conversation:
             try:
                 if not hasattr(self, "waiter"):
                     raise AttributeError("Waiter not initialized")
-                await observation_info.mark_messages_processed_up_to(planning_marker_time)
                 await self.waiter.wait_listening(conversation_info)
                 action_successful = True
             except Exception as listen_err:
@@ -610,6 +461,7 @@ class Conversation:
                     observation_info, conversation_info, action_type="say_goodbye"
                 )
                 logger.info(f"[私聊][{self.private_name}]生成的告别语: {self.generated_reply}")
+
                 if self.generated_reply:
                     # --- [修改点 6] 告别语发送前记录时间戳 ---
                     timestamp_before_sending_goodbye = time.time()
@@ -645,12 +497,12 @@ class Conversation:
                 else:
                     logger.warning(f"[私聊][{self.private_name}]未能生成告别语内容，无法发送。")
                     action_successful = False
-                    if action_index < len(conversation_info.done_action):
-                        conversation_info.done_action[action_index].update(
-                            {"status": "recall", "final_reason": "未能生成告别语内容"}
-                        )
-                self.should_continue = False
-                logger.info(f"[私聊][{self.private_name}]发送告别语流程结束，即将停止对话实例。")
+                    self.should_continue = True
+                    conversation_info.done_action[action_index].update(
+                        {"status": "recall", "final_reason": "未能生成告别语内容"}
+                    )
+                    self.conversation_info.last_successful_reply_action = None
+
             except Exception as goodbye_err:
                 logger.error(f"[私聊][{self.private_name}]生成或发送告别语时出错: {goodbye_err}")
                 logger.error(f"[私聊][{self.private_name}]{traceback.format_exc()}")
@@ -690,7 +542,6 @@ class Conversation:
             try:
                 if not hasattr(self, "waiter"):
                     raise AttributeError("Waiter not initialized")
-                await observation_info.mark_messages_processed_up_to(planning_marker_time)
                 _timeout_occurred = await self.waiter.wait(self.conversation_info)
                 action_successful = True
             except Exception as wait_err:
@@ -705,20 +556,16 @@ class Conversation:
 
         # --- 更新 Action History 状态 (保持不变) ---
         if action_successful:
-            if action_index < len(conversation_info.done_action):
-                 # 只有在明确不需要强制重新规划时，才在非回复动作后重置状态
-                 # 注意：这里的条件与回复动作后的逻辑略有不同，因为非回复动作本身就不会进入追问
-                 if action not in ["direct_reply", "send_new_message"]:
-                      self.conversation_info.last_successful_reply_action = None
+            conversation_info.done_action[action_index].update(
+                {
+                    "status": "done",
+                    "time": datetime.datetime.now().strftime("%H:%M:%S"),
+                }
+            )
+            logger.debug(f"[私聊][{self.private_name}]动作 '{action}' 标记为 'done'")
+        else:
+            logger.debug(f"[私聊][{self.private_name}]动作 '{action}' 标记为 'recall' 或失败")
 
-                 conversation_info.done_action[action_index].update(
-                     {
-                         "status": "done",
-                         "time": datetime.datetime.now().strftime("%H:%M:%S"),
-                     }
-                 )
-            else:
-                 logger.error(f"[私聊][{self.private_name}]尝试更新无效的 action_index: {action_index}，当前 done_action 长度: {len(conversation_info.done_action)}")
 
     async def _send_reply(self) -> bool:
         """发送回复，并返回是否发送成功 (保持不变)"""
