@@ -472,7 +472,7 @@ class LLMRequest:
                     post_kwargs = {
                         "headers": headers,
                         "json": actual_payload,
-                        "timeout": 60
+                        "timeout": 180
                     }
                     if use_proxy:
                         post_kwargs["proxy"] = current_proxy_url
@@ -1175,7 +1175,6 @@ class LLMRequest:
         )
         return response
 
-    # 修改：实现 Gemini Function Calling 的 Payload 构建
     async def generate_response_tool_async(self, prompt: str, tools: list, user_id: str = "system", **kwargs) -> tuple[str, str, list | None]:
         """异步方式根据输入的提示和工具生成模型的响应，支持覆盖参数和 Gemini 函数调用"""
 
@@ -1206,8 +1205,8 @@ class LLMRequest:
                         logger.warning(f"跳过不支持的工具类型或格式: {tool}")
 
             if not function_declarations:
-                 logger.error("没有有效的函数声明可用于 Gemini 请求。")
-                 return "没有提供有效的函数定义", "", None
+                logger.error("没有有效的函数声明可用于 Gemini 请求。")
+                return "没有提供有效的函数定义", "", None
 
             gemini_tools = [{"functionDeclarations": function_declarations}]
 
@@ -1229,7 +1228,6 @@ class LLMRequest:
 
         else:
             # --- 构建 OpenAI Tool Calling Payload ---
-            # (逻辑不变)
             logger.debug(f"为 OpenAI 兼容模型 ({self.model_name}) 构建工具调用请求。")
             payload = {
                 "model": self.model_name,
@@ -1239,15 +1237,15 @@ class LLMRequest:
                 "tool_choice": transformed_params.get("tool_choice", "auto"),
             }
             if "max_completion_tokens" in payload:
-                 payload["max_tokens"] = payload.pop("max_completion_tokens")
+                payload["max_tokens"] = payload.pop("max_completion_tokens")
             if "max_tokens" not in payload:
-                 payload["max_tokens"] = global_config.model_max_output_length
+                payload["max_tokens"] = global_config.model_max_output_length
 
 
         # --- 执行请求 ---
         if payload is None:
-             logger.error("未能构建有效的 API 请求 payload。")
-             return "内部错误：无法构建请求", "", None
+            logger.error("未能构建有效的 API 请求 payload。")
+            return "内部错误：无法构建请求", "", None
 
         response = await self._execute_request(
             endpoint=endpoint,
@@ -1276,7 +1274,6 @@ class LLMRequest:
 
     async def get_embedding(self, text: str, user_id: str = "system", **kwargs) -> Union[list, None]:
         """异步方法：获取文本的embedding向量，支持覆盖参数 (Gemini Embedding 需注意模型名称)"""
-        # (代码不变)
         if len(text) < 1:
             logger.debug("该消息没有长度，不再发送获取embedding向量的请求")
             return None
@@ -1286,12 +1283,12 @@ class LLMRequest:
         if self.is_gemini:
             endpoint = ":embedContent"
             payload = {
-                 "model": f"models/{self.model_name}",
-                 "content": {
-                     "parts": [{"text": text}]
-                 },
-                 **api_kwargs
-             }
+                "model": f"models/{self.model_name}",
+                "content": {
+                    "parts": [{"text": text}]
+                },
+                **api_kwargs
+            }
             payload.pop("encoding_format", None)
             payload.pop("input", None)
 

@@ -537,7 +537,6 @@ response_language = "Recommend Chinese"
                 last_loop_prompt=last_loop_prompt,
                 cycle_info_block=cycle_info_block,
             )
-        # --- End choosing template ---
 
         # ---------- 5. 执行LLM请求并处理响应 ----------
         content = ""  # 初始化内容变量
