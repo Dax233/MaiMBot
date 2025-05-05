@@ -391,7 +391,7 @@ class NicknameManager:
             return {"is_exist": False}
 
         prompt = _build_mapping_prompt(chat_history_str, bot_reply, user_name_map)
-        logger.debug(f"构建的绰号映射 Prompt:\n{prompt[:500]}...")
+        logger.debug(f"构建的绰号映射 Prompt:\n{prompt}...")
 
         try:
             response_content, _, _ = await self.llm_mapper.generate_response(prompt)
