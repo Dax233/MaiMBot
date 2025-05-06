@@ -288,7 +288,7 @@ class BotConfig:
     nickname_analysis_history_limit: int = 30  # 绰号处理可见最大上下文
 
     # idle_conversation
-    enable_idle_conversation: bool = True  # 是否开启 PFC 空闲主动聊天
+    enable_idle_conversation: bool = False  # 是否开启 PFC 空闲主动聊天
     idle_check_interval: int = 10  # 检查间隔，10分钟检查一次
     min_idle_time: int = 7200      # 最短无活动时间，2小时 (7200秒)
     max_idle_time: int = 18000     # 最长无活动时间，5小时 (18000秒)

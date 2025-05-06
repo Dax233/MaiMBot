@@ -202,7 +202,7 @@ talk_allowed_private = [] # 可以回复消息的QQ号
 pfc_chatting = false # 是否启用PFC聊天，该功能仅作用于私聊，与回复模式独立
 
 [idle_conversation]
-enable_idle_conversation = true  # 是否开启 PFC 空闲主动聊天
+enable_idle_conversation = false  # 是否开启 PFC 空闲主动聊天
 idle_check_interval = 10  # 检查间隔，10分钟检查一次
 min_idle_time = 7200  # 最短无活动时间，2小时 (7200秒)
 max_idle_time = 18000  # 最长无活动时间，5小时 (18000秒)
