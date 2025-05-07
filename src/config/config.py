@@ -278,6 +278,7 @@ class BotConfig:
     talk_allowed_private = set()
     enable_pfc_chatting: bool = False  # 是否启用PFC聊天
     api_polling_max_retries: int = 3  # 神秘小功能
+    enable_pfc_reply_checker: bool = True # 是否开启PFC回复检查
 
     # Group Nickname
     enable_nickname_mapping: bool = False  # 绰号映射功能总开关
@@ -538,6 +539,7 @@ class BotConfig:
                 "llm_nickname_mapping",
                 "llm_scheduler_all",
                 "llm_scheduler_doing",
+                "llm_PFC_relationship_eval",
             ]
 
             for item in config_list:
@@ -715,6 +717,9 @@ class BotConfig:
                 config.enable_pfc_chatting = experimental_config.get("pfc_chatting", config.enable_pfc_chatting)
             if config.INNER_VERSION in SpecifierSet(">=1.6.1.5"):
                 config.api_polling_max_retries = experimental_config.get("api_polling_max_retries", config.api_polling_max_retries)
+            if config.INNER_VERSION in SpecifierSet(">=1.6.2.1"): 
+                config.enable_pfc_reply_checker = experimental_config.get("enable_pfc_reply_checker", config.enable_pfc_reply_checker)
+                logger.info(f"PFC Reply Checker 状态: {'启用' if config.enable_pfc_reply_checker else '关闭'}")
 
         def idle_conversation(parent: dict):
             idle_conversation_config = parent["idle_conversation"]

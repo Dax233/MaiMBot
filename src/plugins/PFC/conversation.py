@@ -2,6 +2,8 @@ import time
 import asyncio
 import datetime
 import traceback
+import json # 确保导入 json 模块
+from .pfc_utils import get_items_from_json # 导入JSON解析工具
 from typing import Dict, Any, Optional, Set, List
 from dateutil import tz
 
@@ -22,6 +24,17 @@ from ..chat.message import Message  # 假设 Message 类在这里
 
 # 导入全局配置
 from ...config.config import global_config
+
+# 导入用户信息
+from ..person_info.person_info import person_info_manager
+from ..person_info.relationship_manager import relationship_manager
+# 导入关系
+from .pfc_relationship_translator import translate_relationship_value_to_text
+# 导入情绪
+from ..moods.moods import MoodManager
+
+from .pfc_relationship_updater import PfcRelationshipUpdater # 新增
+from .pfc_emotion_updater import PfcEmotionUpdater       # 新增
 
 # 导入 PFC 内部组件和类型
 from .pfc_types import ConversationState  # 导入更新后的 pfc_types
@@ -81,7 +94,14 @@ class Conversation:
         self.generated_reply: str = ""  # 存储最近生成的回复内容
         self.chat_stream: Optional[ChatStream] = None  # 关联的聊天流对象
 
+        # --- 新增：初始化管理器实例 ---
+        self.person_info_mng = person_info_manager
+        self.relationship_mng = relationship_manager
+        self.mood_mng = MoodManager.get_instance() # MoodManager 是单例
+
         # 初始化所有核心组件为 None，将在 _initialize 中创建
+        self.relationship_updater: Optional[PfcRelationshipUpdater] = None # 新增
+        self.emotion_updater: Optional[PfcEmotionUpdater] = None       # 新增
         self.action_planner: Optional[ActionPlanner] = None
         self.goal_analyzer: Optional[GoalAnalyzer] = None
         self.reply_generator: Optional[ReplyGenerator] = None
@@ -121,6 +141,18 @@ class Conversation:
             # 1. 初始化核心功能组件
             logger.debug(f"[私聊][{self.private_name}] 初始化 ActionPlanner...")
             self.action_planner = ActionPlanner(self.stream_id, self.private_name)
+
+            self.relationship_updater = PfcRelationshipUpdater(
+                private_name=self.private_name,
+                bot_name=global_config.BOT_NICKNAME # 或者 self.name (如果 Conversation 类有 self.name)
+            )
+            logger.info(f"[私聊][{self.private_name}] PfcRelationshipUpdater 初始化完成。")
+
+            self.emotion_updater = PfcEmotionUpdater(
+                private_name=self.private_name,
+                bot_name=global_config.BOT_NICKNAME # 或者 self.name
+            )
+            logger.info(f"[私聊][{self.private_name}] PfcEmotionUpdater 初始化完成。")
 
             logger.debug(f"[私聊][{self.private_name}] 初始化 GoalAnalyzer...")
             self.goal_analyzer = GoalAnalyzer(self.stream_id, self.private_name)
@@ -175,6 +207,66 @@ class Conversation:
             # 4. 加载初始聊天记录
             await self._load_initial_history()
 
+            # 4.1 加载用户数据
+            # 尝试从 observation_info 获取，这依赖于 _load_initial_history 的实现
+            private_user_id_str: Optional[str] = None
+            private_platform_str: Optional[str] = None
+            private_nickname_str: Optional[str] = None
+
+            if self.observation_info and self.observation_info.last_message_sender and self.observation_info.last_message_sender != self.bot_qq_str:
+            # 如果历史记录最后一条不是机器人发的，那么发送者就是对方
+            # 假设 observation_info 中已经有了 sender_user_id, sender_platform, sender_name
+            # 这些字段应该在 observation_info.py 的 update_from_message 中从非机器人消息填充
+            # 并且 _load_initial_history 处理历史消息时也应该填充它们
+            # 这里的逻辑是：取 observation_info 中最新记录的非机器人发送者的信息
+                if self.observation_info.sender_user_id and self.observation_info.sender_platform:
+                    private_user_id_str = self.observation_info.sender_user_id
+                    private_platform_str = self.observation_info.sender_platform
+                    private_nickname_str = self.observation_info.sender_name
+                    logger.info(f"[私聊][{self.private_name}] 从 ObservationInfo 获取到私聊对象信息: ID={private_user_id_str}, Platform={private_platform_str}, Name={private_nickname_str}")
+
+            if not private_user_id_str and self.chat_stream: # 如果 observation_info 中没有，尝试从 chat_stream (通常代表对方)
+                if self.chat_stream.user_info and str(self.chat_stream.user_info.user_id) != self.bot_qq_str : # 确保不是机器人自己
+                    private_user_id_str = str(self.chat_stream.user_info.user_id)
+                    private_platform_str = self.chat_stream.user_info.platform
+                    private_nickname_str = self.chat_stream.user_info.user_nickname
+                    logger.info(f"[私聊][{self.private_name}] 从 ChatStream 获取到私聊对象信息: ID={private_user_id_str}, Platform={private_platform_str}, Name={private_nickname_str}")
+                elif self.chat_stream.group_info is None and self.private_name: # 私聊场景，且 private_name 可能有用
+                    # 这是一个备选方案，如果 private_name 直接是 user_id
+                    # 你需要确认 private_name 的确切含义和格式
+                    # logger.warning(f"[私聊][{self.private_name}] 尝试使用 private_name ('{self.private_name}') 作为 user_id，平台默认为 'qq'")
+                    # private_user_id_str = self.private_name
+                    # private_platform_str = "qq" # 假设平台是qq
+                    # private_nickname_str = self.private_name # 昵称也暂时用 private_name
+                    pass # 暂时不启用此逻辑，依赖 observation_info 或 chat_stream.user_info
+
+            if private_user_id_str and private_platform_str:
+                try:
+                   # 将 user_id 转换为整数类型，因为 person_info_manager.get_person_id 需要 int
+                    private_user_id_int = int(private_user_id_str)
+                    self.conversation_info.person_id = self.person_info_mng.get_person_id(
+                        private_platform_str,
+                        private_user_id_int # 使用转换后的整数ID
+                    )
+                    logger.info(f"[私聊][{self.private_name}] 获取到 person_id: {self.conversation_info.person_id} for {private_platform_str}:{private_user_id_str}")
+
+                    # 确保用户在数据库中存在，如果不存在则创建
+                    # get_or_create_person 内部处理 person_id 的生成，所以我们直接传 platform 和 user_id
+                    await self.person_info_mng.get_or_create_person(
+                        platform=private_platform_str,
+                        user_id=private_user_id_int, # 使用转换后的整数ID
+                        nickname=private_nickname_str if private_nickname_str else "未知用户",
+                        # user_cardname 和 user_avatar 如果能从 chat_stream.user_info 或 observation_info 获取也应传入
+                        # user_cardname = self.chat_stream.user_info.card if self.chat_stream and self.chat_stream.user_info else None,
+                        # user_avatar = self.chat_stream.user_info.avatar if self.chat_stream and self.chat_stream.user_info else None
+                    )
+                except ValueError:
+                    logger.error(f"[私聊][{self.private_name}] 无法将 private_user_id_str ('{private_user_id_str}') 转换为整数。")
+                except Exception as e_pid:
+                    logger.error(f"[私聊][{self.private_name}] 获取或创建 person_id 时出错: {e_pid}")
+            else:
+                logger.warning(f"[私聊][{self.private_name}] 未能确定私聊对象的 user_id 或 platform，无法获取 person_id。将在收到消息后尝试。")
+
             # 5. 启动需要后台运行的组件
             logger.debug(f"[私聊][{self.private_name}] 启动 ChatObserver...")
             self.chat_observer.start()
@@ -182,6 +274,46 @@ class Conversation:
                 logger.debug(f"[私聊][{self.private_name}] 启动 IdleConversationStarter...")
                 self.idle_conversation_starter.start()
                 logger.info(f"[私聊][{self.private_name}] 空闲对话检测器已启动")
+
+             # 5.1 启动 MoodManager 的后台更新
+            if self.mood_mng and hasattr(self.mood_mng, 'start_mood_update') and not self.mood_mng._running:
+                self.mood_mng.start_mood_update(update_interval=global_config.mood_update_interval) # 使用配置的更新间隔
+                logger.info(f"[私聊][{self.private_name}] MoodManager 已启动后台更新，间隔: {global_config.mood_update_interval} 秒。")
+            elif self.mood_mng and self.mood_mng._running:
+                 logger.info(f"[私聊][{self.private_name}] MoodManager 已在运行中。")
+            else:
+                logger.warning(f"[私聊][{self.private_name}] MoodManager 未能启动，相关功能可能受限。")
+
+            # --- 在初始化完成前，尝试加载一次关系和情绪信息 ---
+            if self.conversation_info and self.conversation_info.person_id:
+                try:
+                    # 1. 获取数值型关系值
+                    numeric_relationship_value = await self.person_info_mng.get_value(
+                    self.conversation_info.person_id,
+                    "relationship_value"
+                    )
+                    # 确保是浮点数
+                    if not isinstance(numeric_relationship_value, (int, float)):
+                        from bson.decimal128 import Decimal128
+                        if isinstance(numeric_relationship_value, Decimal128):
+                            numeric_relationship_value = float(numeric_relationship_value.to_decimal())
+                        else:
+                            numeric_relationship_value = 0.0
+
+                    # 2. 使用PFC内部翻译函数
+                    self.conversation_info.relationship_text = translate_relationship_value_to_text(numeric_relationship_value)
+                    logger.info(f"[私聊][{self.private_name}] 初始化时加载关系文本: {self.conversation_info.relationship_text}")
+                except Exception as e_init_rel:
+                    logger.error(f"[私聊][{self.private_name}] 初始化时加载关系文本出错: {e_init_rel}")
+                    self.conversation_info.relationship_text = "你们的关系是：普通。" # 保留默认值
+            if self.conversation_info and self.mood_mng:
+                try:
+                   self.conversation_info.current_emotion_text = self.mood_mng.get_prompt()
+                   logger.info(f"[私聊][{self.private_name}] 初始化时加载情绪文本: {self.conversation_info.current_emotion_text}")
+                except Exception as e_init_emo:
+                   logger.error(f"[私聊][{self.private_name}] 初始化时加载情绪文本出错: {e_init_emo}")
+                # 保留默认值
+
 
             # 6. 标记初始化成功并设置运行状态
             self._initialized = True
@@ -248,7 +380,7 @@ class Conversation:
                 self.observation_info.last_message_content = last_msg.get("processed_plain_text", "")
 
                 # 构建用于 Prompt 的历史记录字符串 (只使用最近的一部分)
-                history_slice_for_str = initial_messages[-20:]  # 可配置
+                history_slice_for_str = initial_messages[-30:]  # 可配置
                 self.observation_info.chat_history_str = await build_readable_messages(
                     history_slice_for_str,
                     replace_bot_name=True,
@@ -330,6 +462,22 @@ class Conversation:
         logger.info(f"[私聊][{self.private_name}] 正在停止对话实例: {self.stream_id}")
         self.should_continue = False  # 设置标志，让主循环退出
 
+        # --- 新增：在对话结束时调用最终关系更新 ---
+        if self._initialized and self.relationship_updater and self.conversation_info and self.observation_info and self.chat_observer:
+            try:
+                logger.info(f"[私聊][{self.private_name}] 准备执行最终关系评估...")
+                await self.relationship_updater.update_relationship_final(
+                    conversation_info=self.conversation_info,
+                    observation_info=self.observation_info,
+                    chat_observer_for_history=self.chat_observer
+                )
+                logger.info(f"[私聊][{self.private_name}] 最终关系评估已调用。")
+            except Exception as e_final_rel:
+                logger.error(f"[私聊][{self.private_name}] 调用最终关系评估时出错: {e_final_rel}")
+                logger.error(traceback.format_exc())
+        else:
+            logger.warning(f"[私聊][{self.private_name}] 跳过最终关系评估，因为实例未完全初始化或缺少必要组件。")
+
         # 停止空闲对话检测器
         if self.idle_conversation_starter:
             self.idle_conversation_starter.stop()
@@ -337,6 +485,10 @@ class Conversation:
         # 解绑 ObservationInfo 与 ChatObserver
         if self.observation_info and self.chat_observer:
             self.observation_info.unbind_from_chat_observer()
+
+        if self.mood_mng and hasattr(self.mood_mng, 'stop_mood_update') and self.mood_mng._running:
+            self.mood_mng.stop_mood_update()
+            logger.info(f"[私聊][{self.private_name}] MoodManager 后台更新已停止。")
 
         # ChatObserver 是单例，通常不由单个 Conversation 停止
         # 如果需要，可以在管理器层面处理 ChatObserver 的生命周期
@@ -356,7 +508,7 @@ class Conversation:
         if not self._initialized:
             logger.error(f"[私聊][{self.private_name}] 尝试在未初始化状态下运行规划循环，退出。")
             return  # 明确退出
-
+        force_reflect_and_act = False
         # 主循环，只要 should_continue 为 True 就一直运行
         while self.should_continue:
             loop_iter_start_time = time.time()  # 记录本次循环开始时间
@@ -411,6 +563,83 @@ class Conversation:
 
             # --- 核心规划与行动逻辑 ---
             try:
+                if self.conversation_info and self._initialized: # 确保 conversation_info 和实例已初始化
+                    # 更新关系文本
+                    if self.conversation_info.person_id: # 确保 person_id 已获取
+                        try:
+                            # 1.直接从 person_info_manager 获取数值型的 relationship_value
+                            numeric_relationship_value = await self.person_info_mng.get_value(
+                                self.conversation_info.person_id,
+                                "relationship_value"
+                            )
+                        
+                            # 确保 relationship_value 是浮点数 (可以复用 relationship_manager 中的 ensure_float，或者在这里简单处理)
+                            if not isinstance(numeric_relationship_value, (int, float)):
+                                # 尝试从 Decimal128 转换 (如果你的数据库用的是这个)
+                                from bson.decimal128 import Decimal128
+                                if isinstance(numeric_relationship_value, Decimal128):
+                                    numeric_relationship_value = float(numeric_relationship_value.to_decimal())
+                                else: # 其他类型，或转换失败，给默认值
+                                    logger.warning(f"[私聊][{self.private_name}] 获取的 relationship_value 类型未知 ({type(numeric_relationship_value)}) 或转换失败，默认为0.0")
+                                    numeric_relationship_value = 0.0
+                        
+                            logger.debug(f"[私聊][{self.private_name}] 获取到数值型关系值: {numeric_relationship_value}")
+                        
+                            # 2. 使用PFC内部的翻译函数将其转换为文本描述
+                            simplified_relationship_text = translate_relationship_value_to_text(numeric_relationship_value)
+                            self.conversation_info.relationship_text = simplified_relationship_text
+                        
+                            logger.debug(f"[私聊][{self.private_name}] 更新后关系文本 (PFC内部翻译): {self.conversation_info.relationship_text}")
+
+                        except Exception as e_rel:
+                            logger.error(f"[私聊][{self.private_name}] 更新关系文本(PFC内部翻译)时出错: {e_rel}")
+                            self.conversation_info.relationship_text = "你们的关系是：普通。" # 出错时的默认值
+                    elif self.observation_info and self.observation_info.sender_user_id and self.observation_info.sender_platform:
+                        # 如果 person_id 之前没获取到，在这里尝试再次获取 (这部分逻辑保持，因为 person_id 是必须的)
+                        try:
+                            private_user_id_int = int(self.observation_info.sender_user_id)
+                            self.conversation_info.person_id = self.person_info_mng.get_person_id(
+                                self.observation_info.sender_platform,
+                                private_user_id_int
+                            )
+                            await self.person_info_mng.get_or_create_person( #确保用户存在
+                                platform=self.observation_info.sender_platform,
+                                user_id=private_user_id_int,
+                                nickname=self.observation_info.sender_name if self.observation_info.sender_name else "未知用户",
+                            )
+                            if self.conversation_info.person_id: # 如果成功获取 person_id，则再次尝试更新关系文本
+                                numeric_relationship_value = await self.person_info_mng.get_value(
+                                    self.conversation_info.person_id,
+                                    "relationship_value"
+                                )
+                                if not isinstance(numeric_relationship_value, (int, float)):
+                                    from bson.decimal128 import Decimal128
+                                    if isinstance(numeric_relationship_value, Decimal128):
+                                        numeric_relationship_value = float(numeric_relationship_value.to_decimal())
+                                    else:
+                                        numeric_relationship_value = 0.0
+                                self.conversation_info.relationship_text = translate_relationship_value_to_text(numeric_relationship_value)
+                                logger.debug(f"[私聊][{self.private_name}] (备用逻辑)更新后关系文本: {self.conversation_info.relationship_text}")
+
+                        except ValueError:
+                            logger.error(f"[私聊][{self.private_name}] 循环中无法将 sender_user_id ('{self.observation_info.sender_user_id}') 转换为整数。")
+                            self.conversation_info.relationship_text = "你们的关系是：普通。"
+                        except Exception as e_pid_loop:
+                            logger.error(f"[私聊][{self.private_name}] 循环中获取 person_id 并更新关系时出错: {e_pid_loop}")
+                            self.conversation_info.relationship_text = "你们的关系是：普通。"
+                    else:
+                         # 如果 person_id 仍无法确定
+                        self.conversation_info.relationship_text = "你们的关系是：普通。" # 或 "你们的关系是：未知。"
+                
+                     # 更新情绪文本
+                    if self.mood_mng:
+                        self.conversation_info.current_emotion_text = self.mood_mng.get_prompt()
+                        logger.debug(f"[私聊][{self.private_name}] 更新情绪文本: {self.conversation_info.current_emotion_text}")
+                    else:
+            # 如果 mood_mng 未初始化，使用 ConversationInfo 中的默认值
+                        pass # self.conversation_info.current_emotion_text 会保持其在 ConversationInfo 中的默认值
+    ### 标记新增/修改区域 结束 ###
+
                 # 1. 检查核心组件是否都已初始化
                 if not all([self.action_planner, self.observation_info, self.conversation_info]):
                     logger.error(f"[私聊][{self.private_name}] 核心组件未初始化，无法继续规划循环。将等待5秒后重试...")
@@ -427,10 +656,12 @@ class Conversation:
                 logger.debug(f"[私聊][{self.private_name}] 调用 ActionPlanner.plan...")
                 # 传入当前观察信息、对话信息和上次成功回复的动作类型
                 action, reason = await self.action_planner.plan(
-                    self.observation_info, 
-                    self.conversation_info,
-                    self.conversation_info.last_successful_reply_action
+                    self.observation_info,
+                    self.conversation_info, # type: ignore
+                    self.conversation_info.last_successful_reply_action, # type: ignore
+                    use_reflect_prompt=force_reflect_and_act # 使用标志
                 )
+                force_reflect_and_act = False
                 planning_duration = time.time() - planning_start_time
                 logger.debug(
                     f"[私聊][{self.private_name}] ActionPlanner.plan 完成 (耗时: {planning_duration:.3f} 秒)，初步规划动作: {action}"
@@ -457,6 +688,37 @@ class Conversation:
                 logger.debug(
                     f"[私聊][{self.private_name}] 规划期间收到新消息总数: {new_msg_count}, 来自他人: {other_new_msg_count}"
                 )
+
+                if self.conversation_info and other_new_msg_count > 0: # 如果有来自他人的新消息
+                    self.conversation_info.current_instance_message_count += other_new_msg_count
+                    logger.debug(f"[私聊][{self.private_name}] 用户发送新消息，实例消息计数增加到: {self.conversation_info.current_instance_message_count}")
+                    
+                    # 调用增量关系更新
+                    if self.relationship_updater:
+                        await self.relationship_updater.update_relationship_incremental(
+                            conversation_info=self.conversation_info,
+                            observation_info=self.observation_info,
+                            chat_observer_for_history=self.chat_observer
+                        )
+                    
+                    # 调用情绪更新
+                    if self.emotion_updater and other_new_messages_during_planning:
+                        # 取最后一条用户消息作为情绪更新的上下文事件
+                        last_user_msg = other_new_messages_during_planning[-1]
+                        last_user_msg_text = last_user_msg.get("processed_plain_text", "用户发了新消息")
+                        
+                        sender_name_for_event = getattr(self.observation_info, 'sender_name', '对方')
+                        if not sender_name_for_event: # 如果 observation_info 中还没有，尝试从消息中取
+                            user_info_dict = last_user_msg.get("user_info", {})
+                            sender_name_for_event = user_info_dict.get("user_nickname", "对方")
+
+                        event_desc = f"用户【{sender_name_for_event}】发送了新消息: '{last_user_msg_text[:30]}...'"
+                        await self.emotion_updater.update_emotion_based_on_context(
+                            conversation_info=self.conversation_info,
+                            observation_info=self.observation_info,
+                            chat_observer_for_history=self.chat_observer,
+                            event_description=event_desc
+                        )
 
                 # 5. 根据动作类型和新消息数量，判断是否需要中断当前规划
                 should_interrupt: bool = False
@@ -506,6 +768,16 @@ class Conversation:
                 # 调用动作处理函数
                 await self._handle_action(action, reason, self.observation_info, self.conversation_info)
                 logger.debug(f"[私聊][{self.private_name}] _handle_action 完成。")
+
+                # --- 新增逻辑：检查是否因为RG决定不发送而需要反思 ---
+                last_action_record = (
+                    self.conversation_info.done_action[-1] if self.conversation_info.done_action else {} # type: ignore
+                )
+                if last_action_record.get("action") == "send_new_message" and \
+                    last_action_record.get("status") == "done_no_reply":
+                    logger.info(f"[私聊][{self.private_name}] 检测到 ReplyGenerator 决定不发送消息，将在下一轮强制使用反思Prompt。")
+                    force_reflect_and_act = True # 设置标志，下一轮使用反思prompt
+                    # 不需要立即 continue，让循环自然进入下一轮，下一轮的 plan 会用这个标志
 
                 # 8. 检查是否需要结束整个对话（例如目标达成或执行了结束动作）
                 goal_ended: bool = False
@@ -655,130 +927,205 @@ class Conversation:
                 check_reason: str = "未进行检查"  # 存储检查结果原因
 
                 # --- [核心修复] 引入重试循环 ---
+                is_send_decision_from_rg = False # 标记是否由 reply_generator 决定发送
+                
                 while reply_attempt_count < max_reply_attempts and not is_suitable and not need_replan_from_checker:
                     reply_attempt_count += 1
                     log_prefix = f"[私聊][{self.private_name}] 尝试生成/检查 '{action}' 回复 (第 {reply_attempt_count}/{max_reply_attempts} 次)..."
                     logger.info(log_prefix)
 
-                    # --- a. 生成回复 ---
-                    self.state = ConversationState.GENERATING  # 更新对话状态
+                    self.state = ConversationState.GENERATING
                     if not self.reply_generator:
-                        # 检查依赖组件是否存在
                         raise RuntimeError("ReplyGenerator 未初始化")
-                    # 调用 ReplyGenerator 生成回复内容
-                    generated_content = await self.reply_generator.generate(
+                    
+                    raw_llm_output = await self.reply_generator.generate(
                         observation_info, conversation_info, action_type=action
                     )
-                    logger.info(f"{log_prefix} 生成内容: '{generated_content}'")  # 日志中截断长内容
+                    logger.debug(f"{log_prefix} ReplyGenerator.generate 返回: '{raw_llm_output}'")
 
-                    # 检查生成内容是否有效
-                    if not generated_content or generated_content.startswith("抱歉"):
-                        # 如果生成失败或返回错误提示
-                        logger.warning(f"{log_prefix} 生成内容为空或为错误提示，将进行下一次尝试。")
-                        check_reason = "生成内容无效"  # 记录原因
-                        # 记录拒绝信息供下次生成参考
+                    should_send_reply = True # 默认对于 direct_reply 是要发送的
+                    text_to_process = raw_llm_output # 默认情况下，处理原始输出
+
+                    if action == "send_new_message":
+                        is_send_decision_from_rg = True # 标记 send_new_message 的决策来自RG
+                        try:
+                            # 使用 pfc_utils.py 中的 get_items_from_json 来解析
+                            # 注意：get_items_from_json 目前主要用于提取固定字段的字典。
+                            # reply_generator 返回的是一个顶级JSON对象。
+                            # 我们需要稍微调整用法或增强 get_items_from_json。
+                            # 简单起见，这里我们先直接用 json.loads，后续可以优化。
+                            
+                            parsed_json = None
+                            try:
+                                parsed_json = json.loads(raw_llm_output)
+                            except json.JSONDecodeError:
+                                logger.error(f"{log_prefix} ReplyGenerator 返回的不是有效的JSON: {raw_llm_output}")
+                                # 如果JSON解析失败，视为RG决定不发送，并给出原因
+                                conversation_info.last_reply_rejection_reason = "回复生成器未返回有效JSON"
+                                conversation_info.last_rejected_reply_content = raw_llm_output
+                                should_send_reply = False
+                                text_to_process = "no" # 或者一个特定的错误标记
+                            
+                            if parsed_json:
+                                send_decision = parsed_json.get("send", "no").lower()
+                                generated_text_from_json = parsed_json.get("txt", "no")
+
+                                if send_decision == "yes":
+                                    should_send_reply = True
+                                    text_to_process = generated_text_from_json
+                                    logger.info(f"{log_prefix} ReplyGenerator 决定发送消息。内容: '{text_to_process[:100]}...'")
+                                else:
+                                    should_send_reply = False
+                                    text_to_process = "no" # 保持和 prompt 中一致，txt 为 "no"
+                                    logger.info(f"{log_prefix} ReplyGenerator 决定不发送消息。")
+                                    # 此时，我们应该跳出重试循环，并触发 action_planner 的反思 prompt
+                                    # 将此信息传递到循环外部进行处理
+                                    break # 跳出 while 循环
+
+                        except Exception as e_json: # 更广泛地捕获解析相关的错误
+                            logger.error(f"{log_prefix} 解析 ReplyGenerator 的JSON输出时出错: {e_json}, 输出: {raw_llm_output}")
+                            conversation_info.last_reply_rejection_reason = f"解析回复生成器JSON输出错误: {e_json}"
+                            conversation_info.last_rejected_reply_content = raw_llm_output
+                            should_send_reply = False
+                            text_to_process = "no"
+                    
+                    if not should_send_reply and action == "send_new_message": # 如果RG决定不发送 (send_new_message特定逻辑)
+                        break # 直接跳出重试循环，后续逻辑会处理这种情况
+
+                    generated_content_for_check_or_send = text_to_process
+
+                    if not generated_content_for_check_or_send or generated_content_for_check_or_send.startswith("抱歉") or (action == "send_new_message" and generated_content_for_check_or_send == "no"):
+                        logger.warning(f"{log_prefix} 生成内容无效或为错误提示 (或send:no)，将进行下一次尝试 (如果适用)。")
+                        check_reason = "生成内容无效或选择不发送"
                         conversation_info.last_reply_rejection_reason = check_reason
-                        conversation_info.last_rejected_reply_content = generated_content
-                        await asyncio.sleep(0.5)  # 短暂等待后重试
-                        continue  # 进入下一次循环尝试
+                        conversation_info.last_rejected_reply_content = generated_content_for_check_or_send
+                        if action == "direct_reply": # direct_reply 失败时才继续尝试
+                             await asyncio.sleep(0.5)
+                             continue
+                        else: # send_new_message 如果是 no，不应该继续尝试，上面已经break了
+                            pass # 理论上不会到这里如果上面break了
 
-                    # --- b. 检查回复 ---
-                    self.state = ConversationState.CHECKING  # 更新状态为检查中
+                    self.state = ConversationState.CHECKING
                     if not self.reply_checker:
                         raise RuntimeError("ReplyChecker 未初始化")
 
-                    # 准备检查所需的上下文信息
-                    current_goal_str: str = ""  # 当前对话目标字符串
+                    current_goal_str = ""
                     if conversation_info.goal_list:
-                        # 通常检查最新的目标
                         goal_item = conversation_info.goal_list[-1]
                         if isinstance(goal_item, dict):
                             current_goal_str = goal_item.get("goal", "")
                         elif isinstance(goal_item, str):
                             current_goal_str = goal_item
-                    # 获取用于检查的聊天记录 (列表和字符串形式)
-                    chat_history_for_check: List[Dict[str, Any]] = getattr(observation_info, "chat_history", [])
-                    chat_history_text_for_check: str = getattr(observation_info, "chat_history_str", "")
-                    # 当前重试次数 (传递给 checker，可能有用)
-                    # retry_count for checker starts from 0
+                    
+                    chat_history_for_check = getattr(observation_info, "chat_history", [])
+                    chat_history_text_for_check = getattr(observation_info, "chat_history_str", "")
                     current_retry_for_checker = reply_attempt_count - 1
+                    current_time_value_for_check = observation_info.current_time_str or "获取时间失败"
 
-
-                    current_time_value_for_check = "获取时间失败"
-                    if observation_info and hasattr(observation_info, 'current_time_str') and observation_info.current_time_str:
-                        current_time_value_for_check = observation_info.current_time_str
-
-
-                    logger.debug(f"{log_prefix} 调用 ReplyChecker 检查...")
-                    # 调用 ReplyChecker 的 check 方法
-                    is_suitable, check_reason, need_replan_from_checker = await self.reply_checker.check(
-                        reply=generated_content,
-                        goal=current_goal_str,
-                        chat_history=chat_history_for_check,  # 传递列表形式的历史记录
-                        chat_history_text=chat_history_text_for_check,  # 传递文本形式的历史记录
-                        current_time_str=current_time_value_for_check, # 新增：传递时间字符串
-                        retry_count=current_retry_for_checker,
-                    )
-                    logger.info(
-                        f"{log_prefix} ReplyChecker 结果: 合适={is_suitable}, 原因='{check_reason}', 需重规划={need_replan_from_checker}"
-                    )
-
-                    # 如果不合适，记录原因并准备下一次尝试（如果还有次数）
+                    if global_config.enable_pfc_reply_checker:
+                        logger.debug(f"{log_prefix} 调用 ReplyChecker 检查 (配置已启用)...")
+                        is_suitable, check_reason, need_replan_from_checker = await self.reply_checker.check(
+                            reply=generated_content_for_check_or_send,
+                            goal=current_goal_str,
+                            chat_history=chat_history_for_check,
+                            chat_history_text=chat_history_text_for_check,
+                            current_time_str=current_time_value_for_check,
+                            retry_count=current_retry_for_checker,
+                        )
+                        logger.info(
+                            f"{log_prefix} ReplyChecker 结果: 合适={is_suitable}, 原因='{check_reason}', 需重规划={need_replan_from_checker}"
+                        )
+                    else:
+                        is_suitable = True
+                        check_reason = "ReplyChecker 已通过配置关闭"
+                        need_replan_from_checker = False
+                        logger.info(f"{log_prefix} [配置关闭] ReplyChecker 已跳过，默认回复为合适。")
+                    
                     if not is_suitable:
-                        # 记录拒绝原因和内容，供下次生成时参考
                         conversation_info.last_reply_rejection_reason = check_reason
-                        conversation_info.last_rejected_reply_content = generated_content
-                        # 如果不需要重规划且还有尝试次数
+                        conversation_info.last_rejected_reply_content = generated_content_for_check_or_send
                         if not need_replan_from_checker and reply_attempt_count < max_reply_attempts:
                             logger.warning(f"{log_prefix} 回复不合适，原因: {check_reason}。将进行下一次尝试。")
-                            await asyncio.sleep(0.5)  # 等待后重试
+                            await asyncio.sleep(0.5)
                         # 如果需要重规划或达到最大次数，循环会在下次判断时自动结束
+                
+                # --- 循环结束后处理 ---
+                if action == "send_new_message" and not should_send_reply and is_send_decision_from_rg:
+                    # 这是 reply_generator 决定不发送的情况
+                    logger.info(f"[私聊][{self.private_name}] 动作 '{action}': ReplyGenerator 决定不发送消息。将调用 ActionPlanner 进行反思。")
+                    final_status = "done_no_reply" # 一个新的状态，表示动作完成但无回复
+                    final_reason = "回复生成器决定不发送消息"
+                    action_successful = True # 动作本身（决策）是成功的
 
-                # --- 循环结束后，处理最终结果 ---
-                if is_suitable:
-                    # 如果找到了合适的回复
+                    # 清除追问状态，因为没有实际发送
+                    conversation_info.last_successful_reply_action = None
+                    conversation_info.my_message_count = 0 # 重置连续发言计数
+
+                    # !!! 触发 ActionPlanner 使用 PROMPT_REFLECT_AND_ACT !!!
+                    if not self.action_planner:
+                        raise RuntimeError("ActionPlanner 未初始化")
+                    
+                    logger.info(f"[私聊][{self.private_name}] {self.name} 本来想发一条新消息，但是想想还是算了。现在重新规划...")
+                    # 调用 action_planner.plan 并传入 use_reflect_prompt=True
+                    new_action, new_reason = await self.action_planner.plan(
+                        observation_info,
+                        conversation_info,
+                        last_successful_reply_action=None, # 因为没发送，所以没有成功的回复动作
+                        use_reflect_prompt=True
+                    )
+                    # 记录这次特殊的“反思”动作
+                    reflect_action_record = {
+                        "action": f"reflect_after_no_send ({new_action})", # 记录原始意图和新规划
+                        "plan_reason": f"RG决定不发送后，AP规划: {new_reason}",
+                        "status": "delegated", # 标记为委托给新的规划
+                        "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    }
+                    conversation_info.done_action.append(reflect_action_record)
+
+                    logger.info(f"[私聊][{self.private_name}] 反思后的新规划动作: {new_action}, 原因: {new_reason}")
+                    # **暂定方案：**
+                    # _handle_action 在这种情况下返回一个特殊标记。
+                    # 为了不立即修改返回类型，我们暂时在这里记录日志，并在 _plan_and_action_loop 中添加逻辑。
+                    # _handle_action 会将 action_successful 设置为 True，final_status 为 "done_no_reply"。
+                    # _plan_and_action_loop 之后会检查这个状态。
+
+                    # (这里的 final_status, final_reason, action_successful 已在上面设置)
+
+                elif is_suitable: # 适用于 direct_reply 或 send_new_message (RG决定发送且检查通过)
                     logger.info(f"[私聊][{self.private_name}] 动作 '{action}': 找到合适的回复，准备发送。")
-                    # 清除上次的拒绝信息 (因为本次成功了)
                     conversation_info.last_reply_rejection_reason = None
                     conversation_info.last_rejected_reply_content = None
-
-                    # --- c. 发送回复 ---
-                    self.generated_reply = generated_content  # 使用最后一次检查通过的内容
-                    timestamp_before_sending = time.time()  # 记录发送前时间戳
+                    self.generated_reply = generated_content_for_check_or_send
+                    timestamp_before_sending = time.time()
                     logger.debug(
                         f"[私聊][{self.private_name}] 动作 '{action}': 记录发送前时间戳: {timestamp_before_sending:.2f}"
                     )
-                    self.state = ConversationState.SENDING  # 更新状态为发送中
-                    # 调用内部发送方法
-                    send_success = await self._send_reply()
-                    send_end_time = time.time()  # 记录发送结束时间
+                    self.state = ConversationState.SENDING
+                    send_success = await self._send_reply() # _send_reply 内部会更新 my_message_count
+                    send_end_time = time.time()
 
                     if send_success:
-                        # 如果发送成功
-                        action_successful = True  # 标记动作成功
-                        # final_status 和 final_reason 会在 finally 中设置
+                        action_successful = True
                         logger.info(f"[私聊][{self.private_name}] 动作 '{action}': 成功发送回复.")
-                        # 更新空闲计时器
                         if self.idle_conversation_starter:
                             await self.idle_conversation_starter.update_last_message_time(send_end_time)
 
-                        # --- d. 清理已处理消息 ---
                         current_unprocessed_messages = getattr(observation_info, "unprocessed_messages", [])
                         message_ids_to_clear: Set[str] = set()
-                        # 遍历所有未处理消息
                         for msg in current_unprocessed_messages:
                             msg_time = msg.get("time")
                             msg_id = msg.get("message_id")
-                            sender_id = msg.get("user_info", {}).get("user_id")
-                            # 规则：只清理【发送前】收到的、【来自他人】的消息
+                            sender_id_info = msg.get("user_info", {})
+                            sender_id = str(sender_id_info.get("user_id")) if sender_id_info else None
+                            
                             if (
                                 msg_id
                                 and msg_time
-                                and sender_id != self.bot_qq_str
-                                and msg_time < timestamp_before_sending
+                                and sender_id != self.bot_qq_str # 确保是对方的消息
+                                and msg_time < timestamp_before_sending # 只清理发送前的
                             ):
                                 message_ids_to_clear.add(msg_id)
-                        # 如果有需要清理的消息，调用清理方法
+                        
                         if message_ids_to_clear:
                             logger.debug(
                                 f"[私聊][{self.private_name}] 准备清理 {len(message_ids_to_clear)} 条发送前(他人)消息: {message_ids_to_clear}"
@@ -787,53 +1134,66 @@ class Conversation:
                         else:
                             logger.debug(f"[私聊][{self.private_name}] 没有需要清理的发送前(他人)消息。")
 
-                        # --- e. 决定下一轮规划类型 ---
-                        # 从 conversation_info 获取【规划期间】收到的【他人】新消息数量
                         other_new_msg_count_during_planning = getattr(
                             conversation_info, "other_new_messages_during_planning_count", 0
                         )
 
-                        # 规则：如果规划期间收到他人新消息 (0 < count <= 2)，则下一轮强制初始回复
-                        if other_new_msg_count_during_planning > 0:
+                        if other_new_msg_count_during_planning > 0 and action == "direct_reply":
                             logger.info(
                                 f"[私聊][{self.private_name}] 因规划期间收到 {other_new_msg_count_during_planning} 条他人新消息，下一轮强制使用【初始回复】逻辑。"
                             )
-                            conversation_info.last_successful_reply_action = None  # 强制初始回复
-                            conversation_info.my_message_count = 0  # 自身发言数量清零
-                        else:
-                            # 规则：如果规划期间【没有】收到他人新消息，则允许追问
+                            conversation_info.last_successful_reply_action = None
+                            # conversation_info.my_message_count = 0 # 不在这里重置，因为刚发了一条
+                        elif action == "direct_reply" or action == "send_new_message": # 成功发送后
                             logger.info(
-                                f"[私聊][{self.private_name}] 规划期间无他人新消息，下一轮【允许】使用追问逻辑 (基于 '{action}')。"
+                                f"[私聊][{self.private_name}] 成功执行 '{action}', 下一轮【允许】使用追问逻辑。"
                             )
-                            conversation_info.last_successful_reply_action = action  # 允许追问
-
-                    else:
-                        # 如果发送失败
+                            conversation_info.last_successful_reply_action = action
+                        
+                        if conversation_info:
+                            conversation_info.current_instance_message_count += 1
+                            logger.debug(f"[私聊][{self.private_name}] 实例消息计数(机器人发送后)增加到: {conversation_info.current_instance_message_count}")
+                            
+                            if self.relationship_updater:
+                                await self.relationship_updater.update_relationship_incremental(
+                                    conversation_info=conversation_info,
+                                    observation_info=observation_info,
+                                    chat_observer_for_history=self.chat_observer
+                                )
+                            
+                            sent_reply_summary = self.generated_reply[:50] if self.generated_reply else "空回复"
+                            event_for_emotion_update = f"你刚刚发送了消息: '{sent_reply_summary}...'"
+                            if self.emotion_updater:
+                                await self.emotion_updater.update_emotion_based_on_context(
+                                    conversation_info=conversation_info,
+                                    observation_info=observation_info,
+                                    chat_observer_for_history=self.chat_observer,
+                                    event_description=event_for_emotion_update
+                                )
+                    else: # 发送失败
                         logger.error(f"[私聊][{self.private_name}] 动作 '{action}': 发送回复失败。")
-                        final_status = "recall"  # 发送失败，标记为 recall
+                        final_status = "recall"
                         final_reason = "发送回复时失败"
-                        # 重置追问状态
                         conversation_info.last_successful_reply_action = None
+                        conversation_info.my_message_count = 0 # 发送失败，重置计数
 
                 elif need_replan_from_checker:
-                    # 如果 Checker 要求重新规划
                     logger.warning(
                         f"[私聊][{self.private_name}] 动作 '{action}' 因 ReplyChecker 要求而被取消，将重新规划。原因: {check_reason}"
                     )
-                    final_status = "recall"  # 标记为 recall
+                    final_status = "recall"
                     final_reason = f"回复检查要求重新规划: {check_reason}"
-                    # # 重置追问状态
-                    # conversation_info.last_successful_reply_action = None
+                    conversation_info.last_successful_reply_action = None
+                    # my_message_count 保持不变，因为没有成功发送
 
-                else:
-                    # 达到最大尝试次数仍未找到合适回复
+                else: # 达到最大尝试次数仍未找到合适回复
                     logger.warning(
                         f"[私聊][{self.private_name}] 动作 '{action}': 达到最大尝试次数 ({max_reply_attempts})，未能生成/检查通过合适的回复。最终原因: {check_reason}"
                     )
-                    final_status = "recall"  # 标记为 recall
+                    final_status = "recall"
                     final_reason = f"尝试{max_reply_attempts}次后失败: {check_reason}"
-                    # # 重置追问状态
-                    # conversation_info.last_successful_reply_action = None
+                    conversation_info.last_successful_reply_action = None
+                    # my_message_count 保持不变
 
             # 2. 处理发送告别语动作 (保持简单，不加重试)
             elif action == "say_goodbye":
@@ -888,6 +1248,25 @@ class Conversation:
                                 message_ids_to_clear.add(msg_id)
                         if message_ids_to_clear:
                             await observation_info.clear_processed_messages(message_ids_to_clear)
+
+                        ### [[[ 新增：调用关系和情绪更新 ]]] ###
+                        if conversation_info: # 确保 conversation_info 存在
+                            conversation_info.current_instance_message_count += 1
+                            logger.debug(f"[私聊][{self.private_name}] 实例消息计数(告别语后)增加到: {conversation_info.current_instance_message_count}")
+                            
+                            # 告别通常是结束，可以不进行增量关系更新，但情绪可以更新
+                            # if self.relationship_updater:
+                            # await self.relationship_updater.update_relationship_incremental(...)
+                        
+                        sent_reply_summary = self.generated_reply[:50] if self.generated_reply else "空回复"
+                        event_for_emotion_update = f"你发送了告别消息: '{sent_reply_summary}...'"
+                        if self.emotion_updater:
+                            await self.emotion_updater.update_emotion_based_on_context(
+                                conversation_info=conversation_info,
+                                observation_info=observation_info,
+                                chat_observer_for_history=self.chat_observer,
+                                event_description=event_for_emotion_update
+                            )
                         # 发送成功后结束对话
                         self.should_continue = False
                     else:
@@ -906,6 +1285,14 @@ class Conversation:
                 # 调用 GoalAnalyzer 分析并更新目标
                 await self.goal_analyzer.analyze_goal(conversation_info, observation_info)
                 action_successful = True  # 标记成功
+                event_for_emotion_update = "你重新思考了对话目标和方向"
+                if self.emotion_updater and conversation_info and observation_info: # 确保updater和info都存在
+                    await self.emotion_updater.update_emotion_based_on_context(
+                        conversation_info=conversation_info,
+                        observation_info=observation_info,
+                        chat_observer_for_history=self.chat_observer,
+                        event_description=event_for_emotion_update
+                    )
 
             # 4. 处理倾听动作
             elif action == "listening":
@@ -916,6 +1303,14 @@ class Conversation:
                 # 调用 Waiter 的倾听等待方法，内部会处理超时
                 await self.waiter.wait_listening(conversation_info)
                 action_successful = True  # listening 动作本身执行即视为成功，后续由新消息或超时驱动
+                event_for_emotion_update = "你决定耐心倾听对方的发言"
+                if self.emotion_updater and conversation_info and observation_info:
+                    await self.emotion_updater.update_emotion_based_on_context(
+                        conversation_info=conversation_info,
+                        observation_info=observation_info,
+                        chat_observer_for_history=self.chat_observer,
+                        event_description=event_for_emotion_update
+                    )
 
             # 5. 处理结束对话动作
             elif action == "end_conversation":
@@ -933,6 +1328,16 @@ class Conversation:
                 )
                 self.state = ConversationState.IGNORED  # 设置忽略状态
                 action_successful = True  # 标记成功
+                event_for_emotion_update = "当前对话让你感到不适，你决定暂时不再理会对方"
+                if self.emotion_updater and conversation_info and observation_info:
+                    # 可以让LLM判断此时的情绪，或者直接设定一个倾向（比如厌恶、不耐烦）
+                    # 这里还是让LLM判断
+                    await self.emotion_updater.update_emotion_based_on_context(
+                        conversation_info=conversation_info,
+                        observation_info=observation_info,
+                        chat_observer_for_history=self.chat_observer,
+                        event_description=event_for_emotion_update
+                    )
 
             # 7. 处理等待动作
             elif action == "wait":
@@ -944,6 +1349,19 @@ class Conversation:
                 # wait 方法返回是否超时 (True=超时, False=未超时/被新消息中断)
                 timeout_occurred = await self.waiter.wait(self.conversation_info)
                 action_successful = True  # wait 动作本身执行即视为成功
+                event_for_emotion_update = ""
+                if timeout_occurred: # 假设 timeout_occurred 能正确反映是否超时
+                    event_for_emotion_update = "你等待对方回复，但对方长时间没有回应"
+                else:
+                    event_for_emotion_update = "你选择等待对方的回复（对方可能很快回复了）"
+                
+                if self.emotion_updater and conversation_info and observation_info:
+                     await self.emotion_updater.update_emotion_based_on_context(
+                        conversation_info=conversation_info,
+                        observation_info=observation_info,
+                        chat_observer_for_history=self.chat_observer,
+                        event_description=event_for_emotion_update
+                    )
                 # wait 动作完成后不需要清理消息，等待新消息或超时触发重新规划
                 logger.debug(f"[私聊][{self.private_name}] Wait 动作完成，无需在此清理消息。")
 

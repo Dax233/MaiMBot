@@ -22,7 +22,11 @@ logger = get_logger("pfc_action_planner")
 # Prompt(1): 首次回复或非连续回复时的决策 Prompt
 PROMPT_INITIAL_REPLY = """
 当前时间：{current_time_str}
-{persona_text}。现在你在参与一场QQ私聊，请根据以下【所有信息】审慎且灵活的决策下一步行动，可以回复，可以倾听，可以调取知识，甚至可以屏蔽对方：
+{persona_text}
+现在你正在和{sender_name}在QQ上私聊
+你和对方的关系是：{relationship_text}
+你现在的心情是：{current_emotion_text}
+请根据以下【所有信息】审慎且灵活的决策下一步行动，可以回复，可以倾听，可以调取知识，甚至可以屏蔽对方：
 
 【当前对话目标】
 {goals_str}
@@ -36,15 +40,17 @@ PROMPT_INITIAL_REPLY = """
 {time_since_last_bot_message_info}{timeout_context}
 【最近的对话记录】(包括你已成功发送的消息 和 新收到的消息)
 {chat_history_text}
-【你的的回忆】
+【你的回忆】
 {retrieved_memory_str}
+
+{spam_warning_info}
 
 ------
 可选行动类型以及解释：
 listening: 倾听对方发言，当你认为对方话才说到一半，发言明显未结束时选择
 direct_reply: 直接回复对方 (当有新消息需要处理时，通常应选择此项)
 rethink_goal: 思考一个对话目标，当你觉得目前对话需要目标，或当前目标不再适用，或话题卡住时选择。注意私聊的环境是灵活的，有可能需要经常选择
-end_conversation: 结束对话，对方长时间没回复或者当你觉得对话告一段落时可以选择
+end_conversation: 结束对话，对方长时间没回复，繁忙，或者当你觉得对话告一段落时可以选择
 block_and_ignore: 更加极端的结束对话方式，直接结束对话并在一段时间内无视对方所有发言（屏蔽），当对话让你感到十分不适，或你遭到各类骚扰时选择
 
 请以JSON格式输出你的决策：
@@ -58,7 +64,11 @@ block_and_ignore: 更加极端的结束对话方式，直接结束对话并在�
 # Prompt(2): 上一次成功回复后，决定继续发言时的决策 Prompt
 PROMPT_FOLLOW_UP = """
 当前时间：{current_time_str}
-{persona_text}。现在你在参与一场QQ私聊，刚刚你已经回复了对方，请根据以下【所有信息】审慎且灵活的决策下一步行动，可以继续发送新消息，可以等待，可以倾听，可以调取知识，甚至可以屏蔽对方：
+{persona_text}
+现在你正在和{sender_name}在QQ上私聊，**并且刚刚你已经回复了对方**
+你与对方的关系是：{relationship_text}
+你现在的心情是：{current_emotion_text}
+请根据以下【所有信息】审慎且灵活的决策下一步行动，可以继续发送新消息，可以等待，可以倾听，可以调取知识，甚至可以屏蔽对方：
 
 【当前对话目标】
 {goals_str}
@@ -72,15 +82,18 @@ PROMPT_FOLLOW_UP = """
 {time_since_last_bot_message_info}{timeout_context}
 【最近的对话记录】(包括你已成功发送的消息 和 新收到的消息)
 {chat_history_text}
-【你的的回忆】
+【你的回忆】
 {retrieved_memory_str}
+
+{spam_warning_info}
+
 ------
 可选行动类型以及解释：
-wait: 暂时不说话，留给对方交互空间，等待对方回复（尤其是在你刚发言后、或上次发言因重复、发言过多被拒时、或不确定做什么时，这是不错的选择）。**重要：仅当没有未读消息时才能选择此项。**
+wait: 暂时不说话，留给对方交互空间，等待对方回复。
 listening: 倾听对方发言（虽然你刚发过言，但如果对方立刻回复且明显话没说完，可以选择这个）
-send_new_message: 发送一条新消息继续对话，允许适当的追问、补充、深入话题，或开启相关新话题。**但是避免在因重复被拒后立即使用，也不要在对方没有回复的情况下过多的“消息轰炸”或重复发言**
+send_new_message: 发送一条新消息继续对话，允许适当的追问、补充、深入话题，或开启相关新话题（但是注意看对话记录，如果对方已经没有回复你，end_conversation或wait可能更合适）。
 rethink_goal: 思考一个对话目标，当你觉得目前对话需要目标，或当前目标不再适用，或话题卡住时选择。注意私聊的环境是灵活的，有可能需要经常选择
-end_conversation: 结束对话，对方长时间没回复或者当你觉得对话告一段落时可以选择
+end_conversation: 安全和平的结束对话，对方长时间没回复、繁忙、已经不再回复你消息、明显暗示或表达想结束聊天时，可以果断选择
 block_and_ignore: 更加极端的结束对话方式，直接结束对话并在一段时间内无视对方所有发言（屏蔽），当对话让你感到十分不适，或你遭到各类骚扰时选择
 
 请以JSON格式输出你的决策：
@@ -111,6 +124,48 @@ PROMPT_END_DECISION = """
 
 注意：请严格按照 JSON 格式输出，不要包含任何其他内容。"""
 
+# Prompt(4): 当 reply_generator 决定不发送消息后的反思决策 Prompt
+PROMPT_REFLECT_AND_ACT = """
+当前时间：{current_time_str}
+{persona_text}
+现在你正在和{sender_name}在QQ上私聊
+你与对方的关系是：{relationship_text}
+你现在的心情是：{current_emotion_text}
+刚刚你本来想发一条新消息，但是想了想，你决定不发了。
+请根据以下【所有信息】审慎且灵活的决策下一步行动，可以等待，可以倾听，可以结束对话，甚至可以屏蔽对方：
+
+【当前对话目标】
+{goals_str}
+【最近行动历史概要】
+{action_history_summary}
+【你想起来的相关知识】
+{retrieved_knowledge_str}
+【上一次行动的详细情况和结果】
+{last_action_context}
+【时间和超时提示】
+{time_since_last_bot_message_info}{timeout_context}
+【最近的对话记录】(包括你已成功发送的消息 和 新收到的消息)
+{chat_history_text}
+【你的回忆】
+{retrieved_memory_str}
+
+{spam_warning_info}
+
+------
+可选行动类型以及解释：
+wait: 等待，暂时不说话。
+listening: 倾听对方发言（虽然你刚发过言，但如果对方立刻回复且明显话没说完，可以选择这个）
+rethink_goal: 思考一个对话目标，当你觉得目前对话需要目标，或当前目标不再适用，或话题卡住时选择。注意私聊的环境是灵活的，有可能需要经常选择
+end_conversation: 安全和平的结束对话，对方长时间没回复、繁忙、已经不再回复你消息、明显暗示或表达想结束聊天时，可以果断选择
+block_and_ignore: 更加极端的结束对话方式，直接结束对话并在一段时间内无视对方所有发言（屏蔽），当对话让你感到十分不适，或你遭到各类骚扰时选择
+
+请以JSON格式输出你的决策：
+{{
+    "action": "选择的行动类型 (必须是上面列表中的一个)",
+    "reason": "选择该行动的详细原因 (必须有解释你是如何根据“上一次行动结果”、“对话记录”和自身设定人设做出合理判断的。)"
+}}
+
+注意：请严格按照JSON格式输出，不要包含任何其他内容。"""
 
 class ActionPlanner:
     """行动规划器"""
@@ -149,6 +204,7 @@ class ActionPlanner:
         observation_info: ObservationInfo,
         conversation_info: ConversationInfo,
         last_successful_reply_action: Optional[str],
+        use_reflect_prompt: bool = False # 新增参数，用于指示是否使用PROMPT_REFLECT_AND_ACT
     ) -> Tuple[str, str]:
         """
         规划下一步行动。
@@ -170,6 +226,14 @@ class ActionPlanner:
             timeout_context = self._get_timeout_context(conversation_info)
             goals_str = self._build_goals_string(conversation_info)
             chat_history_text = await self._build_chat_history_text(observation_info)
+            # 获取 sender_name, relationship_text, current_emotion_text
+            sender_name_str = getattr(observation_info, 'sender_name', '对方') # 从 observation_info 获取
+            if not sender_name_str: sender_name_str = '对方' # 再次确保有默认值
+
+            relationship_text_str = getattr(conversation_info, 'relationship_text', '你们还不熟悉。')
+            current_emotion_text_str = getattr(conversation_info, 'current_emotion_text', '心情平静。')
+
+
             persona_text = f"你的名字是{self.name}，{self.personality_info}。"
             action_history_summary, last_action_context = self._build_action_history_context(conversation_info)
             retrieved_memory_str, retrieved_knowledge_str = await retrieve_contextual_info(
@@ -185,22 +249,39 @@ class ActionPlanner:
 
         # --- 2. 选择并格式化 Prompt ---
         try:
-            if last_successful_reply_action in ["direct_reply", "send_new_message"]:
+            if use_reflect_prompt: # 新增的判断
+                prompt_template = PROMPT_REFLECT_AND_ACT
+                log_msg = "使用 PROMPT_REFLECT_AND_ACT (反思决策)"
+                # 对于 PROMPT_REFLECT_AND_ACT，它不包含 send_new_message 选项，所以 spam_warning_message 中的相关提示可以调整或省略
+                # 但为了保持占位符填充的一致性，我们仍然计算它
+                spam_warning_message = ""
+                if conversation_info.my_message_count > 5: # 这里的 my_message_count 仍有意义，表示之前连续发送了多少
+                    spam_warning_message = f"⚠️【警告】**你之前已连续发送{str(conversation_info.my_message_count)}条消息！请谨慎决策。**"
+                elif conversation_info.my_message_count > 2:
+                    spam_warning_message = f"💬【提示】**你之前已连续发送{str(conversation_info.my_message_count)}条消息。请注意保持对话平衡。**"
+
+            elif last_successful_reply_action in ["direct_reply", "send_new_message"]:
                 prompt_template = PROMPT_FOLLOW_UP
                 log_msg = "使用 PROMPT_FOLLOW_UP (追问决策)"
+                spam_warning_message = ""
+                if conversation_info.my_message_count > 5:
+                    spam_warning_message = f"⚠️【警告】**你已连续发送{str(conversation_info.my_message_count)}条消息！请注意不要再选择send_new_message！以免刷屏对造成对方困扰！**"
+                elif conversation_info.my_message_count > 2:
+                    spam_warning_message = f"💬【警告】**你已连续发送{str(conversation_info.my_message_count)}条消息。请保持理智，如果非必要，请避免选择send_new_message，以免给对方造成困扰。**"
+
             else:
                 prompt_template = PROMPT_INITIAL_REPLY
                 log_msg = "使用 PROMPT_INITIAL_REPLY (首次/非连续回复决策)"
+                spam_warning_message = "" # 初始回复时通常不需要刷屏警告
+
             logger.debug(f"[私聊][{self.private_name}] {log_msg}")
 
-            current_time_value = "获取时间失败" # 默认值
+            current_time_value = "获取时间失败"
             if observation_info and hasattr(observation_info, 'current_time_str') and observation_info.current_time_str:
                 current_time_value = observation_info.current_time_str
 
-            if conversation_info.my_message_count > 5:
-                current_time_value += f"\n你已连续发送{str(conversation_info.my_message_count)}条消息，请注意不要连续发送大量消息，以免刷屏对造成对方困扰。"
-            elif conversation_info.my_message_count > 2:
-                current_time_value += f"\n你已连续发送{str(conversation_info.my_message_count)}条消息，如果没有必要请不要连续发送大量消息，以免刷屏给造成对方困扰。"
+            if spam_warning_message:
+                spam_warning_message = f"\n{spam_warning_message}\n"
 
             prompt = prompt_template.format(
                 persona_text=persona_text,
@@ -212,7 +293,11 @@ class ActionPlanner:
                 chat_history_text=chat_history_text if chat_history_text.strip() else "还没有聊天记录。",
                 retrieved_memory_str=retrieved_memory_str if retrieved_memory_str else "无相关记忆。",
                 retrieved_knowledge_str=retrieved_knowledge_str if retrieved_knowledge_str else "无相关知识。",
-                current_time_str=current_time_value # 新增：传入当前时间字符串
+                current_time_str=current_time_value,
+                spam_warning_info=spam_warning_message,
+                sender_name=sender_name_str,
+                relationship_text=relationship_text_str,
+                current_emotion_text=current_emotion_text_str
             )
             logger.debug(f"[私聊][{self.private_name}] 发送到LLM的最终提示词:\n------\n{prompt}\n------")
         except KeyError as fmt_key_err:
@@ -270,7 +355,7 @@ class ActionPlanner:
         #     final_reason = initial_reason
 
         # --- 5. 验证最终行动类型 ---
-        valid_actions = [
+        valid_actions_default = [
             "direct_reply",
             "send_new_message",
             "wait",
@@ -280,7 +365,19 @@ class ActionPlanner:
             "block_and_ignore",
             "say_goodbye",
         ]
-        if final_action not in valid_actions:
+        valid_actions_reflect = [ # PROMPT_REFLECT_AND_ACT 的动作
+            "wait",
+            "listening",
+            "rethink_goal",
+            "end_conversation",
+            "block_and_ignore",
+            # PROMPT_REFLECT_AND_ACT 也可以 end_conversation，然后也可能触发 say_goodbye
+            "say_goodbye",
+        ]
+
+        current_valid_actions = valid_actions_reflect if use_reflect_prompt else valid_actions_default
+
+        if final_action not in current_valid_actions:
             logger.warning(f"[私聊][{self.private_name}] LLM 返回了未知的行动类型: '{final_action}'，强制改为 wait")
             final_reason = f"(原始行动'{final_action}'无效，已强制改为wait) {final_reason}"
             final_action = "wait"  # 遇到无效动作，默认等待
@@ -336,7 +433,7 @@ class ActionPlanner:
                     and "思考接下来要做什么" in last_goal_text
                 ):
                     wait_time_str = last_goal_text.split("分钟，")[0].replace("你等待了", "").strip()
-                    timeout_context = f"重要提示：对方已经长时间（约 {wait_time_str} 分钟）没有回复你的消息了，请基于此情况规划下一步。\n"
+                    timeout_context = f"重要提示：对方已经长时间（约 {wait_time_str} 分钟）没有回复你的消息了，对方可能去忙了，也可能在对方看来对话已经结束。请基于此情况规划下一步。\n"
                     logger.debug(f"[私聊][{self.private_name}] 检测到超时目标: {last_goal_text}")
         except AttributeError as e:
             logger.warning(f"[私聊][{self.private_name}] 检查超时目标时属性错误: {e}")
