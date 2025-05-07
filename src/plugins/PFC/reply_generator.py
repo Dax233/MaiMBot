@@ -153,8 +153,8 @@ class ReplyGenerator:
 
         Returns:
             str: 生成的回复。
-                 对于 'direct_reply' 和 'say_goodbye'，返回纯文本回复。
-                 对于 'send_new_message'，返回包含决策和文本的JSON字符串。
+                对于 'direct_reply' 和 'say_goodbye'，返回纯文本回复。
+                对于 'send_new_message'，返回包含决策和文本的JSON字符串。
         """
         logger.debug(
             f"[私聊][{self.private_name}]开始生成回复 (动作类型: {action_type})：当前目标: {conversation_info.goal_list}"
@@ -233,11 +233,11 @@ class ReplyGenerator:
         spam_warning_message = ""
         if action_type == "send_new_message": # 只在 send_new_message 时构建刷屏警告
             if conversation_info.my_message_count > 5:
-                 spam_warning_message = f"⚠️【警告】**你已连续发送{str(conversation_info.my_message_count)}条消息！请谨慎考虑是否继续发送！以免刷屏对造成对方困扰！**"
+                spam_warning_message = f"⚠️【警告】**你已连续发送{str(conversation_info.my_message_count)}条消息！请谨慎考虑是否继续发送！以免刷屏对造成对方困扰！**"
             elif conversation_info.my_message_count > 2:
-                 spam_warning_message = f"💬【提示】**你已连续发送{str(conversation_info.my_message_count)}条消息。如果非必要，请避免连续发送，以免给对方造成困扰。**"
+                spam_warning_message = f"💬【提示】**你已连续发送{str(conversation_info.my_message_count)}条消息。如果非必要，请避免连续发送，以免给对方造成困扰。**"
             if spam_warning_message:
-                 spam_warning_message = f"\n{spam_warning_message}\n"
+                spam_warning_message = f"\n{spam_warning_message}\n"
 
 
         # --- 选择 Prompt ---
@@ -352,7 +352,7 @@ response_language = "Recommend Chinese"
                     sender_name=sender_name_str,
                     relationship_text=relationship_text_str,
                     current_emotion_text=current_emotion_text_str
-                 )
+                )
             elif action_type == "send_new_message": # PROMPT_SEND_NEW_MESSAGE 增加了 spam_warning_info
                 prompt += prompt_template.format(
                     persona_text=persona_text,
@@ -368,7 +368,7 @@ response_language = "Recommend Chinese"
                     spam_warning_info=spam_warning_message # 添加 spam_warning_info
                 )
             else: # PROMPT_DIRECT_REPLY (没有 spam_warning_info)
-                prompt = prompt_template.format(
+                prompt += prompt_template.format(
                     persona_text=persona_text,
                     goals_str=goals_str,
                     chat_history_text=chat_history_text,
