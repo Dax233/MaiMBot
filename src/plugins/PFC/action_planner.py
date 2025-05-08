@@ -9,7 +9,7 @@ from ..models.utils_model import LLMRequest
 from src.config.config import global_config
 
 # 确保导入路径正确
-from .pfc_utils import get_items_from_json, retrieve_contextual_info
+from .pfc_utils import get_items_from_json
 from .chat_observer import ChatObserver
 from .observation_info import ObservationInfo
 from .conversation_info import ConversationInfo
@@ -215,7 +215,8 @@ class ActionPlanner:
             chat_history_text = await self._build_chat_history_text(observation_info)
             # 获取 sender_name, relationship_text, current_emotion_text
             sender_name_str = getattr(observation_info, 'sender_name', '对方') # 从 observation_info 获取
-            if not sender_name_str: sender_name_str = '对方' # 再次确保有默认值
+            if not sender_name_str:
+                sender_name_str = '对方' # 再次确保有默认值
 
             relationship_text_str = getattr(conversation_info, 'relationship_text', '你们还不熟悉。')
             current_emotion_text_str = getattr(conversation_info, 'current_emotion_text', '心情平静。')
@@ -588,7 +589,7 @@ response_language = "Recommend Chinese"
                     logger.debug(f"[私聊][{self.private_name}] 向 LLM 追加了 {other_unread_count} 条未读消息。")
                 else:
                     chat_history_text += (
-                        f"\n--- 以上均为已读消息，未读消息均已处理完毕 ---\n"
+                        "\n--- 以上均为已读消息，未读消息均已处理完毕 ---\n"
                     )
         except AttributeError as e:
             logger.warning(f"[私聊][{self.private_name}] 构建聊天记录文本时属性错误: {e}")
