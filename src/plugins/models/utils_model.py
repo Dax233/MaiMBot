@@ -161,7 +161,7 @@ class LLMRequest:
                 elif isinstance(raw_api_key_config, str) and raw_api_key_config:
                     parsed_keys = [raw_api_key_config]
                 else:
-                    raise ValueError(f"Invalid or empty API key config for {self.model_key_name}: {raw_api_key_config}") from e
+                    raise ValueError(f"Invalid or empty API key config for {self.model_key_name}: {raw_api_key_config}")
 
             if not parsed_keys:
                 raise ValueError(f"No valid API keys found for {self.model_key_name}.")
@@ -774,7 +774,7 @@ class LLMRequest:
         """处理非 HTTP 错误，支持使用合并后的参数重建 payload"""
         policy = request_content["policy"]
         payload = request_content["payload"]
-        wait_time = policy["base_wait"] * (2**retry_count)
+        _wait_time = policy["base_wait"] * (2**retry_count)
         keep_request = False
         if retry_count < policy["max_retries"] - 1:
             keep_request = True
