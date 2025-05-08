@@ -123,7 +123,6 @@ class LLMRequest:
 
     def __init__(self, model: dict, **kwargs):
         """初始化 LLMRequest 实例"""
-        # (代码不变)
         self.model_key_name = model["key"]
         self.model_name: str = model["name"]
         self.params = kwargs
@@ -154,17 +153,14 @@ class LLMRequest:
                     parsed_keys = [loaded_keys]
                 else:
                     raise ValueError(f"Parsed API key for {self.model_key_name} is not a valid list or string.")
-            except (json.JSONDecodeError, TypeError):
+            except (json.JSONDecodeError, TypeError) as e:
                 if isinstance(raw_api_key_config, list):
                     parsed_keys = [str(key) for key in raw_api_key_config if key]
                     is_list_config = True
                 elif isinstance(raw_api_key_config, str) and raw_api_key_config:
                     parsed_keys = [raw_api_key_config]
                 else:
-                    raise ValueError(f"Invalid or empty API key config for {self.model_key_name}: {raw_api_key_config}")
-
-            if not parsed_keys:
-                raise ValueError(f"No valid API keys found for {self.model_key_name}.")
+                    raise ValueError(f"Invalid or empty API key config for {self.model_key_name}: {raw_api_key_config}") from e
 
             abandoned_key_name = f"abandon_{self.model_key_name}"
             abandoned_keys_set = set()
