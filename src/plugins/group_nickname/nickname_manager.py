@@ -189,7 +189,7 @@ class NicknameManager:
         else:
             logger.info("绰号处理器线程未在运行或已被清理。")
 
-    def empty_queue(q: asyncio.Queue):
+    def empty_queue(self, q: asyncio.Queue):
         while not q.empty():
             # Depending on your program, you may want to
             # catch QueueEmpty
