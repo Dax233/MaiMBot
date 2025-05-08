@@ -254,7 +254,7 @@ async def handle_action(
                     conversation_info.last_rejected_reply_content = generated_content_for_check_or_send
 
                     # 如果是机器人自身复读，且检查器认为不需要重规划 (这是新版 ReplyChecker 的逻辑)
-                    if check_reason == "机器人尝试发送重复消息" and not need_replan_from_checker:
+                    if check_reason == f"{global_config.BOT_NICKNAME}尝试发送重复消息" and not need_replan_from_checker:
                         logger.warning(
                             f"{log_prefix} 回复因自身重复被拒绝: {check_reason}。将使用相同 Prompt 类型重试。"
                         )
@@ -334,7 +334,7 @@ async def handle_action(
                         observation_info.chat_history.append(bot_message_dict)
                         observation_info.chat_history_count = len(observation_info.chat_history)
                         logger.debug(
-                            f"[私聊][{conversation_instance.private_name}] 机器人发送的消息已添加到 chat_history。当前历史数: {observation_info.chat_history_count}"
+                            f"[私聊][{conversation_instance.private_name}] {global_config.BOT_NICKNAME}发送的消息已添加到 chat_history。当前历史数: {observation_info.chat_history_count}"
                         )
 
                         # 可选：如果 chat_history 过长，进行修剪 (例如，保留最近N条)
@@ -413,7 +413,7 @@ async def handle_action(
                     if conversation_info:  # 再次确认
                         conversation_info.current_instance_message_count += 1
                         logger.debug(
-                            f"[私聊][{conversation_instance.private_name}] 实例消息计数(机器人发送后)增加到: {conversation_info.current_instance_message_count}"
+                            f"[私聊][{conversation_instance.private_name}] 实例消息计数({global_config.BOT_NICKNAME}发送后)增加到: {conversation_info.current_instance_message_count}"
                         )
 
                         if conversation_instance.relationship_updater:  # 确保存在
@@ -734,7 +734,7 @@ async def handle_action(
                 if specific_rejection_reason:  # 如果有更具体的原因
                     final_reason = f"执行失败: {specific_rejection_reason}"
                     if (
-                        rejected_content and specific_rejection_reason == "机器人尝试发送重复消息"
+                        rejected_content and specific_rejection_reason == f"{global_config.BOT_NICKNAME}尝试发送重复消息"
                     ):  # 对复读提供更清晰的日志
                         final_reason += f" (内容: '{rejected_content[:30]}...')"
                 elif not final_reason or final_reason == "动作未成功执行":  # 如果没有更具体的原因，且当前原因还是默认的
