@@ -172,7 +172,9 @@ class Individuality:
             if self.identity.appearance:
                 identity_parts.append(f"{self.identity.appearance}")
             if self.identity.age > 0:
-                identity_parts.append(f"年龄大约{self.identity.age}岁，因当前世界观地球公转一周需要600天，所以相当于人类18岁")
+                identity_parts.append(
+                    f"年龄大约{self.identity.age}岁，因当前世界观地球公转一周需要600天，所以相当于人类18岁"
+                )
             if self.identity.gender:
                 identity_parts.append(f"性别是{self.identity.gender}")
 
@@ -212,7 +214,7 @@ class Individuality:
             level = 2
         elif global_config.personality_detail_level == 3:
             level = 3
-        else: # level = 0
+        else:  # level = 0
             pass
 
         # 调用新的独立方法

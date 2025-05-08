@@ -153,7 +153,9 @@ class BotConfig:
             "用一句话或几句话描述人格的一些侧面",
         ]
     )
-    personality_detail_level: int = 0 # 人设消息注入 prompt 详细等级 (0: 采用默认配置, 1: 核心/随机细节, 2: 核心+随机侧面/全部细节, 3: 全部)
+    personality_detail_level: int = (
+        0  # 人设消息注入 prompt 详细等级 (0: 采用默认配置, 1: 核心/随机细节, 2: 核心+随机侧面/全部细节, 3: 全部)
+    )
     # identity
     identity_detail: List[str] = field(
         default_factory=lambda: [
@@ -179,7 +181,7 @@ class BotConfig:
 
     base_normal_chat_num: int = 3  # 最多允许多少个群进行普通聊天
     base_focused_chat_num: int = 2  # 最多允许多少个群进行专注聊天
-    allow_remove_duplicates: bool = True # 是否开启心流去重（如果发现心流截断问题严重可尝试关闭）
+    allow_remove_duplicates: bool = True  # 是否开启心流去重（如果发现心流截断问题严重可尝试关闭）
 
     observation_context_size: int = 12  # 心流观察到的最长上下文大小，超过这个值的上下文会被压缩
 
@@ -244,7 +246,7 @@ class BotConfig:
         default_factory=lambda: ["表情包", "图片", "回复", "聊天记录"]
     )  # 添加新的配置项默认值
 
-    long_message_auto_truncate: bool = True # HFC 模式过长消息自动截断，防止他人 prompt 恶意注入，减少token消耗，但可能损失图片/长文信息，按需选择状态（默认开启）
+    long_message_auto_truncate: bool = True  # HFC 模式过长消息自动截断，防止他人 prompt 恶意注入，减少token消耗，但可能损失图片/长文信息，按需选择状态（默认开启）
 
     # mood
     mood_update_interval: float = 1.0  # 情绪更新间隔 单位秒
@@ -278,7 +280,7 @@ class BotConfig:
     talk_allowed_private = set()
     enable_pfc_chatting: bool = False  # 是否启用PFC聊天
     api_polling_max_retries: int = 3  # 神秘小功能
-    enable_pfc_reply_checker: bool = True # 是否开启PFC回复检查
+    enable_pfc_reply_checker: bool = True  # 是否开启PFC回复检查
 
     # Group Nickname
     enable_nickname_mapping: bool = False  # 绰号映射功能总开关
@@ -291,8 +293,8 @@ class BotConfig:
     # idle_conversation
     enable_idle_conversation: bool = False  # 是否开启 PFC 空闲主动聊天
     idle_check_interval: int = 10  # 检查间隔，10分钟检查一次
-    min_idle_time: int = 7200      # 最短无活动时间，2小时 (7200秒)
-    max_idle_time: int = 18000     # 最长无活动时间，5小时 (18000秒)
+    min_idle_time: int = 7200  # 最短无活动时间，2小时 (7200秒)
+    max_idle_time: int = 18000  # 最长无活动时间，5小时 (18000秒)
 
     # 模型配置
     llm_reasoning: dict[str, str] = field(default_factory=lambda: {})
@@ -384,7 +386,9 @@ class BotConfig:
                 config.personality_core = personality_config.get("personality_core", config.personality_core)
                 config.personality_sides = personality_config.get("personality_sides", config.personality_sides)
             if config.INNER_VERSION in SpecifierSet(">=1.6.1.2"):
-                config.personality_detail_level = personality_config.get("personality_detail_level", config.personality_sides)
+                config.personality_detail_level = personality_config.get(
+                    "personality_detail_level", config.personality_sides
+                )
 
         def identity(parent: dict):
             identity_config = parent["identity"]
@@ -470,7 +474,9 @@ class BotConfig:
             for r in chat_config.get("ban_msgs_regex", config.ban_msgs_regex):
                 config.ban_msgs_regex.add(re.compile(r))
             if config.INNER_VERSION in SpecifierSet(">=1.6.1.2"):
-                config.allow_remove_duplicates = chat_config.get("allow_remove_duplicates", config.allow_remove_duplicates)
+                config.allow_remove_duplicates = chat_config.get(
+                    "allow_remove_duplicates", config.allow_remove_duplicates
+                )
 
         def normal_chat(parent: dict):
             normal_chat_config = parent["normal_chat"]
@@ -716,16 +722,24 @@ class BotConfig:
             if config.INNER_VERSION in SpecifierSet(">=1.1.0"):
                 config.enable_pfc_chatting = experimental_config.get("pfc_chatting", config.enable_pfc_chatting)
             if config.INNER_VERSION in SpecifierSet(">=1.6.1.5"):
-                config.api_polling_max_retries = experimental_config.get("api_polling_max_retries", config.api_polling_max_retries)
-            if config.INNER_VERSION in SpecifierSet(">=1.6.2.1"): 
-                config.enable_pfc_reply_checker = experimental_config.get("enable_pfc_reply_checker", config.enable_pfc_reply_checker)
+                config.api_polling_max_retries = experimental_config.get(
+                    "api_polling_max_retries", config.api_polling_max_retries
+                )
+            if config.INNER_VERSION in SpecifierSet(">=1.6.2.1"):
+                config.enable_pfc_reply_checker = experimental_config.get(
+                    "enable_pfc_reply_checker", config.enable_pfc_reply_checker
+                )
                 logger.info(f"PFC Reply Checker 状态: {'启用' if config.enable_pfc_reply_checker else '关闭'}")
 
         def idle_conversation(parent: dict):
             idle_conversation_config = parent["idle_conversation"]
             if config.INNER_VERSION in SpecifierSet(">=1.6.1.6"):
-                config.enable_idle_conversation = idle_conversation_config.get("enable_idle_conversation", config.enable_idle_conversation)
-                config.idle_check_interval = idle_conversation_config.get("idle_check_interval", config.idle_check_interval)
+                config.enable_idle_conversation = idle_conversation_config.get(
+                    "enable_idle_conversation", config.enable_idle_conversation
+                )
+                config.idle_check_interval = idle_conversation_config.get(
+                    "idle_check_interval", config.idle_check_interval
+                )
                 config.min_idle_time = idle_conversation_config.get("min_idle_time", config.min_idle_time)
                 config.max_idle_time = idle_conversation_config.get("max_idle_time", config.max_idle_time)
 
