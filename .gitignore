@@ -300,4 +300,5 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
-daxrun.py
+__pycache__/
+*.pyc
