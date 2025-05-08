@@ -304,13 +304,6 @@ temp = 0.3
 pri_in = 2
 pri_out = 8
 
-#PFC检查模型
-[model.llm_PFC_reply_checker]
-name = "Pro/deepseek-ai/DeepSeek-V3"
-provider = "SILICONFLOW"
-pri_in = 2
-pri_out = 8
-
 #绰号映射生成模型
 [model.llm_nickname_mapping]
 name = "Qwen/Qwen2.5-32B-Instruct"

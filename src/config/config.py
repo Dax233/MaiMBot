@@ -541,7 +541,6 @@ class BotConfig:
                 "llm_heartflow",
                 "llm_PFC_action_planner",
                 "llm_PFC_chat",
-                "llm_PFC_reply_checker",
                 "llm_nickname_mapping",
                 "llm_scheduler_all",
                 "llm_scheduler_doing",
