@@ -160,7 +160,7 @@ class IdleChat:
     def start(self) -> None:
         """启动主动聊天检测"""
         # 检查是否启用了主动聊天功能
-        if not getattr(global_config, "ENABLE_IDLE_CONVERSATION", False):
+        if not global_config.enable_idle_conversation:
             logger.info(f"[私聊][{self.private_name}]主动聊天功能已禁用（配置ENABLE_IDLE_CONVERSATION=False）")
             return
 
@@ -353,7 +353,7 @@ class IdleChat:
         try:
             while self._running:
                 # 检查是否启用了主动聊天功能
-                if not getattr(global_config, "ENABLE_IDLE_CONVERSATION", False):
+                if not global_config.enable_idle_conversation:
                     # 如果禁用了功能，等待一段时间后再次检查配置
                     await asyncio.sleep(60)  # 每分钟检查一次配置变更
                     continue
