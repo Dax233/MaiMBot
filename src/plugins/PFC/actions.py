@@ -254,7 +254,7 @@ async def handle_action(
                     conversation_info.last_rejected_reply_content = generated_content_for_check_or_send
 
                     # 如果是机器人自身复读，且检查器认为不需要重规划 (这是新版 ReplyChecker 的逻辑)
-                    if check_reason == f"{global_config.BOT_NICKNAME}尝试发送重复消息" and not need_replan_from_checker:
+                    if check_reason == f"机器人尝试发送重复消息" and not need_replan_from_checker:
                         logger.warning(
                             f"{log_prefix} 回复因自身重复被拒绝: {check_reason}。将使用相同 Prompt 类型重试。"
                         )
@@ -734,7 +734,7 @@ async def handle_action(
                 if specific_rejection_reason:  # 如果有更具体的原因
                     final_reason = f"执行失败: {specific_rejection_reason}"
                     if (
-                        rejected_content and specific_rejection_reason == f"{global_config.BOT_NICKNAME}尝试发送重复消息"
+                        rejected_content and specific_rejection_reason == f"机器人尝试发送重复消息"
                     ):  # 对复读提供更清晰的日志
                         final_reason += f" (内容: '{rejected_content[:30]}...')"
                 elif not final_reason or final_reason == "动作未成功执行":  # 如果没有更具体的原因，且当前原因还是默认的
