@@ -176,6 +176,7 @@ class NicknameManager:
             self._stop_event.set()  # 设置停止事件，_processing_loop 会检测到
             try:
                 # 不需要清空 asyncio.Queue，让循环自然结束或被取消
+                self.empty_queue(self.nickname_queue)
                 self._nickname_thread.join(timeout=10)  # 等待线程结束
                 if self._nickname_thread.is_alive():
                     logger.warning("绰号处理器线程在超时后仍未停止。")
@@ -187,6 +188,13 @@ class NicknameManager:
                 self._nickname_thread = None
         else:
             logger.info("绰号处理器线程未在运行或已被清理。")
+
+    def empty_queue(q: asyncio.Queue):
+        while not q.empty():
+            # Depending on your program, you may want to
+            # catch QueueEmpty
+            q.get_nowait()
+            q.task_done()
 
     async def trigger_nickname_analysis(
         self,
