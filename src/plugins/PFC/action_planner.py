@@ -3,7 +3,8 @@ import traceback
 from typing import Tuple, Optional, Dict, Any, List
 
 from src.common.logger_manager import get_logger
-from src.individuality.individuality import Individuality
+
+# from src.individuality.individuality import Individuality
 from src.plugins.utils.chat_message_builder import build_readable_messages
 from ..models.utils_model import LLMRequest
 from src.config.config import global_config
@@ -182,7 +183,7 @@ class ActionPlanner:
             raise
 
         # 获取个性化信息和机器人名称
-        self.personality_info = Individuality.get_instance().get_prompt(x_person=2, level=3)
+        # self.personality_info = Individuality.get_instance().get_prompt(x_person=2, level=3)
         self.name = global_config.BOT_NICKNAME
         # 获取 ChatObserver 实例 (单例模式)
         self.chat_observer = ChatObserver.get_instance(stream_id, private_name)
