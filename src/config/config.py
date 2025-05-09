@@ -778,6 +778,7 @@ class BotConfig:
             "normal_chat": {"func": normal_chat, "support": ">=1.6.0", "necessary": False},
             "focus_chat": {"func": focus_chat, "support": ">=1.6.0", "necessary": False},
             "idle_chat": {"func": idle_chat, "support": ">=1.6.2", "necessary": False},
+            "group_nickname": {"func": group_nickname, "support": ">=1.6.1.1", "necessary": False},
         }
 
         # 原地修改，将 字符串版本表达式 转换成 版本对象
