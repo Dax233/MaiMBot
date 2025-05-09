@@ -214,7 +214,7 @@ class NicknameManager:
         if not current_chat_stream or not current_chat_stream.group_info:
             logger.debug("跳过绰号分析：非群聊或无效的聊天流。")
             return
-        
+
         if random.random() > 0.1:
             logger.debug("跳过绰号分析：随机概率未命中。")
             return
