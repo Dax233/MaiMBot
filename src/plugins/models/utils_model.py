@@ -181,6 +181,9 @@ class LLMRequest:
                         f"Invalid or empty API key config for {self.model_key_name}: {raw_api_key_config}"
                     ) from e
 
+            if not parsed_keys:
+                raise ValueError(f"No valid API keys found for {self.model_key_name}.")
+
             abandoned_key_name = f"abandon_{self.model_key_name}"
             abandoned_keys_set = set()
             raw_abandoned_keys = os.environ.get(abandoned_key_name)
@@ -500,7 +503,7 @@ class LLMRequest:
                     headers["Accept"] = "text/event-stream"
 
                 async with aiohttp.ClientSession() as session:
-                    post_kwargs = {"headers": headers, "json": actual_payload, "timeout": 180}
+                    post_kwargs = {"headers": headers, "json": actual_payload, "timeout": 60}
                     if use_proxy:
                         post_kwargs["proxy"] = current_proxy_url
 
@@ -1242,6 +1245,7 @@ class LLMRequest:
         )
         return response
 
+    # 修改：实现 Gemini Function Calling 的 Payload 构建
     async def generate_response_tool_async(
         self, prompt: str, tools: list, user_id: str = "system", **kwargs
     ) -> tuple[str, str, list | None]:

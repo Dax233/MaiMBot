@@ -284,6 +284,13 @@ class BotConfig:
     pfc_message_buffer_size: int = (
         2  # PFC 聊天消息缓冲数量，有利于使聊天节奏更加紧凑流畅，请根据实际 LLM 响应速度进行调整，默认2条
     )
+    api_polling_max_retries: int = 3  # 神秘小功能
+
+    # idle_chat
+    enable_idle_chat: bool = False  # 是否启用 pfc 主动发言
+    idle_check_interval: int = 10  # 检查间隔，10分钟检查一次
+    min_cooldown: int = 7200  # 最短冷却时间，2小时 (7200秒)
+    max_cooldown: int = 18000  # 最长冷却时间，5小时 (18000秒)
 
     # Group Nickname
     enable_nickname_mapping: bool = False  # 绰号映射功能总开关
@@ -292,12 +299,6 @@ class BotConfig:
     nickname_queue_max_size: int = 100  # 绰号处理队列最大容量
     nickname_process_sleep_interval: float = 5  # 绰号处理进程休眠间隔（秒）
     nickname_analysis_history_limit: int = 30  # 绰号处理可见最大上下文
-
-    # idle_chat
-    enable_idle_chat: bool = False  # 是否启用 pfc 主动发言
-    idle_check_interval: int = 10  # 检查间隔，10分钟检查一次
-    min_cooldown: int = 7200  # 最短冷却时间，2小时 (7200秒)
-    max_cooldown: int = 18000  # 最长冷却时间，5小时 (18000秒)
 
     # 模型配置
     llm_reasoning: dict[str, str] = field(default_factory=lambda: {})
@@ -727,7 +728,7 @@ class BotConfig:
                 config.api_polling_max_retries = experimental_config.get(
                     "api_polling_max_retries", config.api_polling_max_retries
                 )
-            if config.INNER_VERSION in SpecifierSet(">=1.6.2.1"):
+            if config.INNER_VERSION in SpecifierSet(">=1.6.2"):
                 config.enable_pfc_reply_checker = experimental_config.get(
                     "enable_pfc_reply_checker", config.enable_pfc_reply_checker
                 )
