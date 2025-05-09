@@ -290,7 +290,7 @@ class BotConfig:
     max_nicknames_in_prompt: int = 10  # Prompt 中最多注入的绰号数量
     nickname_probability_smoothing: int = 1  # 绰号加权随机选择的平滑因子
     nickname_queue_max_size: int = 100  # 绰号处理队列最大容量
-    nickname_process_sleep_interval: float = 60  # 绰号处理进程休眠间隔（秒）
+    nickname_process_sleep_interval: float = 5  # 绰号处理进程休眠间隔（秒）
     nickname_analysis_history_limit: int = 30  # 绰号处理可见最大上下文
 
     # idle_chat
@@ -738,7 +738,7 @@ class BotConfig:
 
         def idle_chat(parent: dict):
             idle_chat_config = parent["idle_chat"]
-            if config.INNER_VERSION in SpecifierSet(">=1.6.2"):
+            if config.INNER_VERSION in SpecifierSet(">=1.6.1.6"):
                 config.enable_idle_chat = idle_chat_config.get("enable_idle_chat", config.enable_idle_chat)
                 config.idle_check_interval = idle_chat_config.get("idle_check_interval", config.idle_check_interval)
                 config.min_cooldown = idle_chat_config.get("min_cooldown", config.min_cooldown)
