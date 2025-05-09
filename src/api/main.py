@@ -27,7 +27,7 @@ router = APIRouter()
 logger = get_logger("api")
 
 # maiapi = FastAPI()
-logger.info("麦麦API服务器已启动")
+logger.info("枫のAPI服务器已启动")
 graphql_router = GraphQLRouter(schema=None, path="/")  # Replace `None` with your actual schema
 
 router.include_router(graphql_router, prefix="/graphql", tags=["GraphQL"])
