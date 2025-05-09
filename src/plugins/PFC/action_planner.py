@@ -237,25 +237,10 @@ class ActionPlanner:
             if use_reflect_prompt:  # 新增的判断
                 prompt_template = PROMPT_REFLECT_AND_ACT
                 log_msg = "使用 PROMPT_REFLECT_AND_ACT (反思决策)"
-                # 对于 PROMPT_REFLECT_AND_ACT，它不包含 send_new_message 选项，所以 spam_warning_message 中的相关提示可以调整或省略
-                # 但为了保持占位符填充的一致性，我们仍然计算它
-                # spam_warning_message = ""
-                # if conversation_info.my_message_count > 5:  # 这里的 my_message_count 仍有意义，表示之前连续发送了多少
-                # spam_warning_message = (
-                # f"⚠️【警告】**你之前已连续发送{str(conversation_info.my_message_count)}条消息！请谨慎决策。**"
-                # )
-                # elif conversation_info.my_message_count > 2:
-                # spam_warning_message = f"💬【提示】**你之前已连续发送{str(conversation_info.my_message_count)}条消息。请注意保持对话平衡。**"
 
             elif last_successful_reply_action in ["direct_reply", "send_new_message"]:
                 prompt_template = PROMPT_FOLLOW_UP
                 log_msg = "使用 PROMPT_FOLLOW_UP (追问决策)"
-                # spam_warning_message = ""
-                # if conversation_info.my_message_count > 5:
-                # spam_warning_message = f"⚠️【警告】**你已连续发送{str(conversation_info.my_message_count)}条消息！请注意不要再选择send_new_message！以免刷屏对造成对方困扰！**"
-                # elif conversation_info.my_message_count > 2:
-                # spam_warning_message = f"💬【警告】**你已连续发送{str(conversation_info.my_message_count)}条消息。请保持理智，如果非必要，请避免选择send_new_message，以免给对方造成困扰。**"
-
             else:
                 prompt_template = PROMPT_INITIAL_REPLY
                 log_msg = "使用 PROMPT_INITIAL_REPLY (首次/非连续回复决策)"

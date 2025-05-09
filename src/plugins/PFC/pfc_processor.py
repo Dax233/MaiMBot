@@ -29,7 +29,7 @@ async def _handle_error(error: Exception, context: str, message: Optional[Messag
 
 
 class PFCProcessor:
-    """PFC 处理器，负责处理接收到的信息并计数"""
+    """PFC 处理器，负责处理接收到的信息"""
 
     def __init__(self):
         """初始化 PFC 处理器，创建消息存储实例"""
