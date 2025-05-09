@@ -293,11 +293,11 @@ class BotConfig:
     nickname_process_sleep_interval: float = 60  # 绰号处理进程休眠间隔（秒）
     nickname_analysis_history_limit: int = 30  # 绰号处理可见最大上下文
 
-    # idle_conversation
-    enable_idle_conversation: bool = False  # 是否开启 PFC 空闲主动聊天
+    # idle_chat
+    enable_idle_chat: bool = False  # 是否启用 pfc 主动发言
     idle_check_interval: int = 10  # 检查间隔，10分钟检查一次
-    min_idle_time: int = 7200  # 最短无活动时间，2小时 (7200秒)
-    max_idle_time: int = 18000  # 最长无活动时间，5小时 (18000秒)
+    min_cooldown: int = 7200  # 最短冷却时间，2小时 (7200秒)
+    max_cooldown: int = 18000  # 最长冷却时间，5小时 (18000秒)
 
     # 模型配置
     llm_reasoning: dict[str, str] = field(default_factory=lambda: {})
@@ -736,17 +736,13 @@ class BotConfig:
                     "pfc_message_buffer_size", config.pfc_message_buffer_size
                 )
 
-        def idle_conversation(parent: dict):
-            idle_conversation_config = parent["idle_conversation"]
-            if config.INNER_VERSION in SpecifierSet(">=1.6.1.6"):
-                config.enable_idle_conversation = idle_conversation_config.get(
-                    "enable_idle_conversation", config.enable_idle_conversation
-                )
-                config.idle_check_interval = idle_conversation_config.get(
-                    "idle_check_interval", config.idle_check_interval
-                )
-                config.min_idle_time = idle_conversation_config.get("min_idle_time", config.min_idle_time)
-                config.max_idle_time = idle_conversation_config.get("max_idle_time", config.max_idle_time)
+        def idle_chat(parent: dict):
+            idle_chat_config = parent["idle_chat"]
+            if config.INNER_VERSION in SpecifierSet(">=1.6.2"):
+                config.enable_idle_chat = idle_chat_config.get("enable_idle_chat", config.enable_idle_chat)
+                config.idle_check_interval = idle_chat_config.get("idle_check_interval", config.idle_check_interval)
+                config.min_cooldown = idle_chat_config.get("min_cooldown", config.min_cooldown)
+                config.max_cooldown = idle_chat_config.get("max_cooldown", config.max_cooldown)
 
         # 版本表达式：>=1.0.0,<2.0.0
         # 允许字段：func: method, support: str, notice: str, necessary: bool
@@ -781,8 +777,7 @@ class BotConfig:
             "chat": {"func": chat, "support": ">=1.6.0", "necessary": False},
             "normal_chat": {"func": normal_chat, "support": ">=1.6.0", "necessary": False},
             "focus_chat": {"func": focus_chat, "support": ">=1.6.0", "necessary": False},
-            "group_nickname": {"func": group_nickname, "support": ">=1.6.1.1", "necessary": False},
-            "idle_conversation": {"func": idle_conversation, "support": ">=1.6.1.6", "necessary": False},
+            "idle_chat": {"func": idle_chat, "support": ">=1.6.2", "necessary": False},
         }
 
         # 原地修改，将 字符串版本表达式 转换成 版本对象
