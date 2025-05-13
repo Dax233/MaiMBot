@@ -417,6 +417,7 @@ def calculate_typing_time(
     if chinese_chars == 1 and len(input_string.strip()) == 1:
         return chinese_time * 3 + 0.3  # 加上回车时间
 
+    total_time = 0
     # 正常计算所有字符的输入时间
     for char in input_string:
         if "\u4e00" <= char <= "\u9fff":  # 判断是否为中文字符
