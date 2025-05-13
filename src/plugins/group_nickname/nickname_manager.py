@@ -145,7 +145,7 @@ class NicknameManager:
             self.nickname_queue: asyncio.Queue = asyncio.Queue(maxsize=self.queue_max_size)
             self._stop_event = threading.Event()  # stop_event 仍然使用 threading.Event，因为它是由另一个线程设置的
             self._nickname_thread: Optional[threading.Thread] = None
-            self.sleep_interval = getattr(self.config, "nickname_process_sleep_interval", 60)  # 超时时间
+            self.sleep_interval = getattr(self.config, "nickname_process_sleep_interval", 5)  # 超时时间
 
             self._initialized = True
             logger.info("NicknameManager 初始化完成。")
@@ -211,7 +211,7 @@ class NicknameManager:
         if not self.is_enabled:
             return
 
-        if random.random() > 0.9:
+        if random.random() < global_config.nickname_analysis_probability:
             logger.debug("跳过绰号分析：随机概率未命中。")
             return
 
