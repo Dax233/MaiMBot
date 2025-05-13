@@ -144,11 +144,11 @@ class StatisticOutputTask(AsyncTask):
         now = datetime.now() # Renamed to avoid conflict with 'now' in methods
         if "deploy_time" in local_storage:
             # 如果存在部署时间，则使用该时间作为全量统计的起始时间
-            deploy_time_init = datetime.fromtimestamp(local_storage["deploy_time"])
+            deploy_time = datetime.fromtimestamp(local_storage["deploy_time"])
         else:
             # 否则，使用最大时间范围，并记录部署时间为当前时间
-            deploy_time_init = datetime(2000, 1, 1)
-            local_storage["deploy_time"] = now_init.timestamp()
+            deploy_time = datetime(2000, 1, 1)
+            local_storage["deploy_time"] = now.timestamp()
 
         self.stat_period: List[Tuple[str, timedelta, str]] = [
             ("all_time", now - deploy_time, "自部署以来"),  # 必须保留"all_time"
