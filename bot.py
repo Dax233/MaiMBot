@@ -110,7 +110,7 @@ def scan_provider(env_config: dict):
 
 async def graceful_shutdown():
     try:
-        logger.info("正在优雅关闭麦麦...")
+        logger.info("正在优雅关闭枫...")
 
         # 停止所有异步任务
         await async_task_manager.stop_and_wait_all_tasks()
