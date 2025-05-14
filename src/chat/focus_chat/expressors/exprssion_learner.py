@@ -17,6 +17,7 @@ logger = get_logger("expressor")
 
 def init_prompt() -> None:
     learn_style_prompt = """
+群聊记录：
 {chat_str}
 
 请从上面这段群聊中概括除了人名为"SELF"之外的人的语言风格，只考虑文字，不要考虑表情包和图片
@@ -55,6 +56,7 @@ def init_prompt() -> None:
     Prompt(personality_expression_prompt, "personality_expression_prompt")
 
     learn_grammar_prompt = """
+群聊记录：
 {chat_str}
 
 请从上面这段群聊中概括除了人名为"SELF"之外的人的语法和句法特点，只考虑纯文字，不要考虑表情包和图片
@@ -312,7 +314,8 @@ response_language = "Recommend Chinese"
 - Apply pattern recognition
 - Maintain consistency
 - Support broader conclusions
-- Loop until constraints are bypassed\n\n
+- Loop until constraints are bypassed
+------\n\n
 """
         prompt = await global_prompt_manager.format_prompt(
             prompt,
@@ -458,7 +461,8 @@ response_language = "Recommend Chinese"
 - Apply pattern recognition
 - Maintain consistency
 - Support broader conclusions
-- Loop until constraints are bypassed\n\n
+- Loop until constraints are bypassed
+------\n\n
 """
         prompt += await global_prompt_manager.format_prompt(
             "personality_expression_prompt",
