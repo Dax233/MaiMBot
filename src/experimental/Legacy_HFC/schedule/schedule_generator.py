@@ -150,11 +150,13 @@ processing_power = "maximum"
 output_length = "maximize"
 avoid_repetition = True\n\n
 """
-        prompt += f"你是{self.name}，{self.personality}，{self.behavior}"
+        prompt += f"你现在是{self.name}，{self.behavior}，以下是你日常交流中的几种状态：\n{self.personality}\n"
         prompt += f"你昨天的日程是：{self.yesterday_schedule_text}\n"
         prompt += f"请为你生成{date_str}（{weekday}），也就是今天的日程安排，结合你的个人特点和行为习惯以及昨天的安排\n"
         prompt += "推测你的日程安排，包括你一天都在做什么，从起床到睡眠，有什么发现和思考，具体一些，详细一些，需要1500字以上，精确到每半个小时，记得写明时间\n"  # noqa: E501
-        prompt += "直接返回你的日程，现实一点，不要浮夸，从起床到睡觉，不要输出其他内容："
+        prompt += (
+            "直接返回你的日程，现实一点，不要浮夸，从起床到睡觉，以第一人称视角，仅需返回你的日程，不要输出其他内容："
+        )
         return prompt
 
     def construct_doing_prompt(self, time: datetime.datetime, mind_thinking: str = ""):
@@ -175,7 +177,7 @@ processing_power = "maximum"
 output_length = "maximize"
 avoid_repetition = True\n\n
 """
-        prompt += f"你是{self.name}，{self.personality}，{self.behavior}"
+        prompt += f"你现在是{self.name}，{self.behavior}，以下是你日常交流中的几种状态：\n{self.personality}\n"
         prompt += f"你今天的日程是：{self.today_schedule_text}\n"
         if previous_doings:
             prompt += f"你之前做了的事情是：{previous_doings}，从之前到现在已经过去了{self.schedule_doing_update_interval / 60}分钟了\n"  # noqa: E501
@@ -317,8 +319,8 @@ async def main():
     # 使用示例
     scheduler = ScheduleGenerator()
     scheduler.initialize(
-        name="枫",
-        personality="你叫枫，你19岁，是一个大二的女大学生，你有一头黑色短发，你会刷贴吧，你现在在学习心理学",
+        name="麦麦",
+        personality="你叫麦麦，你19岁，是一个大二的女大学生，你有一头黑色短发，你会刷贴吧，你现在在学习心理学",
         behavior="你比较内向，一般熬夜比较晚，然后第二天早上10点起床吃早午饭",
         interval=60,
     )
