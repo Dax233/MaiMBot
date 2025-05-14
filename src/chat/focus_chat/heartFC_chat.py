@@ -283,13 +283,13 @@ class HeartFChatting:
         try:
             exception = task.exception()
             if exception:
-                logger.error(f"{self.log_prefix} HeartFChatting: 麦麦脱离了聊天(异常): {exception}")
+                logger.error(f"{self.log_prefix} HeartFChatting: 枫脱离了聊天(异常): {exception}")
                 logger.error(traceback.format_exc())  # Log full traceback for exceptions
             else:
                 # Loop completing normally now means it was cancelled/shutdown externally
-                logger.info(f"{self.log_prefix} HeartFChatting: 麦麦脱离了聊天 (外部停止)")
+                logger.info(f"{self.log_prefix} HeartFChatting: 枫脱离了聊天 (外部停止)")
         except asyncio.CancelledError:
-            logger.info(f"{self.log_prefix} HeartFChatting: 麦麦脱离了聊天(任务取消)")
+            logger.info(f"{self.log_prefix} HeartFChatting: 枫脱离了聊天(任务取消)")
         finally:
             self._loop_active = False
             self._loop_task = None
@@ -368,9 +368,9 @@ class HeartFChatting:
         except asyncio.CancelledError:
             # 设置了关闭标志位后被取消是正常流程
             if not self._shutting_down:
-                logger.warning(f"{self.log_prefix} HeartFChatting: 麦麦的认真水群(HFC)循环意外被取消")
+                logger.warning(f"{self.log_prefix} HeartFChatting: 枫的认真水群(HFC)循环意外被取消")
             else:
-                logger.info(f"{self.log_prefix} HeartFChatting: 麦麦的认真水群(HFC)循环已取消 (正常关闭)")
+                logger.info(f"{self.log_prefix} HeartFChatting: 枫的认真水群(HFC)循环已取消 (正常关闭)")
         except Exception as e:
             logger.error(f"{self.log_prefix} HeartFChatting: 意外错误: {e}")
             logger.error(traceback.format_exc())
@@ -513,7 +513,7 @@ class HeartFChatting:
             else:
                 action_str = "位置动作"
 
-            logger.info(f"{self.log_prefix} 麦麦决定'{action_str}', 原因'{reasoning}'")
+            logger.info(f"{self.log_prefix} 枫决定'{action_str}', 原因'{reasoning}'")
 
             self.hfcloop_observation.add_loop_info(self._current_cycle)
 
@@ -925,7 +925,7 @@ class HeartFChatting:
             if action == "reply" and emoji:
                 logger.debug(f"{self.log_prefix}[Planner] 大模型建议文字回复带表情: '{emoji}'")
                 if random.random() > EMOJI_SEND_PRO:
-                    logger.info(f"{self.log_prefix}但是麦麦这次不想加表情 ({1 - EMOJI_SEND_PRO:.0%})，忽略表情 '{emoji}'")
+                    logger.info(f"{self.log_prefix}但是枫这次不想加表情 ({1 - EMOJI_SEND_PRO:.0%})，忽略表情 '{emoji}'")
                     action_data["emojis"] = ""  # 清空表情请求
                 else:
                     logger.info(f"{self.log_prefix}好吧，加上表情 '{emoji}'")
