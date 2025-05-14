@@ -33,7 +33,6 @@ def is_letter_not_han(char_str: str) -> bool:
         return False
     return _LETTER_NOT_HAN_REGEX.fullmatch(char_str) is not None
 
-
 def is_han_character(char_str: str) -> bool:
     """检查字符是否为汉字"""
     if not isinstance(char_str, str) or len(char_str) != 1:
