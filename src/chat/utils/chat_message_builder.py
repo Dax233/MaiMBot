@@ -455,7 +455,7 @@ async def build_anonymous_messages(messages: List[Dict[str, Any]]) -> str:
         if stripped_line:
             if stripped_line.endswith("。"):
                 stripped_line = stripped_line[:-1]
-            output_lines.append(f"{stripped_line};")
+            output_lines.append(f"{stripped_line}")
         output_lines.append("\n")
 
     formatted_string = "".join(output_lines).strip()
