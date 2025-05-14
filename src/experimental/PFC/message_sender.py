@@ -38,7 +38,7 @@ class DirectMessageSender:
             # 创建消息内容
             segments = Seg(type="seglist", data=[Seg(type="text", data=content)])
 
-            # 获取麦麦的信息
+            # 获取枫的信息
             bot_user_info = UserInfo(
                 user_id=global_config.BOT_QQ,
                 user_nickname=global_config.BOT_NICKNAME,

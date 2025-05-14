@@ -29,7 +29,7 @@ class SubHeartflow:
 
         Args:
             subheartflow_id: 子心流唯一标识符
-            mai_states: 麦麦状态信息实例
+            mai_states: 枫状态信息实例
             hfc_no_reply_callback: HFChatting 连续不回复时触发的回调
         """
         # 基础属性，两个值是一样的
@@ -37,7 +37,7 @@ class SubHeartflow:
         self.chat_id = subheartflow_id
         self.hfc_no_reply_callback = hfc_no_reply_callback
 
-        # 麦麦的状态
+        # 枫的状态
         self.mai_states = mai_states
 
         # 这个聊天流的状态
@@ -181,7 +181,7 @@ class SubHeartflow:
                 return True  # 已经在运行
 
         # 如果实例不存在，则创建并启动
-        logger.info(f"{log_prefix} 麦麦准备开始专注聊天...")
+        logger.info(f"{log_prefix} 枫准备开始专注聊天...")
         try:
             # 创建 HeartFChatting 实例，并传递 从构造函数传入的 回调函数
             self.heart_fc_instance = HeartFChatting(
@@ -194,7 +194,7 @@ class SubHeartflow:
             # 初始化并启动 HeartFChatting
             if await self.heart_fc_instance._initialize():
                 await self.heart_fc_instance.start()
-                logger.debug(f"{log_prefix} 麦麦已成功进入专注聊天模式 (新实例已启动)。")
+                logger.debug(f"{log_prefix} 枫已成功进入专注聊天模式 (新实例已启动)。")
                 return True
             else:
                 logger.error(f"{log_prefix} HeartFChatting 初始化失败，无法进入专注模式。")
@@ -262,7 +262,7 @@ class SubHeartflow:
             self.history_chat_state.append((current_state, self.chat_state_last_time))
 
             logger.info(
-                f"{log_prefix} 麦麦的聊天状态从 {current_state.value} （持续了 {int(self.chat_state_last_time)} 秒） 变更为 {new_state.value}"
+                f"{log_prefix} 枫的聊天状态从 {current_state.value} （持续了 {int(self.chat_state_last_time)} 秒） 变更为 {new_state.value}"
             )
 
             self.chat_state.chat_status = new_state

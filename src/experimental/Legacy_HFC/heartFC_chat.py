@@ -125,7 +125,7 @@ class ActionManager:
 
 # 在文件开头添加自定义异常类
 class HeartFCError(Exception):
-    """麦麦聊天系统基础异常类"""
+    """枫聊天系统基础异常类"""
 
     pass
 
@@ -271,7 +271,7 @@ class HeartFChatting:
         # --- End using utility function ---
 
         self._initialized = True
-        logger.debug(f"{self.log_prefix} 麦麦感觉到了，可以开始认真水群 ")
+        logger.debug(f"{self.log_prefix} 枫感觉到了，可以开始认真水群 ")
         return True
 
     async def start(self):
@@ -313,13 +313,13 @@ class HeartFChatting:
         try:
             exception = task.exception()
             if exception:
-                logger.error(f"{self.log_prefix} HeartFChatting: 麦麦脱离了聊天(异常): {exception}")
+                logger.error(f"{self.log_prefix} HeartFChatting: 枫脱离了聊天(异常): {exception}")
                 logger.error(traceback.format_exc())  # Log full traceback for exceptions
             else:
                 # Loop completing normally now means it was cancelled/shutdown externally
-                logger.info(f"{self.log_prefix} HeartFChatting: 麦麦脱离了聊天 (外部停止)")
+                logger.info(f"{self.log_prefix} HeartFChatting: 枫脱离了聊天 (外部停止)")
         except asyncio.CancelledError:
-            logger.info(f"{self.log_prefix} HeartFChatting: 麦麦脱离了聊天(任务取消)")
+            logger.info(f"{self.log_prefix} HeartFChatting: 枫脱离了聊天(任务取消)")
         finally:
             self._loop_active = False
             self._loop_task = None
@@ -390,9 +390,9 @@ class HeartFChatting:
         except asyncio.CancelledError:
             # 设置了关闭标志位后被取消是正常流程
             if not self._shutting_down:
-                logger.warning(f"{self.log_prefix} HeartFChatting: 麦麦的认真水群(HFC)循环意外被取消")
+                logger.warning(f"{self.log_prefix} HeartFChatting: 枫的认真水群(HFC)循环意外被取消")
             else:
-                logger.info(f"{self.log_prefix} HeartFChatting: 麦麦的认真水群(HFC)循环已取消 (正常关闭)")
+                logger.info(f"{self.log_prefix} HeartFChatting: 枫的认真水群(HFC)循环已取消 (正常关闭)")
         except Exception as e:
             logger.error(f"{self.log_prefix} HeartFChatting: 意外错误: {e}")
             logger.error(traceback.format_exc())
@@ -460,7 +460,7 @@ class HeartFChatting:
 
             # if await self._check_new_messages(planner_start_db_time):
             #     if random.random() < 0.2:
-            #         logger.info(f"{self.log_prefix} 看到了新消息，麦麦决定重新观察和规划...")
+            #         logger.info(f"{self.log_prefix} 看到了新消息，枫决定重新观察和规划...")
             #         # 重新规划
             #         with Timer("重新决策", cycle_timers):
             #             self._current_cycle.replanned = True
@@ -488,7 +488,7 @@ class HeartFChatting:
             else:
                 action_str = "不回复"
 
-            logger.info(f"{self.log_prefix} 麦麦决定'{action_str}', 原因'{reasoning}'")
+            logger.info(f"{self.log_prefix} 枫决定'{action_str}', 原因'{reasoning}'")
 
             return await self._handle_action(
                 action, reasoning, planner_result.get("emoji_query", ""), cycle_timers, planner_start_db_time
@@ -1011,7 +1011,7 @@ class HeartFChatting:
             logger.debug(f"{self.log_prefix}[Planner] 大模型建议文字回复带表情: '{emoji_query}'")
             if random.random() > EMOJI_SEND_PRO:
                 logger.info(
-                    f"{self.log_prefix}但是麦麦这次不想加表情 ({1 - EMOJI_SEND_PRO:.0%})，忽略表情 '{emoji_query}'"
+                    f"{self.log_prefix}但是枫这次不想加表情 ({1 - EMOJI_SEND_PRO:.0%})，忽略表情 '{emoji_query}'"
                 )
                 emoji_query = ""  # 清空表情请求
             else:

@@ -29,7 +29,7 @@ class SubHeartflow:
 
         Args:
             subheartflow_id: 子心流唯一标识符
-            mai_states: 麦麦状态信息实例
+            mai_states: 枫状态信息实例
             hfc_no_reply_callback: HFChatting 连续不回复时触发的回调
         """
         # 基础属性，两个值是一样的
@@ -37,7 +37,7 @@ class SubHeartflow:
         self.chat_id = subheartflow_id
         self.hfc_no_reply_callback = hfc_no_reply_callback
 
-        # 麦麦的状态
+        # 枫的状态
         self.mai_states = mai_states
 
         # 这个聊天流的状态

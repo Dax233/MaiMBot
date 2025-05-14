@@ -159,7 +159,7 @@ class BotConfig:
     personality_detail_level: int = (
         0  # 人设消息注入 prompt 详细等级 (0: 采用默认配置, 1: 核心/随机细节, 2: 核心+随机侧面/全部细节, 3: 全部)
     )
-    expression_style = "描述麦麦说话的表达风格，表达习惯"
+    expression_style = "描述枫说话的表达风格，表达习惯"
     # identity
     identity_detail: List[str] = field(
         default_factory=lambda: [
@@ -203,8 +203,8 @@ class BotConfig:
     compress_length_limit: int = 5  # 最多压缩份数，超过该数值的压缩上下文会被删除
 
     # normal_chat
-    model_reasoning_probability: float = 0.7  # 麦麦回答时选择推理模型(主要)模型概率
-    model_normal_probability: float = 0.3  # 麦麦回答时选择一般模型(次要)模型概率
+    model_reasoning_probability: float = 0.7  # 枫回答时选择推理模型(主要)模型概率
+    model_normal_probability: float = 0.3  # 枫回答时选择一般模型(次要)模型概率
 
     emoji_chance: float = 0.2  # 发送表情包的基础概率
     thinking_timeout: int = 120  # 思考时间
@@ -224,7 +224,7 @@ class BotConfig:
 
     save_pic: bool = False  # 是否保存图片
     save_emoji: bool = False  # 是否保存表情包
-    steal_emoji: bool = True  # 是否偷取表情包，让麦麦可以发送她保存的这些表情包
+    steal_emoji: bool = True  # 是否偷取表情包，让枫可以发送她保存的这些表情包
 
     EMOJI_CHECK: bool = False  # 是否开启过滤
     EMOJI_CHECK_PROMPT: str = "符合公序良俗"  # 表情包过滤要求
@@ -286,7 +286,7 @@ class BotConfig:
     talk_allowed_private = set()
     api_polling_max_retries: int = 3  # 神秘小功能
     rename_person: bool = (
-        True  # 是否启用改名工具，可以让麦麦对唯一名进行更改，可能可以更拟人地称呼他人，但是也可能导致记忆混淆的问题
+        True  # 是否启用改名工具，可以让枫对唯一名进行更改，可能可以更拟人地称呼他人，但是也可能导致记忆混淆的问题
     )
 
     # pfc
