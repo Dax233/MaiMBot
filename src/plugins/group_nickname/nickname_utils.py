@@ -100,7 +100,7 @@ def format_nickname_prompt_injection(selected_nicknames: List[Tuple[str, str, in
         return ""
 
     # Prompt 注入部分的标题
-    prompt_lines = ["以下是聊天记录中一些成员在本群的绰号信息（按常用度排序），供你参考："]
+    prompt_lines = ["以下是聊天记录中一些成员在本群的绰号信息（按常用度排序），请用合适的方式称呼对方："]
     grouped_by_user: Dict[str, List[str]] = {}  # 用于按用户分组
 
     # 按用户分组绰号
