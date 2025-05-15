@@ -604,7 +604,7 @@ class EmojiManager:
         while True:
             logger.info("[扫描] 开始检查表情包完整性...")
             await self.check_emoji_file_integrity()
-            await clear_temp_emoji()
+            # await clear_temp_emoji()
             logger.info("[扫描] 开始扫描新表情包...")
 
             # 检查表情包目录是否存在
@@ -874,9 +874,7 @@ class EmojiManager:
                 prompt = f'''
                     这是一个表情包，请对这个表情包进行审核，标准如下：
                     1. 必须符合"{global_config.EMOJI_CHECK_PROMPT}"的要求
-                    2. 不能是暴力、等违法违规内容
-                    3. 不能是任何形式的截图，聊天记录或视频截图
-                    4. 不要出现5个以上文字
+                    2. 不能是任何形式的截图，聊天记录或视频截图
                     请回答这个表情包是否满足上述要求，是则回答是，否则回答否，不要出现任何其他内容
                 '''
                 content, _ = await self.vlm.generate_response_for_image(prompt, image_base64, image_format)
