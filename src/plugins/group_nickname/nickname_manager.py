@@ -3,7 +3,6 @@ import threading
 import random
 import time
 import json
-import random
 import re
 from typing import Dict, Optional, List, Any
 from pymongo.errors import OperationFailure, DuplicateKeyError
