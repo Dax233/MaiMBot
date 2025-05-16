@@ -430,11 +430,11 @@ def split_into_sentences_w_remove_punctuation(original_text: str) -> list[str]:
         return []
 
     if len_text < 12:
-        split_strength = 0.5
+        split_strength = 0.8
     elif len_text < 32:
-        split_strength = 0.7
-    else:
         split_strength = 0.9
+    else:
+        split_strength = 1
     merge_probability = 1.0 - split_strength
 
     if merge_probability == 1.0 and len(preliminary_final_sentences) > 1:
