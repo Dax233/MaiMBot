@@ -140,7 +140,8 @@ class LLMRequest:
 
     def __init__(self, model: dict, **kwargs):
         """初始化 LLMRequest 实例"""
-        self.model_key_name = model["key"]
+
+        self.model_key_name = f"{model['provider']}_KEY"
         self.model_name: str = model["name"]
         self.params = kwargs
         self.stream = model.get("stream", False)
@@ -150,7 +151,7 @@ class LLMRequest:
 
         try:
             raw_api_key_config = os.environ[self.model_key_name]
-            self.base_url = os.environ[model["base_url"]]
+            self.base_url = os.environ[f"{model['provider']}_BASE_URL"]
             self.is_gemini = "googleapis.com" in self.base_url.lower()
             if self.is_gemini:
                 logger.debug(f"模型 {self.model_name}: 检测到为 Gemini API (Base URL: {self.base_url})")
@@ -377,7 +378,7 @@ class LLMRequest:
     ) -> Dict[str, Any]:
         """配置请求参数，合并实例参数和调用时参数"""
         default_retry = {
-            "max_retries": global_config.api_polling_max_retries,
+            "max_retries": global_config.experimental.api_polling_max_retries,
             "base_wait": 10,
             "retry_codes": [429, 413, 500, 503],
             "abort_codes": [400, 401, 402, 403],
@@ -453,8 +454,8 @@ class LLMRequest:
         current_key = None
         keys_failed_429 = set()
         keys_abandoned_runtime = set()
-        key_switch_limit_429 = global_config.api_polling_max_retries
-        key_switch_limit_403 = global_config.api_polling_max_retries
+        key_switch_limit_429 = global_config.experimental.api_polling_max_retries
+        key_switch_limit_403 = global_config.experimental.api_polling_max_retries
 
         available_keys_pool = []
         is_key_list = isinstance(self._api_key_config, list)
@@ -1030,7 +1031,7 @@ class LLMRequest:
             }
             if "max_tokens" not in payload and "max_completion_tokens" not in payload:
                 if "max_tokens" not in params_copy and "max_completion_tokens" not in params_copy:
-                    payload["max_tokens"] = global_config.model_max_output_length
+                    payload["max_tokens"] = global_config.model.model_max_output_length
             if "max_completion_tokens" in payload:
                 payload["max_tokens"] = payload.pop("max_completion_tokens")
 
@@ -1326,7 +1327,7 @@ class LLMRequest:
             if "max_completion_tokens" in payload:
                 payload["max_tokens"] = payload.pop("max_completion_tokens")
             if "max_tokens" not in payload:
-                payload["max_tokens"] = global_config.model_max_output_length
+                payload["max_tokens"] = global_config.model.model_max_output_length
 
         # --- 执行请求 ---
         if payload is None:

@@ -50,7 +50,7 @@ class ChatBot:
         try:
             # 确保所有任务已启动
             await self._ensure_started()
-
+            print(1111)
             if message_data["message_info"].get("group_info") is not None:
                 message_data["message_info"]["group_info"]["group_id"] = str(
                     message_data["message_info"]["group_info"]["group_id"]
@@ -62,12 +62,12 @@ class ChatBot:
             message = MessageRecv(message_data)
             groupinfo = message.message_info.group_info
             userinfo = message.message_info.user_info
-
+            print(2222)
             # 用户黑名单拦截
             if userinfo.user_id in global_config.chat_target.ban_user_id:
                 logger.debug(f"用户{userinfo.user_id}被禁止回复")
                 return
-
+            print(3333)
             if groupinfo is None and global_config.experimental.enable_friend_whitelist:
                 logger.trace("检测到私聊消息，检查")
                 # 好友黑名单拦截
@@ -76,12 +76,12 @@ class ChatBot:
                     return
             elif not global_config.experimental.enable_friend_whitelist:
                 logger.debug("私聊白名单模式未启用，跳过私聊权限检查。")
-
+            print(4444)
             # 群聊黑名单拦截
             if groupinfo is not None and groupinfo.group_id not in global_config.chat_target.talk_allowed_groups:
                 logger.trace(f"群{groupinfo.group_id}被禁止回复")
                 return
-
+            print(5555)
             # 确认从接口发来的message是否有自定义的prompt模板信息
             if message.message_info.template_info and not message.message_info.template_info.template_default:
                 template_group_name = message.message_info.template_info.template_name
@@ -98,7 +98,7 @@ class ChatBot:
                 hfc_processor = self.heartflow_processor
             else:
                 hfc_processor = self.legacy_hfc_processor
-
+            print(6666)
             async def preprocess():
                 logger.trace("开始预处理消息...")
                 # 如果在私聊中
