@@ -218,10 +218,6 @@ class NicknameManager:
             logger.debug("跳过绰号分析：非群聊或无效的聊天流。")
             return
 
-        if random.random() > 0.9:
-            logger.debug("跳过绰号分析：随机概率未命中。")
-            return
-
         log_prefix = f"[{current_chat_stream.stream_id}]"
         try:
             # 1. 获取历史记录
