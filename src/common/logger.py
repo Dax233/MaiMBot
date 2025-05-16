@@ -6,14 +6,12 @@ from types import ModuleType
 from pathlib import Path
 from dotenv import load_dotenv
 
-# from src.config.config import global_config
-
 
 # 加载 .env 文件
 env_path = Path(os.getcwd()) / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# 从全局配置中获取机器人昵称
+# logger 显示昵称
 bot_nickname = "枫の"
 
 # 保存原生处理器ID
