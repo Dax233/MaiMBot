@@ -524,7 +524,7 @@ class HeartFChatting:
 
 
             # --- 尝试在短时间内获取Planner的决策结果 ---
-            quick_wait_timeout = 3.0
+            quick_wait_timeout = 15.0
 
             if signaled_planner_this_cycle:
                 logger.debug(f"{self.log_prefix} 短时等待 ({quick_wait_timeout}s) Planner结果 (ID: {current_planner_request_id})...")
