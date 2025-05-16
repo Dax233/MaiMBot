@@ -58,9 +58,9 @@ MODULE_LOGGER_CONFIGS = {
     "tool_use": TOOL_USE_STYLE_CONFIG,  # 工具使用
     "relation": RELATION_STYLE_CONFIG,  # 关系
     "config": CONFIG_STYLE_CONFIG,  # 配置
-    "heartflow": HEARTFLOW_STYLE_CONFIG,  # 麦麦大脑袋
+    "heartflow": HEARTFLOW_STYLE_CONFIG,  # 枫大脑袋
     "schedule": SCHEDULE_STYLE_CONFIG,  # 在干嘛
-    "llm": LLM_STYLE_CONFIG,  # 麦麦组织语言
+    "llm": LLM_STYLE_CONFIG,  # 枫组织语言
     "chat": CHAT_STYLE_CONFIG,  # 见闻
     "emoji": EMOJI_STYLE_CONFIG,  # 表情包
     "sub_heartflow": SUB_HEARTFLOW_STYLE_CONFIG,  # 枫水群

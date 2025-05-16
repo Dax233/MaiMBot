@@ -261,7 +261,7 @@ class HeartFChatting:
             else:
                 logger.info(f"{self.log_prefix} 枫已离开Focus聊天模式")
         except Exception as e:
-            logger.error(f"{self.log_prefix} 麦麦Focus聊天模式意外错误: {e}")
+            logger.error(f"{self.log_prefix} 枫Focus聊天模式意外错误: {e}")
             print(traceback.format_exc())
 
     @contextlib.asynccontextmanager

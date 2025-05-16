@@ -159,7 +159,7 @@ class BotConfig:
     personality_detail_level: int = (
         0  # 人设消息注入 prompt 详细等级 (0: 采用默认配置, 1: 核心/随机细节, 2: 核心+随机侧面/全部细节, 3: 全部)
     )
-    expression_style = "描述麦麦说话的表达风格，表达习惯"
+    expression_style = "描述枫说话的表达风格，表达习惯"
     enable_expression_learner: bool = True  # 是否启用新发言习惯注入，关闭则启用旧方法
     # identity
     identity_detail: List[str] = field(

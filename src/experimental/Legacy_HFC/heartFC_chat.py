@@ -595,7 +595,7 @@ class HeartFChatting:
                 return False, ""
 
             action_str_log = {"text_reply": "回复", "emoji_reply": "回复表情", "no_reply": "不回复"}.get(action, "未知或错误动作")
-            logger.info(f"{self.log_prefix} (Planner ID: {planner_result.get('request_id', 'N/A')}) 麦麦最终决定'{action_str_log}', 原因'{reasoning}'")
+            logger.info(f"{self.log_prefix} (Planner ID: {planner_result.get('request_id', 'N/A')}) 枫最终决定'{action_str_log}', 原因'{reasoning}'")
 
             action_executed, current_action_thinking_id = await self._handle_action(
                 action, reasoning, emoji_query, cycle_timers, planner_start_db_time
