@@ -51,7 +51,10 @@ logger = get_logger("hfc")  # Logger Name Changed
 
 
 # 默认动作定义
-DEFAULT_ACTIONS = {"no_reply": "不回复", "text_reply": "文本回复, 可选附带表情", "emoji_reply": "仅表情回复"}
+DEFAULT_ACTIONS = {"no_reply": "不回复",
+                    "text_reply": "文本回复, 可选附带表情",
+                    "emoji_reply": "仅表情回复",
+                    "exit_focus_mode": "主动结束当前专注聊天模式，不再聚焦于群内消息"}
 
 
 class ActionManager:
@@ -222,8 +225,8 @@ class HeartFChatting:
         # --- 移除 gpt_instance, 直接初始化 LLM 模型 ---
         # self.gpt_instance = HeartFCGenerator() # <-- 移除
         self.model_normal = LLMRequest(  # <-- 新增 LLM 初始化
-            model=global_config.llm_normal,
-            temperature=global_config.llm_normal["temp"],
+            model=global_config.model.normal,
+            temperature=global_config.model.normal["temp"],
             max_tokens=256,
             request_type="response_heartflow",
         )
@@ -231,7 +234,7 @@ class HeartFChatting:
 
         # LLM规划器配置
         self.planner_llm = LLMRequest(
-            model=global_config.llm_plan,
+            model=global_config.model.plan,
             max_tokens=1000,
             request_type="action_planning",  # 用于动作规划
         )
@@ -333,6 +336,36 @@ class HeartFChatting:
             if self._processing_lock.locked():
                 logger.warning(f"{self.log_prefix} HeartFChatting: 处理锁在循环结束时仍被锁定，强制释放。")
                 self._processing_lock.release()
+
+    async def _handle_exit_focus_mode(self, reasoning: str, cycle_timers: dict) -> tuple[bool, str]:
+        """
+        处理主动退出专注模式的动作。
+        通过调用已有的 on_consecutive_no_reply_callback 来触发状态转换。
+        """
+        logger.info(f"{self.log_prefix} 麦麦决定主动结束专注模式 (Planner决策), 原因: '{reasoning}'")
+
+        # 更新当前循环的动作信息
+        if self._current_cycle:
+            self._current_cycle.set_action_info("exit_focus_mode", reasoning, True) # 标记动作已执行
+
+        # 重置内部的连续不回复计数器（尽管实例即将关闭，但保持逻辑一致性）
+        self._lian_xu_bu_hui_fu_ci_shu = 0
+        self._lian_xu_deng_dai_shi_jian = 0.0
+
+        if self.on_consecutive_no_reply_callback:
+            logger.debug(f"{self.log_prefix} 执行 on_consecutive_no_reply_callback 以退出专注模式。")
+            try:
+                await self.on_consecutive_no_reply_callback()
+                # 这个回调会处理状态转换和 HeartFChatting 的关闭，
+                # _hfc_loop 应该会因为 _shutting_down 标志或任务取消而自然终止。
+                # 返回 True 表示成功启动了退出流程。thinking_id 在此场景下为空。
+                return True, ""
+            except Exception as e:
+                logger.error(f"{self.log_prefix} 调用 on_consecutive_no_reply_callback 时发生错误: {e}", exc_info=True)
+                return False, "" # 表示启动退出流程失败
+        else:
+            logger.error(f"{self.log_prefix} on_consecutive_no_reply_callback 未设置，无法通过 Planner 主动退出专注模式。")
+            return False, ""
 
     async def _hfc_loop(self):
         """主循环，持续进行计划并可能回复消息，直到被外部取消。"""
@@ -527,6 +560,7 @@ class HeartFChatting:
             "text_reply": self._handle_text_reply,
             "emoji_reply": self._handle_emoji_reply,
             "no_reply": self._handle_no_reply,
+            "exit_focus_mode": self._handle_exit_focus_mode, 
         }
 
         handler = action_handlers.get(action)
@@ -543,6 +577,10 @@ class HeartFChatting:
                 # 调用表情回复处理，它只返回 bool
                 success = await handler(reasoning, emoji_query)
                 return success, ""  # thinking_id 为空字符串
+            elif action == "exit_focus_mode": # <-- 新增分支
+                # _handle_exit_focus_mode 只需要 reasoning 和 cycle_timers
+                success, thinking_id = await handler(reasoning, cycle_timers) # thinking_id 会是空字符串
+                return success, thinking_id
             else:  # no_reply
                 # 调用不回复处理，它只返回 bool
                 success = await handler(reasoning, planner_start_db_time, cycle_timers)
@@ -876,7 +914,7 @@ class HeartFChatting:
             message_list_before_now = get_raw_msg_before_timestamp_with_chat(
                 chat_id=self.stream_id,
                 timestamp=time.time(),  # 使用当前时间作为参考点
-                limit=global_config.observation_context_size,  # 使用与 prompt 构建一致的 limit
+                limit=global_config.chat.observation_context_size,  # 使用与 prompt 构建一致的 limit
             )
             # 调用工具函数获取格式化后的绰号字符串
             nickname_injection_str = await nickname_manager.get_nickname_prompt_injection(
@@ -1196,8 +1234,8 @@ class HeartFChatting:
         first_bot_msg: Optional[MessageSending] = None
         reply_message_ids = []  # 记录实际发送的消息ID
         bot_user_info = UserInfo(
-            user_id=global_config.BOT_QQ,
-            user_nickname=global_config.BOT_NICKNAME,
+            user_id=global_config.bot.qq_account,
+            user_nickname=global_config.bot.nickname,
             platform=anchor_message.message_info.platform,
         )
 
@@ -1263,8 +1301,8 @@ class HeartFChatting:
             thinking_time_point = round(time.time(), 2)  # 用于唯一ID
             message_segment = Seg(type="emoji", data=emoji_cq)
             bot_user_info = UserInfo(
-                user_id=global_config.BOT_QQ,
-                user_nickname=global_config.BOT_NICKNAME,
+                user_id=global_config.bot.qq_account,
+                user_nickname=global_config.bot.nickname,
                 platform=anchor_message.message_info.platform,
             )
             bot_message = MessageSending(
@@ -1318,7 +1356,7 @@ class HeartFChatting:
         try:
             # 1. 获取情绪影响因子并调整模型温度
             arousal_multiplier = mood_manager.get_arousal_multiplier()
-            current_temp = global_config.llm_normal["temp"] * arousal_multiplier
+            current_temp = global_config.model.normal["temp"] * arousal_multiplier
             self.model_normal.temperature = current_temp  # 动态调整温度
 
             # 2. 获取信息捕捉器
@@ -1401,8 +1439,8 @@ class HeartFChatting:
         chat = anchor_message.chat_stream
         messageinfo = anchor_message.message_info
         bot_user_info = UserInfo(
-            user_id=global_config.BOT_QQ,
-            user_nickname=global_config.BOT_NICKNAME,
+            user_id=global_config.bot.qq_account,
+            user_nickname=global_config.bot.nickname,
             platform=messageinfo.platform,
         )
 

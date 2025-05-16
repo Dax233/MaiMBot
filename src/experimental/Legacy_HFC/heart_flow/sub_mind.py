@@ -58,21 +58,24 @@ def init_prompt():
 
 <thinking_guidance>
 请仔细阅读当前聊天内容，分析讨论话题和群成员关系，分析你刚刚发言和别人对你的发言的反应，思考你要不要回复或发言。然后思考你是否需要使用函数工具。
-请特别留意对话的节奏。如果你发送消息后没有得到回应，那么在考虑发言或追问时，请务必谨慎。优先考虑是否你的上一条信息已经结束了当前话题，或者对方暂时不方便回复。除非你有非常重要且有时效性的新事情，否则避免在对方无明显回应意愿时进行追问。
+注意耐心：
+  -请特别关注对话的自然流转和对方的输入状态。如果感觉对方可能正在打字或思考，或者其发言明显未结束（比如话说到一半），请耐心等待，避免过早打断或急于追问。
+  -如果你发送消息后对方没有立即回应，请优先考虑对方是否正在忙碌或话题已自然结束，内心想法应倾向于“耐心等待”或“思考对方是否在忙”，而非立即追问，除非追问非常必要且不会打扰。
 思考并输出你真实的内心想法。
 </thinking_guidance>
 
 
 <output_requirements_for_inner_thought>
-1. 根据聊天内容生成你的想法（如果你现在很忙或没时间，可以倾向选择不回复），{hf_do_next}
+1. 根据聊天内容生成你的内心想法，{hf_do_next}
+   - 如果你决定回复或发言，必须**明确写出**你准备发送的消息的具体内容是什么。
+   - 如果你觉得不想继续专注在这个群聊（例如感到无聊、疲惫、话题不感兴趣或想去关注其他事情），你的内心想法应该明确表达出这种倾向（例如：“不太想继续聊了。”或“感觉没什么好说的了”或“有点累了，想结束和这个群的专注互动了。”）
+   - 如果你现在很忙或没时间，也可以倾向选择不回复。
 2. 不要分点、不要使用表情符号
 3. 避免多余符号(冒号、引号、括号等)
 4. 语言简洁自然，不要浮夸
-5. 当你发送消息后没人理你，你的内心想法应倾向于“耐心等待对方回复”或“思考是否对方正在忙”，而不是立即产生追问的想法。只有当你认为追问确实必要且不会打扰对方时，才考虑生成追问的意图。
-6. 不要把注意力放在别人发的表情包上，它们只是一种辅助表达方式
-7. 注意分辨群里谁在跟谁说话，你不一定是当前聊天的主角，消息中的“你”不一定指的是你（{bot_name}），也可能是别人
-8. 思考要不要回复或发言，如果要，必须**明确写出**你准备发送的消息的具体内容是什么
-9. 默认使用中文
+5. 不要把注意力放在别人发的表情包上，它们只是一种辅助表达方式
+6. 注意分辨群里谁在跟谁说话，你不一定是当前聊天的主角，消息中的“你”不一定指的是你（{bot_name}），也可能是别人
+7. 默认使用中文
 </output_requirements_for_inner_thought>
 
 <tool_usage_instructions>
@@ -190,8 +193,8 @@ class SubMind:
         self.subheartflow_id = subheartflow_id
 
         self.llm_model = LLMRequest(
-            model=global_config.llm_sub_heartflow,
-            temperature=global_config.llm_sub_heartflow["temp"],
+            model=global_config.model.sub_heartflow,
+            temperature=global_config.model.sub_heartflow["temp"],
             max_tokens=1000,
             request_type="sub_heart_flow",
         )
@@ -594,7 +597,7 @@ class SubMind:
                 message_list_for_nicknames = get_raw_msg_before_timestamp_with_chat(
                     chat_id=self.subheartflow_id,
                     timestamp=time.time(),
-                    limit=global_config.observation_context_size,
+                    limit=global_config.chat.observation_context_size,
                 )
                 nickname_injection_str = await nickname_manager.get_nickname_prompt_injection(
                     chat_stream, message_list_for_nicknames
@@ -711,7 +714,7 @@ avoid_repetition = True\n\n
             logger.warning(f"{self.log_prefix} LLM返回空结果，思考失败。")
 
         # ---------- 7. 应用概率性去重和修饰 ----------
-        if global_config.allow_remove_duplicates:
+        if global_config.chat.allow_remove_duplicates:
             new_content = content  # 保存 LLM 直接输出的结果
             try:
                 similarity = calculate_similarity(previous_mind, new_content)

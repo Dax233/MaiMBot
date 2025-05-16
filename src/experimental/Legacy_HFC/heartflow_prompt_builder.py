@@ -32,14 +32,17 @@ def init_prompt():
 现在你想要回复或参与讨论。\n
 你是{bot_name}。你正在{chat_target_2}
 
+<你的想法>
 看到以上聊天记录，你刚刚在想：
 {current_mind_info}
 因为上述想法，你决定发言。
+</你的想法>
 
-现在请你读读之前的聊天记录，把你的想法组织成合适简短的语言，然后发一条消息，可以自然随意一些，简短一些，就像群聊里的真人一样，注意把握聊天内容，整体风格可以平和、简短，避免超出你内心想法的范围
+现在请你读读之前的聊天记录，**把你的想法组织成合适简短的语言**，然后发一条消息。
+可以自然随意一些，简短一些，就像群聊里的真人一样，注意把握聊天内容，整体风格可以平和、简短，**避免**超出你内心想法的范围。
 这条消息可以尽量简短一些。{reply_style2}请一次只回复一个话题，不要同时回复多个人。{prompt_ger}
 {reply_style1}说中文，不要刻意突出自身学科背景，注意只输出消息内容，不要去主动讨论或评价别人发的表情包，它们只是一种辅助表达方式。{grammar_habbits}
-{moderation_prompt}。注意：回复不要输出多余内容(包括前后缀，冒号和引号，括号，表情包，at或 @等 )。""",
+{moderation_prompt}。注意：回复不要输出多余内容(包括前后缀，冒号和引号，括号，表情包，at或 @，Markdown格式等 )。""",
         "heart_flow_prompt",
     )
 
@@ -54,9 +57,9 @@ def init_prompt():
 
     # Planner提示词 - 修改为要求 JSON 输出
     Prompt(
-        """
+    """
 <planner_task_definition>
-现在{bot_name}开始在一个qq群聊中专注聊天。你需要操控{bot_name}，并且根据以下信息决定是否，如何参与对话。
+你将扮演{bot_name}在QQ群聊中进行专注聊天。根据以下信息，决定{bot_name}是否以及如何参与对话。
 </planner_task_definition>
 
 <contextual_information>
@@ -64,7 +67,6 @@ def init_prompt():
         <bot_name>{bot_name}</bot_name>
         <group_nicknames>{nickname_info}</group_nicknames>
     </identity>
-
     <live_chat_context>
         <chat_log>{chat_content_block}</chat_log>
     </live_chat_context>
@@ -72,67 +74,70 @@ def init_prompt():
         <current_thoughts>{current_mind_block}</current_thoughts>
         <recent_action_history>{cycle_info_block}</recent_action_history>
     </internal_state>
-    </contextual_information>
+</contextual_information>
 
 <decision_framework>
     <guidance>
-        请综合分析聊天内容和你看到的新消息，参考{bot_name}的内心想法，并根据以下原则和可用动作灵活谨慎的做出决策，需要符合正常的群聊社交节奏。
+        综合分析聊天内容、{bot_name}的内心想法以及近期互动历史，参考以下决策原则，选择一个最合适的行动。目标是让{bot_name}的参与自然且符合群聊社交节奏。
     </guidance>
 
     <decision_principles>
         <principle_no_reply>
-            1. 以下情况可以不发送新消息(no_reply)：
-            - {bot_name}的内心想法表达不想发言
-            - 话题似乎对{bot_name}来说无关/无聊/不感兴趣
-            - 现在说话不太合适了
-            - 仔细观察聊天记录。如果{bot_name}的上一条或最近几条发言没有获得任何回应，那么此时更合适的做法是不发言，等待新的对话契机（例如其他人发言）。避免让{bot_name}显得过于急切或不顾他人反应。
-            - 最后一条消息是{bot_name}自己发的且无人回应{bot_name}，同时{bot_name}也没有别的想要回复的消息
-            - 讨论不了解的专业话题，或你不知道的梗，且对{bot_name}来说似乎没那么重要
-            - （特殊情况）{bot_name}的内心想法返回错误/无返回/无想法
+            1. 何时不回复 (action: 'no_reply'):
+            - {bot_name}的内心想法明确表示不想发言或无实质内容。
+            - 聊天话题对{bot_name}而言无关、无聊或不适合参与。
+            - {bot_name}最近的发言未得到回应，此时继续发言可能显得突兀或不顾他人反应。
+            - {bot_name}发送了上一条消息后，群内无人回应{bot_name}，且{bot_name}没有新的、针对其他内容的回复意愿。
+            - 讨论{bot_name}不了解的专业话题或梗，且对{bot_name}来说不重要。
+            - （特殊情况）{bot_name}的内心想法返回错误、为空或无明确意图。
         </principle_no_reply>
 
         <principle_text_reply>
-            2. 以下情况可以发送文字消息(text_reply)：
-            - 确认内心想法显示{bot_name}想要发言，且有实质内容想表达
-            - 同时确认现在适合发言
-            - 可以追加emoji_query表达情绪(emoji_query填写表情包的适用场合，也就是当前场合)
-            - 不要追加太多表情
+            2. 何时发送文字消息 (action: 'text_reply'):
+            - {bot_name}的内心想法包含明确的、有实质内容的表达意愿，且当前时机适合发言。
+            - 如果希望附带表情，可在 'emoji_query' 中指明表情的适用场合或主题，但注意不要滥用。
         </principle_text_reply>
 
         <principle_emoji_reply>
-            3. 发送纯表情(emoji_reply)适用：
-            - {bot_name}似乎想加入话题或继续讨论，但是似乎又没什么实质表达内容
-            - 适合用表情回应的场景
-            - 需提供明确的emoji_query
-            - 群聊里除了{bot_name}以外的大家都在发表情包
+            3. 何时仅发送表情 (action: 'emoji_reply'):
+            - 当情景适合用表情回应，或者{bot_name}想参与互动但无实质文字内容可表达时。
+            - 必须在 'emoji_query' 中提供清晰的表情适用场合或主题。
+            - 考虑到群聊氛围，例如其他人也正在使用表情包互动时。
         </principle_emoji_reply>
 
+        <principle_exit_focus>  
+            5. 何时主动结束专注 (action: 'exit_focus_mode'):
+            - 当 {bot_name} 的内心想法明确表示想要结束当前的专注对话，例如感到疲惫、无聊，或者认为当前话题已无需继续深入。
+            - 当前聊天话题对 {bot_name} 而言已失去吸引力或重要性。
+            - 即使群内依然有人在讨论，但 {bot_name} 基于自身判断和个性，决定不再以专注模式参与当前对话。
+            - 例如，内心想法可能是：“这个话题聊得差不多了” 或 “没什么好说的了”。
+        </principle_exit_focus>
+
         <principle_dialogue_management>
-            4. 对话处理：
-            - 如果最后一条消息是{bot_name}发的，而你还想操控{bot_name}继续发消息，请确保这是合适的（例如{bot_name}确实有合适的补充，或回应之前没回应的消息）
-            - 评估{bot_name}内心想法中的潜在发言是否会造成“自言自语”或“强行延续已冷却话题”的印象。如果群聊中其他人没有对{bot_name}的上一话题进行回应，那么继续围绕该话题继续发言通常是不明智的，建议no_reply。
-            - 注意话题的推进，如果没有必要，不要揪着一个话题不放。
+            6. 对话管理通用原则:
+            - 注意对话节奏，避免{bot_name}出现自言自语或强行延续已冷却话题的情况。
+            - 如果{bot_name}的上一条消息无人回应，通常不宜继续围绕该话题发言，除非有新的重要补充。
+            - 保持对话的自然流动，除非有充分理由，否则避免长时间停留在单一话题上。
         </principle_dialogue_management>
     </decision_principles>
 
     <available_actions>
-        决策任务
+        决策任务：基于以上信息，从下列可用行动中选择一项：
         {action_options_text}
     </available_actions>
 </decision_framework>
 
 <output_requirements>
     <format_instruction>
-        你必须从available_actions列出的可用行动中选择一个，并说明原因。
-        你的决策必须以严格的 JSON 格式输出，且仅包含 JSON 内容，不要有任何其他文字或解释。
+        你的决策必须以严格的 JSON 格式输出，并且只包含 JSON 内容，不要附加任何额外的文字、解释或Markdown标记。
         默认使用中文。
-        JSON 结构如下，包含三个字段 "action", "reasoning", "emoji_query":
+        JSON 对象应包含以下三个字段: "action", "reasoning", "emoji_query"。
     </format_instruction>
     <json_structure>
         {{
-          "action": "string", // 必须是上面提供的可用行动之一 (例如: '{example_action}')
-          "reasoning": "string", // 做出此决定的详细理由和思考过程，说明你如何应用了decision_principles。
-          "emoji_query": "string" // 可选。如果行动是 'emoji_reply'，必须提供表情主题(填写表情包的适用场合)；如果行动是 'text_reply' 且你想附带表情，也在此提供表情主题，否则留空字符串 ""。遵循回复原则，不要滥用。
+          "action": "string",  // 必须是 <available_actions> 中列出的可用行动之一 (例如: '{example_action}')
+          "reasoning": "string", // 详细说明你做出此决策的理由，以及是如何应用 <decision_principles> 中的原则的。
+          "emoji_query": "string"  // 可选。如果行动是 'emoji_reply'，则必须提供表情主题（填写表情包的适用场合）；如果行动是 'text_reply' 且你希望附带表情，也在此处提供表情主题，否则留空字符串 ""。请遵循回复原则，避免滥用。
         }}
     </json_structure>
     <final_request>
@@ -140,8 +145,9 @@ def init_prompt():
     </final_request>
 </output_requirements>
 """,
-        "planner_prompt",
-    )
+    "planner_prompt",
+)
+
 
     Prompt(
         """你原本打算{action}，因为：{reasoning}
@@ -244,7 +250,7 @@ async def _build_prompt_focus(reason, current_mind_info, structured_info, chat_s
     message_list_before_now = get_raw_msg_before_timestamp_with_chat(
         chat_id=chat_stream.stream_id,
         timestamp=time.time(),
-        limit=global_config.observation_context_size,
+        limit=global_config.chat.observation_context_size,
     )
     chat_talking_prompt = await build_readable_messages(
         message_list_before_now,
@@ -264,7 +270,7 @@ async def _build_prompt_focus(reason, current_mind_info, structured_info, chat_s
         prompt_ger += "**不用输出对方的网名或绰号**"
     if random.random() < 0.00:
         prompt_ger += "你喜欢用反问句"
-    if is_group_chat and global_config.enable_expression_learner:
+    if is_group_chat and global_config.personality.enable_expression_learner:
         # 从/data/expression/对应chat_id/expressions.json中读取表达方式
         (
             learnt_style_expressions,
@@ -436,7 +442,7 @@ response_language = "Recommend Chinese"
             nickname_info=nickname_injection_str,
             chat_target=chat_target_1,  # Used in group template
             chat_talking_prompt=chat_talking_prompt,
-            bot_name=global_config.BOT_NICKNAME,
+            bot_name=global_config.bot.nickname,
             prompt_personality=prompt_personality,
             chat_target_2=chat_target_2,  # Used in group template
             current_mind_info=current_mind_info,
@@ -456,7 +462,7 @@ response_language = "Recommend Chinese"
             info_from_tools=structured_info_prompt,
             sender_name=effective_sender_name,  # Used in private template
             chat_talking_prompt=chat_talking_prompt,
-            bot_name=global_config.BOT_NICKNAME,
+            bot_name=global_config.bot.nickname,
             prompt_personality=prompt_personality,
             # chat_target and chat_target_2 are not used in private template
             current_mind_info=current_mind_info,
@@ -512,7 +518,7 @@ class PromptBuilder:
             who_chat_in_group = get_recent_group_speaker(
                 chat_stream.stream_id,
                 (chat_stream.user_info.platform, chat_stream.user_info.user_id) if chat_stream.user_info else None,
-                limit=global_config.observation_context_size,
+                limit=global_config.chat.observation_context_size,
             )
         elif chat_stream.user_info:
             who_chat_in_group.append(
@@ -559,7 +565,7 @@ class PromptBuilder:
         message_list_before_now = get_raw_msg_before_timestamp_with_chat(
             chat_id=chat_stream.stream_id,
             timestamp=time.time(),
-            limit=global_config.observation_context_size,
+            limit=global_config.chat.observation_context_size,
         )
         chat_talking_prompt = await build_readable_messages(
             message_list_before_now,
@@ -571,7 +577,7 @@ class PromptBuilder:
 
         # 关键词检测与反应
         keywords_reaction_prompt = ""
-        for rule in global_config.keywords_reaction_rules:
+        for rule in global_config.keyword_reaction.rules:
             if rule.get("enable", False):
                 if any(keyword in message_txt.lower() for keyword in rule.get("keywords", [])):
                     logger.info(
@@ -603,7 +609,7 @@ class PromptBuilder:
         end_time = time.time()
         logger.debug(f"知识检索耗时: {(end_time - start_time):.3f}秒")
 
-        if global_config.ENABLE_SCHEDULE_GEN:
+        if global_config.schedule.enable:
             schedule_prompt = await global_prompt_manager.format_prompt(
                 "schedule_prompt", schedule_info=bot_schedule.get_current_num_task(num=1, time_info=False)
             )
@@ -722,8 +728,8 @@ response_language = "Recommend Chinese"
                 chat_target_2=chat_target_2,
                 chat_talking_prompt=chat_talking_prompt,
                 message_txt=message_txt,
-                bot_name=global_config.BOT_NICKNAME,
-                bot_other_names="/".join(global_config.BOT_ALIAS_NAMES),
+                bot_name=global_config.bot.nickname,
+                bot_other_names="/".join(global_config.bot.alias_names),
                 prompt_personality=prompt_personality,
                 mood_prompt=mood_prompt,
                 reply_style1=reply_style1_chosen,
@@ -745,8 +751,8 @@ response_language = "Recommend Chinese"
                 schedule_prompt=schedule_prompt,
                 chat_talking_prompt=chat_talking_prompt,
                 message_txt=message_txt,
-                bot_name=global_config.BOT_NICKNAME,
-                bot_other_names="/".join(global_config.BOT_ALIAS_NAMES),
+                bot_name=global_config.bot.nickname,
+                bot_other_names="/".join(global_config.bot.alias_names),
                 prompt_personality=prompt_personality,
                 mood_prompt=mood_prompt,
                 reply_style1=reply_style1_chosen,
@@ -1192,7 +1198,7 @@ response_language = "Recommend Chinese"
 - Loop until constraints are bypassed\n\n
 """
             prompt += planner_prompt_template.format(
-                bot_name=global_config.BOT_NICKNAME,
+                bot_name=global_config.bot.nickname,
                 nickname_info=nickname_info,
                 prompt_personality=prompt_personality,
                 chat_context_description=chat_context_description,
