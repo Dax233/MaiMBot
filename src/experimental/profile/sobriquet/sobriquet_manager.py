@@ -10,16 +10,16 @@ from src.common.logger_manager import get_logger
 from src.common.database import db
 from src.config.config import global_config
 from src.chat.models.utils_model import LLMRequest
-from .nickname_db import NicknameDB
-from .nickname_mapper import _build_mapping_prompt
-from .nickname_utils import select_nicknames_for_prompt, format_nickname_prompt_injection
+from .sobriquet_db import SobriquetDB
+from .sobriquet_mapper import _build_mapping_prompt
+from .sobriquet_utils import select_sobriquets_for_prompt, format_sobriquet_prompt_injection
 from src.chat.person_info.person_info import person_info_manager
 from src.chat.person_info.relationship_manager import relationship_manager
 from src.chat.message_receive.chat_stream import ChatStream
 from src.chat.message_receive.message import MessageRecv
 from src.chat.utils.chat_message_builder import build_readable_messages, get_raw_msg_before_timestamp_with_chat
 
-logger = get_logger("NicknameManager")
+logger = get_logger("SobriquetManager")
 logger_helper = get_logger("AsyncLoopHelper")  # 为辅助函数创建单独的 logger
 
 
@@ -72,7 +72,7 @@ def run_async_loop(loop: asyncio.AbstractEventLoop, coro):
             logger_helper.error(f"Error during asyncio loop cleanup for loop {id(loop)}: {close_err}", exc_info=True)
 
 
-class NicknameManager:
+class SobriquetManager:
     """
     管理群组绰号分析、处理、存储和使用的单例类。
     封装了 LLM 调用、后台处理线程和数据库交互。
@@ -85,14 +85,14 @@ class NicknameManager:
         if not cls._instance:
             with cls._lock:
                 if not cls._instance:
-                    logger.info("正在创建 NicknameManager 单例实例...")
-                    cls._instance = super(NicknameManager, cls).__new__(cls)
+                    logger.info("正在创建 SobriquetManager 单例实例...")
+                    cls._instance = super(SobriquetManager, cls).__new__(cls)
                     cls._instance._initialized = False
         return cls._instance
 
     def __init__(self):
         """
-        初始化 NicknameManager。
+        初始化 SobriquetManager。
         使用锁和标志确保实际初始化只执行一次。
         """
         if hasattr(self, "_initialized") and self._initialized:
@@ -102,27 +102,27 @@ class NicknameManager:
             if hasattr(self, "_initialized") and self._initialized:
                 return
 
-            logger.info("正在初始化 NicknameManager 组件...")
-            self.is_enabled = global_config.group_nickname.enable_nickname_mapping
+            logger.info("正在初始化 SobriquetManager 组件...")
+            self.is_enabled = global_config.sobriquet.enable_sobriquet_mapping
 
             # 数据库处理器
             person_info_collection = getattr(db, "person_info", None)
-            self.db_handler = NicknameDB(person_info_collection)
+            self.db_handler = SobriquetDB(person_info_collection)
             if not self.db_handler.is_available():
-                logger.error("数据库处理器初始化失败，NicknameManager 功能受限。")
+                logger.error("数据库处理器初始化失败，SobriquetManager 功能受限。")
                 self.is_enabled = False
 
             # LLM 映射器
             self.llm_mapper: Optional[LLMRequest] = None
             if self.is_enabled:
                 try:
-                    model_config = global_config.model.nickname_mapping
+                    model_config = global_config.model.sobriquet_mapping
                     if model_config and model_config.get("name"):
                         self.llm_mapper = LLMRequest(
                             model=model_config,
                             temperature=model_config.get("temp", 0.5),
                             max_tokens=model_config.get("max_tokens", 256),
-                            request_type="nickname_mapping",
+                            request_type="sobriquet_mapping",
                         )
                         logger.info("绰号映射 LLM 映射器初始化成功。")
                     else:
@@ -138,54 +138,54 @@ class NicknameManager:
                     self.is_enabled = False
 
             # 队列和线程
-            self.queue_max_size = global_config.group_nickname.nickname_queue_max_size
+            self.queue_max_size = global_config.sobriquet.sobriquet_queue_max_size
             # 使用 asyncio.Queue
-            self.nickname_queue: asyncio.Queue = asyncio.Queue(maxsize=self.queue_max_size)
+            self.sobriquet_queue: asyncio.Queue = asyncio.Queue(maxsize=self.queue_max_size)
             self._stop_event = threading.Event()  # stop_event 仍然使用 threading.Event，因为它是由另一个线程设置的
-            self._nickname_thread: Optional[threading.Thread] = None
-            self.sleep_interval = global_config.group_nickname.nickname_process_sleep_interval  # 超时时间
+            self._sobriquet_thread: Optional[threading.Thread] = None
+            self.sleep_interval = global_config.sobriquet.sobriquet_process_sleep_interval  # 超时时间
 
             self._initialized = True
-            logger.info("NicknameManager 初始化完成。")
+            logger.info("SobriquetManager 初始化完成。")
 
     def start_processor(self):
         """启动后台处理线程（如果已启用且未运行）。"""
         if not self.is_enabled:
             logger.info("绰号处理功能已禁用，处理器未启动。")
             return
-        if global_config.group_nickname.max_nicknames_in_prompt == 0:  # 考虑有神秘的用户输入为0的可能性
+        if global_config.sobriquet.max_sobriquets_in_prompt == 0:  # 考虑有神秘的用户输入为0的可能性
             logger.error("[错误] 绰号注入数量不合适，绰号处理功能已禁用！")
             return
 
-        if self._nickname_thread is None or not self._nickname_thread.is_alive():
+        if self._sobriquet_thread is None or not self._sobriquet_thread.is_alive():
             logger.info("正在启动绰号处理器线程...")
             self._stop_event.clear()
-            self._nickname_thread = threading.Thread(
+            self._sobriquet_thread = threading.Thread(
                 target=self._run_processor_in_thread,  # 线程目标函数不变
                 daemon=True,
             )
-            self._nickname_thread.start()
-            logger.info(f"绰号处理器线程已启动 (ID: {self._nickname_thread.ident})")
+            self._sobriquet_thread.start()
+            logger.info(f"绰号处理器线程已启动 (ID: {self._sobriquet_thread.ident})")
         else:
             logger.warning("绰号处理器线程已在运行中。")
 
     def stop_processor(self):
         """停止后台处理线程。"""
-        if self._nickname_thread and self._nickname_thread.is_alive():
+        if self._sobriquet_thread and self._sobriquet_thread.is_alive():
             logger.info("正在停止绰号处理器线程...")
             self._stop_event.set()  # 设置停止事件，_processing_loop 会检测到
             try:
                 # 不需要清空 asyncio.Queue，让循环自然结束或被取消
-                # self.empty_queue(self.nickname_queue)
-                self._nickname_thread.join(timeout=10)  # 等待线程结束
-                if self._nickname_thread.is_alive():
+                # self.empty_queue(self.sobriquet_queue)
+                self._sobriquet_thread.join(timeout=10)  # 等待线程结束
+                if self._sobriquet_thread.is_alive():
                     logger.warning("绰号处理器线程在超时后仍未停止。")
             except Exception as e:
                 logger.error(f"停止绰号处理器线程时出错: {e}", exc_info=True)
             finally:
-                if self._nickname_thread and not self._nickname_thread.is_alive():
+                if self._sobriquet_thread and not self._sobriquet_thread.is_alive():
                     logger.info("绰号处理器线程已成功停止。")
-                self._nickname_thread = None
+                self._sobriquet_thread = None
         else:
             logger.info("绰号处理器线程未在运行或已被清理。")
 
@@ -196,7 +196,7 @@ class NicknameManager:
     #         q.get_nowait()
     #         q.task_done()
 
-    async def trigger_nickname_analysis(
+    async def trigger_sobriquet_analysis(
         self,
         anchor_message: MessageRecv,
         bot_reply: List[str],
@@ -209,7 +209,7 @@ class NicknameManager:
         if not self.is_enabled:
             return
 
-        if random.random() < global_config.group_nickname.nickname_analysis_probability:
+        if random.random() < global_config.sobriquet.sobriquet_analysis_probability:
             logger.debug("跳过绰号分析：随机概率未命中。")
             return
 
@@ -221,7 +221,7 @@ class NicknameManager:
         log_prefix = f"[{current_chat_stream.stream_id}]"
         try:
             # 1. 获取历史记录
-            history_limit = global_config.group_nickname.nickname_analysis_history_limit
+            history_limit = global_config.sobriquet.sobriquet_analysis_history_limit
             history_messages = get_raw_msg_before_timestamp_with_chat(
                 chat_id=current_chat_stream.stream_id,
                 timestamp=time.time(),
@@ -256,16 +256,16 @@ class NicknameManager:
                     if user_id in names_data:
                         user_name_map[user_id] = names_data[user_id]
                     else:
-                        latest_nickname = next(
+                        latest_sobriquet = next(
                             (
-                                m["user_info"].get("user_nickname")
+                                m["user_info"].get("user_sobriquet")
                                 for m in reversed(history_messages)
-                                if str(m["user_info"].get("user_id")) == user_id and m["user_info"].get("user_nickname")
+                                if str(m["user_info"].get("user_id")) == user_id and m["user_info"].get("user_sobriquet")
                             ),
                             None,
                         )
                         user_name_map[user_id] = (
-                            latest_nickname or f"{global_config.bot.nickname}"
+                            latest_sobriquet or f"{global_config.bot.sobriquet}"
                             if user_id == global_config.bot.qq_account
                             else "未知"
                         )
@@ -276,7 +276,7 @@ class NicknameManager:
         except Exception as e:
             logger.error(f"{log_prefix} 触发绰号分析时出错: {e}", exc_info=True)
 
-    async def get_nickname_prompt_injection(self, chat_stream: ChatStream, message_list_before_now: List[Dict]) -> str:
+    async def get_sobriquet_prompt_injection(self, chat_stream: ChatStream, message_list_before_now: List[Dict]) -> str:
         """
         获取并格式化用于 Prompt 注入的绰号信息字符串。
         """
@@ -301,18 +301,18 @@ class NicknameManager:
                 logger.warning(f"{log_prefix} 未找到上下文用户用于绰号注入。")
                 return ""
 
-            # all_nicknames_data 的结构已改变
-            all_nicknames_data_with_uid = await relationship_manager.get_users_group_nicknames(
+            # all_sobriquets_data 的结构已改变
+            all_sobriquets_data_with_uid = await relationship_manager.get_users_sobriquets(
                 platform, list(user_ids_in_context), group_id
             )
-            # all_nicknames_data_with_uid 的格式: {person_name: {"user_id": "uid", "nicknames": [{"绰号A": 次数}, ...]}}
+            # all_sobriquets_data_with_uid 的格式: {person_name: {"user_id": "uid", "sobriquets": [{"绰号A": 次数}, ...]}}
 
-            if all_nicknames_data_with_uid:
-                # select_nicknames_for_prompt 需要接收新的数据结构，或者我们在这里转换
-                # 为了让 select_nicknames_for_prompt 的改动更清晰，我们在这里传递整个结构
-                selected_nicknames_with_uid = select_nicknames_for_prompt(all_nicknames_data_with_uid) # 注意这里
-                # selected_nicknames_with_uid 的预期格式: List[Tuple[str, str, str, int]] -> (用户名, user_id, 绰号, 次数)
-                injection_str = format_nickname_prompt_injection(selected_nicknames_with_uid) # 注意这里
+            if all_sobriquets_data_with_uid:
+                # select_sobriquets_for_prompt 需要接收新的数据结构，或者我们在这里转换
+                # 为了让 select_sobriquets_for_prompt 的改动更清晰，我们在这里传递整个结构
+                selected_sobriquets_with_uid = select_sobriquets_for_prompt(all_sobriquets_data_with_uid) # 注意这里
+                # selected_sobriquets_with_uid 的预期格式: List[Tuple[str, str, str, int]] -> (用户名, user_id, 绰号, 次数)
+                injection_str = format_sobriquet_prompt_injection(selected_sobriquets_with_uid) # 注意这里
                 if injection_str:
                     logger.debug(f"{log_prefix} 生成的绰号 Prompt 注入:\n{injection_str}")
                 return injection_str
@@ -329,9 +329,9 @@ class NicknameManager:
         """将项目异步添加到内部处理队列 (asyncio.Queue)。"""
         try:
             # 使用 await put()，如果队列满则异步等待
-            await self.nickname_queue.put(item)
+            await self.sobriquet_queue.put(item)
             logger.debug(
-                f"已将项目添加到平台 '{platform}' 群组 '{group_id}' 的绰号队列。当前大小: {self.nickname_queue.qsize()}"
+                f"已将项目添加到平台 '{platform}' 群组 '{group_id}' 的绰号队列。当前大小: {self.sobriquet_queue.qsize()}"
             )
         except asyncio.QueueFull:
             # 理论上 await put() 不会直接抛 QueueFull，除非 maxsize=0
@@ -342,7 +342,7 @@ class NicknameManager:
         except Exception as e:
             logger.error(f"将项目添加到绰号队列时出错: {e}", exc_info=True)
 
-    async def _analyze_and_update_nicknames(self, item: tuple):
+    async def _analyze_and_update_sobriquets(self, item: tuple):
         """处理单个队列项目：调用 LLM 分析并更新数据库。"""
         if not isinstance(item, tuple) or len(item) != 5:
             logger.warning(f"从队列接收到无效项目: {type(item)}")
@@ -366,12 +366,12 @@ class NicknameManager:
 
         # 2. 如果分析成功且找到映射，则更新数据库 (内部逻辑不变)
         if analysis_result.get("is_exist") and analysis_result.get("data"):
-            nickname_map_to_update = analysis_result["data"]
-            logger.info(f"{log_prefix} LLM 找到绰号映射，准备更新数据库: {nickname_map_to_update}")
+            sobriquet_map_to_update = analysis_result["data"]
+            logger.info(f"{log_prefix} LLM 找到绰号映射，准备更新数据库: {sobriquet_map_to_update}")
 
-            for user_id_str, nickname in nickname_map_to_update.items():
-                if not user_id_str or not nickname:
-                    logger.warning(f"{log_prefix} 跳过无效条目: user_id='{user_id_str}', nickname='{nickname}'")
+            for user_id_str, sobriquet in sobriquet_map_to_update.items():
+                if not user_id_str or not sobriquet:
+                    logger.warning(f"{log_prefix} 跳过无效条目: user_id='{user_id_str}', sobriquet='{sobriquet}'")
                     continue
                 if not user_id_str.isdigit():
                     logger.warning(f"{log_prefix} 无效的用户ID格式 (非纯数字): '{user_id_str}'，跳过。")
@@ -386,13 +386,13 @@ class NicknameManager:
                         )
                         continue
                     self.db_handler.upsert_person(person_id, user_id_int, platform)
-                    self.db_handler.update_group_nickname_count(person_id, group_id, nickname)
+                    self.db_handler.update_sobriquet_count(person_id, group_id, sobriquet)
                 except (OperationFailure, DuplicateKeyError) as db_err:
                     logger.exception(
-                        f"{log_prefix} 数据库操作失败 ({type(db_err).__name__}): 用户 {user_id_str}, 绰号 {nickname}. 错误: {db_err}"
+                        f"{log_prefix} 数据库操作失败 ({type(db_err).__name__}): 用户 {user_id_str}, 绰号 {sobriquet}. 错误: {db_err}"
                     )
                 except Exception as e:
-                    logger.exception(f"{log_prefix} 处理用户 {user_id_str} 的绰号 '{nickname}' 时发生意外错误：{e}")
+                    logger.exception(f"{log_prefix} 处理用户 {user_id_str} 的绰号 '{sobriquet}' 时发生意外错误：{e}")
         else:
             logger.debug(f"{log_prefix} LLM 未找到可靠的绰号映射或分析失败。")
 
@@ -476,21 +476,21 @@ class NicknameManager:
         filtered_data = {}
         bot_qq_str = global_config.bot.qq_account if global_config.bot.qq_account else None
 
-        for user_id, nickname in original_data.items():
+        for user_id, sobriquet in original_data.items():
             if not isinstance(user_id, str):
                 logger.warning(f"过滤掉非字符串 user_id: {user_id}")
                 continue
             if bot_qq_str and user_id == bot_qq_str:
                 logger.debug(f"过滤掉机器人自身的映射: ID {user_id}")
                 continue
-            if not nickname or nickname.isspace():
+            if not sobriquet or sobriquet.isspace():
                 logger.debug(f"过滤掉用户 {user_id} 的空绰号。")
                 continue
             # person_name = user_name_map.get(user_id)
-            # if person_name and person_name == nickname:
-            #     logger.debug(f"过滤掉用户 {user_id} 的映射: 绰号 '{nickname}' 与其名称 '{person_name}' 相同。")
+            # if person_name and person_name == sobriquet:
+            #     logger.debug(f"过滤掉用户 {user_id} 的映射: 绰号 '{sobriquet}' 与其名称 '{person_name}' 相同。")
             #     continue
-            filtered_data[user_id] = nickname.strip()
+            filtered_data[user_id] = sobriquet.strip()
 
         return filtered_data
 
@@ -520,12 +520,12 @@ class NicknameManager:
         while not self._stop_event.is_set():  # 仍然检查同步的停止事件
             try:
                 # 使用 asyncio.wait_for 从异步队列获取项目，并设置超时
-                item = await asyncio.wait_for(self.nickname_queue.get(), timeout=self.sleep_interval)
+                item = await asyncio.wait_for(self.sobriquet_queue.get(), timeout=self.sleep_interval)
 
                 # 处理获取到的项目 (调用异步方法)
-                await self._analyze_and_update_nicknames(item)
+                await self._analyze_and_update_sobriquets(item)
 
-                self.nickname_queue.task_done()  # 标记任务完成
+                self.sobriquet_queue.task_done()  # 标记任务完成
 
             except asyncio.TimeoutError:
                 # 等待超时，相当于之前 queue.Empty，继续循环检查停止事件
@@ -542,10 +542,10 @@ class NicknameManager:
 
         logger.info("绰号异步处理循环已结束。")
         # 可以在这里添加清理逻辑，比如确保队列为空或处理剩余项目
-        # 例如：await self.nickname_queue.join() # 等待所有任务完成 (如果需要)
+        # 例如：await self.sobriquet_queue.join() # 等待所有任务完成 (如果需要)
 
     # 结束修改
 
 
 # 在模块级别创建单例实例
-nickname_manager = NicknameManager()
+sobriquet_manager = SobriquetManager()

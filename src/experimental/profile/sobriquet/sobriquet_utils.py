@@ -5,56 +5,56 @@ from src.config.config import global_config
 
 # 这个文件现在只包含纯粹的工具函数，与状态和流程无关
 
-logger = get_logger("nickname_utils")
+logger = get_logger("sobriquet_utils")
 
 
-def select_nicknames_for_prompt(
-    all_nicknames_info_with_uid: Dict[str, Dict[str, Any]] # 修改输入类型提示
+def select_sobriquets_for_prompt(
+    all_sobriquets_info_with_uid: Dict[str, Dict[str, Any]] # 修改输入类型提示
 ) -> List[Tuple[str, str, str, int]]: # 修改返回类型提示 (用户名, user_id, 绰号, 次数)
     """
     从给定的绰号信息中，根据映射次数加权随机选择最多 N 个绰号用于 Prompt。
 
     Args:
-        all_nicknames_info_with_uid: 包含用户及其绰号和 UID 信息的字典，格式为
-                        { "用户名1": {"user_id": "uid1", "nicknames": [{"绰号A": 次数}, {"绰号B": 次数}]}, ... }
+        all_sobriquets_info_with_uid: 包含用户及其绰号和 UID 信息的字典，格式为
+                        { "用户名1": {"user_id": "uid1", "sobriquets": [{"绰号A": 次数}, {"绰号B": 次数}]}, ... }
                         注意：这里的键是 person_name。
 
     Returns:
         List[Tuple[str, str, str, int]]: 选中的绰号列表，每个元素为 (用户名, user_id, 绰号, 次数)。
                                     按次数降序排序。
     """
-    if not all_nicknames_info_with_uid:
+    if not all_sobriquets_info_with_uid:
         return []
 
     candidates = []  # 存储 (用户名, user_id, 绰号, 次数, 权重)
-    smoothing_factor = global_config.group_nickname.nickname_probability_smoothing
+    smoothing_factor = global_config.sobriquet.sobriquet_probability_smoothing
 
-    for user_name, data in all_nicknames_info_with_uid.items():
+    for user_name, data in all_sobriquets_info_with_uid.items():
         user_id = data.get("user_id")
-        nicknames_list = data.get("nicknames")
+        sobriquets_list = data.get("sobriquets")
 
-        if not user_id or not isinstance(nicknames_list, list):
-            logger.warning(f"用户 '{user_name}' 的数据格式无效或缺少 user_id/nicknames。已跳过。 Data: {data}")
+        if not user_id or not isinstance(sobriquets_list, list):
+            logger.warning(f"用户 '{user_name}' 的数据格式无效或缺少 user_id/sobriquets。已跳过。 Data: {data}")
             continue
             
-        for nickname_entry in nicknames_list:
-            if isinstance(nickname_entry, dict) and len(nickname_entry) == 1:
-                nickname, count = list(nickname_entry.items())[0]
-                if isinstance(count, int) and count > 0 and isinstance(nickname, str) and nickname:
+        for sobriquet_entry in sobriquets_list:
+            if isinstance(sobriquet_entry, dict) and len(sobriquet_entry) == 1:
+                sobriquet, count = list(sobriquet_entry.items())[0]
+                if isinstance(count, int) and count > 0 and isinstance(sobriquet, str) and sobriquet:
                     weight = count + smoothing_factor
-                    candidates.append((user_name, user_id, nickname, count, weight)) # 添加 user_id
+                    candidates.append((user_name, user_id, sobriquet, count, weight)) # 添加 user_id
                 else:
                     logger.warning(
-                        f"用户 '{user_name}' (UID: {user_id}) 的绰号条目无效: {nickname_entry} (次数非正整数或绰号为空)。已跳过。"
+                        f"用户 '{user_name}' (UID: {user_id}) 的绰号条目无效: {sobriquet_entry} (次数非正整数或绰号为空)。已跳过。"
                     )
             else:
-                logger.warning(f"用户 '{user_name}' (UID: {user_id}) 的绰号条目格式无效: {nickname_entry}。已跳过。")
+                logger.warning(f"用户 '{user_name}' (UID: {user_id}) 的绰号条目格式无效: {sobriquet_entry}。已跳过。")
 
     if not candidates:
         return []
 
-    max_nicknames = global_config.group_nickname.max_nicknames_in_prompt
-    num_to_select = min(max_nicknames, len(candidates))
+    max_sobriquets = global_config.sobriquet.max_sobriquets_in_prompt
+    num_to_select = min(max_sobriquets, len(candidates))
 
     try:
         selected_candidates_with_weight = weighted_sample_without_replacement(candidates, num_to_select) # 使用新的辅助函数名（如果修改了它）
@@ -64,7 +64,7 @@ def select_nicknames_for_prompt(
                 f"加权随机选择后数量不足 ({len(selected_candidates_with_weight)}/{num_to_select})，尝试补充选择次数最多的。"
             )
             selected_ids = set(
-                (c[0], c[1], c[2]) for c in selected_candidates_with_weight # (user_name, user_id, nickname)
+                (c[0], c[1], c[2]) for c in selected_candidates_with_weight # (user_name, user_id, sobriquet)
             )
             remaining_candidates = [c for c in candidates if (c[0], c[1], c[2]) not in selected_ids]
             remaining_candidates.sort(key=lambda x: x[3], reverse=True)  # 按原始次数 (index 3) 排序
@@ -85,33 +85,33 @@ def select_nicknames_for_prompt(
     return result
 
 
-def format_nickname_prompt_injection(selected_nicknames_with_uid: List[Tuple[str, str, str, int]]) -> str: # 修改输入类型
+def format_sobriquet_prompt_injection(selected_sobriquets_with_uid: List[Tuple[str, str, str, int]]) -> str: # 修改输入类型
     """
     将选中的绰号信息（含UID）格式化为注入 Prompt 的字符串。
 
     Args:
-        selected_nicknames_with_uid: 选中的绰号列表 (用户名, user_id, 绰号, 次数)。
+        selected_sobriquets_with_uid: 选中的绰号列表 (用户名, user_id, 绰号, 次数)。
 
     Returns:
         str: 格式化后的字符串，如果列表为空则返回空字符串。
     """
-    if not selected_nicknames_with_uid:
+    if not selected_sobriquets_with_uid:
         return ""
 
     prompt_lines = ["以下是聊天记录中一些成员在本群的绰号信息（按常用度排序）与 uid 信息，供你参考："]
     # 改为: { (user_name, user_id): [绰号1, 绰号2] }
     grouped_by_user: Dict[Tuple[str, str], List[str]] = {}
 
-    for user_name, user_id, nickname, _count in selected_nicknames_with_uid: # 解包时加入 user_id
+    for user_name, user_id, sobriquet, _count in selected_sobriquets_with_uid: # 解包时加入 user_id
         user_key = (user_name, user_id) # 使用 (user_name, user_id) 作为键
         if user_key not in grouped_by_user:
             grouped_by_user[user_key] = []
-        grouped_by_user[user_key].append(f"“{nickname}”")
+        grouped_by_user[user_key].append(f"“{sobriquet}”")
 
-    for (user_name, user_id), nicknames_list in grouped_by_user.items():
-        nicknames_str = "、".join(nicknames_list)
+    for (user_name, user_id), sobriquets_list in grouped_by_user.items():
+        sobriquets_str = "、".join(sobriquets_list)
         # 格式化输出，例如: "- 张三(12345)，ta 可能被称为：“三儿”、“张哥”"
-        prompt_lines.append(f"- {user_name}({user_id})，ta 可能被称为：{nicknames_str}")
+        prompt_lines.append(f"- {user_name}({user_id})，ta 可能被称为：{sobriquets_str}")
 
     if len(prompt_lines) > 1:
         return "\n".join(prompt_lines) + "\n"
