@@ -260,7 +260,7 @@ class SobriquetManager:
                             (
                                 m["user_info"].get("user_sobriquet")
                                 for m in reversed(history_messages)
-                                if str(m["user_info"].get("user_id")) == user_id and m["user_info"].get("user_sobriquet")
+                                if str(m["user_info"].get("user_id")) == user_id and m["user_info"].get("user_nickname")
                             ),
                             None,
                         )
