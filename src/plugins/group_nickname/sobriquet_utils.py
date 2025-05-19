@@ -27,7 +27,7 @@ def select_sobriquets_for_prompt( # MODIFIED
         return []
 
     candidates = []  # 存储 (用户名, user_id, 绰号, 次数, 权重)
-    smoothing_factor = global_config.group_sobriquet.sobriquet_probability_smoothing # MODIFIED
+    smoothing_factor = global_config.profile.sobriquet_probability_smoothing # MODIFIED
 
     for user_name, data in all_sobriquets_info_with_uid.items(): # MODIFIED
         user_id = data.get("user_id")
@@ -53,7 +53,7 @@ def select_sobriquets_for_prompt( # MODIFIED
     if not candidates:
         return []
 
-    max_sobriquets = global_config.group_sobriquet.max_sobriquets_in_prompt # MODIFIED
+    max_sobriquets = global_config.profile.max_sobriquets_in_prompt # MODIFIED
     num_to_select = min(max_sobriquets, len(candidates)) # MODIFIED
 
     try:

@@ -123,14 +123,15 @@ steal_emoji = true # 是否偷取表情包，让麦麦可以发送她保存的�
 content_filtration = false  # 是否启用表情包过滤，只有符合该要求的表情包才会被保存
 filtration_prompt = "符合公序良俗" # 表情包过滤要求，只有符合该要求的表情包才会被保存
 
-[group_nickname]
-enable_nickname_mapping = false  # 绰号映射功能总开关（默认关闭，建议关闭）
-max_nicknames_in_prompt = 10  # Prompt 中最多注入的绰号数量（防止token数量爆炸）
-nickname_probability_smoothing = 1  # 绰号加权随机选择的平滑因子
-nickname_queue_max_size = 100  # 绰号处理队列最大容量
-nickname_process_sleep_interval = 5  # 绰号处理进程休眠间隔（秒），不建议超过5，否则大概率导致结束过程中超时
-nickname_analysis_history_limit = 30  # 绰号处理可见最大上下文
-nickname_analysis_probability = 0.1  # 绰号随机概率命中，该值越大，绰号分析越频繁
+[profile]
+# sobriquet
+enable_sobriquet_mapping = false  # 绰号映射功能总开关（默认关闭，建议关闭）
+max_sobriquets_in_prompt = 10  # Prompt 中最多注入的绰号数量（防止token数量爆炸）
+sobriquet_probability_smoothing = 1  # 绰号加权随机选择的平滑因子
+sobriquet_queue_max_size = 100  # 绰号处理队列最大容量
+sobriquet_process_sleep_interval = 5  # 绰号处理进程休眠间隔（秒），不建议超过5，否则大概率导致结束过程中超时
+sobriquet_analysis_history_limit = 30  # 绰号处理可见最大上下文
+sobriquet_analysis_probability = 0.1  # 绰号随机概率命中，该值越大，绰号分析越频繁
 
 [memory]
 memory_build_interval = 2000 # 记忆构建间隔 单位秒   间隔越低，麦麦学习越多，但是冗余信息也会增多
@@ -332,7 +333,7 @@ pri_in = 2
 pri_out = 8
 
 #绰号映射生成模型
-[model.nickname_mapping]
+[model.sobriquet_mapping]
 name = "Qwen/Qwen2.5-32B-Instruct"
 provider = "SILICONFLOW"
 temp = 0.7
