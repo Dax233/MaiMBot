@@ -1,12 +1,12 @@
-# src/plugins/group_nickname/nickname_mapper.py
+# src/plugins/group_sobriquet/sobriquet_mapper.py # MODIFIED
 from typing import Dict
 from src.common.logger_manager import get_logger
 
-# 这个文件现在只负责构建 Prompt，LLM 的初始化和调用移至 NicknameManager
+# 这个文件现在只负责构建 Prompt，LLM 的初始化和调用移至 SobriquetManager
 
-logger = get_logger("nickname_mapper")
+logger = get_logger("sobriquet_mapper") # MODIFIED
 
-# LLMRequest 实例和 analyze_chat_for_nicknames 函数已被移除
+# LLMRequest 实例和 analyze_chat_for_sobriquets 函数已被移除
 
 
 def _build_mapping_prompt(chat_history_str: str, bot_reply: str, user_name_map: Dict[str, str]) -> str:
@@ -16,7 +16,7 @@ def _build_mapping_prompt(chat_history_str: str, bot_reply: str, user_name_map: 
     Args:
         chat_history_str: 格式化后的聊天历史记录字符串。
         bot_reply: Bot 的最新回复字符串。
-        user_name_map: 用户 ID 到已知名称（person_name 或 fallback nickname）的映射。
+        user_name_map: 用户 ID 到已知名称（person_name 或 fallback sobriquet）的映射。
 
     Returns:
         str: 构建好的 Prompt 字符串。
@@ -70,8 +70,8 @@ def _build_mapping_prompt(chat_history_str: str, bot_reply: str, user_name_map: 
 
 输出：
 """
-    # logger.debug(f"构建的绰号映射 Prompt (部分):\n{prompt[:500]}...") # 可以在 NicknameManager 中记录
+    # logger.debug(f"构建的绰号映射 Prompt (部分):\n{prompt[:500]}...") # 可以在 SobriquetManager 中记录
     return prompt
 
 
-# analyze_chat_for_nicknames 函数已被移除，其逻辑移至 NicknameManager._call_llm_for_analysis
+# analyze_chat_for_sobriquets 函数已被移除，其逻辑移至 SobriquetManager._call_llm_for_analysis

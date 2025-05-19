@@ -17,7 +17,7 @@ from src.individuality.individuality import Individuality
 from src.chat.focus_chat.planners.action_factory import ActionManager
 from src.chat.focus_chat.planners.action_factory import ActionInfo
 from src.chat.utils.chat_message_builder import get_raw_msg_before_timestamp_with_chat
-from src.plugins.group_nickname.nickname_manager import nickname_manager
+from src.plugins.group_nickname.sobriquet_manager import sobriquet_manager
 
 logger = get_logger("planner")
 
@@ -274,7 +274,7 @@ class ActionPlanner:
                 limit=global_config.chat.observation_context_size,  # 使用与 prompt 构建一致的 limit
             )
             # 调用工具函数获取格式化后的绰号字符串
-            nickname_injection_str = await nickname_manager.get_nickname_prompt_injection(
+            nickname_injection_str = await sobriquet_manager.get_sobriquet_prompt_injection(
                 self.chat_stream, message_list_before_now
             )
 

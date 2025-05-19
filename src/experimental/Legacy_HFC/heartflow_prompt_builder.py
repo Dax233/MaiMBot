@@ -14,7 +14,7 @@ from src.manager.mood_manager import mood_manager
 from src.chat.memory_system.Hippocampus import HippocampusManager
 from .schedule.schedule_generator import bot_schedule
 from src.chat.knowledge.knowledge_lib import qa_manager
-from src.plugins.group_nickname.nickname_manager import nickname_manager
+from src.plugins.group_nickname.sobriquet_manager import sobriquet_manager
 from src.chat.focus_chat.expressors.exprssion_learner import expression_learner
 import traceback
 from .heartFC_Cycleinfo import CycleInfo
@@ -348,7 +348,7 @@ async def _build_prompt_focus(reason, current_mind_info, structured_info, chat_s
         chat_target_2 = await global_prompt_manager.get_prompt_async("chat_target_group2")
 
         # 调用新的工具函数获取绰号信息
-        nickname_injection_str = await nickname_manager.get_nickname_prompt_injection(
+        nickname_injection_str = await sobriquet_manager.get_sobriquet_prompt_injection(
             chat_stream, message_list_before_now
         )
 
@@ -539,7 +539,7 @@ class PromptBuilder:
             chat_target_2 = await global_prompt_manager.get_prompt_async("chat_target_group2")
 
             # 调用新的工具函数获取绰号信息
-            nickname_injection_str = await nickname_manager.get_nickname_prompt_injection(
+            nickname_injection_str = await sobriquet_manager.get_sobriquet_prompt_injection(
                 chat_stream, message_list_before_now
             )
 
