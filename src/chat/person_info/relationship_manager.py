@@ -82,145 +82,46 @@ class RelationshipManager:
         is_known = person_info_manager.is_person_known(platform, user_id)
         return is_known
 
-    # --- [修改] 使用全局 db 对象进行查询 ---
     @staticmethod
     async def get_person_names_batch(platform: str, user_ids: List[str]) -> Dict[str, str]:
         """
         批量获取多个用户的 person_name。
+        数据源：person_info 集合。
+        返回：{user_id_str: person_name}
+        此方法现在是 RelationshipManager 的一部分，ProfileManager 将调用它。
         """
         if not user_ids:
             return {}
+        user_ids_str = [str(uid) for uid in user_ids]
 
-        person_ids = [person_info_manager.get_person_id(platform, str(uid)) for uid in user_ids]
-        names_map = {}
+        person_ids_to_query = [person_info_manager.get_person_id(platform, uid_str) for uid_str in user_ids_str]
+        person_id_to_user_id_map = {
+            person_info_manager.get_person_id(platform, uid_str): uid_str for uid_str in user_ids_str
+        }
+
+        names_map: Dict[str, str] = {}
+        if not db.person_info:
+            logger.error("数据库中未找到 'person_info' 集合，无法批量获取 person_name。")
+            return names_map
+
         try:
             cursor = db.person_info.find(
-                {"person_id": {"$in": person_ids}},
-                {"_id": 0, "person_id": 1, "user_id": 1, "person_name": 1},  # 只查询需要的字段
+                {"person_id": {"$in": person_ids_to_query}},
+                {"_id": 0, "person_id": 1, "person_name": 1}
             )
-
-            for doc in cursor:
-                user_id_val = doc.get("user_id")  # 获取原始值
-                original_user_id = None  # 初始化
-
-                if isinstance(user_id_val, (int, float)):  # 检查是否是数字类型
-                    original_user_id = str(user_id_val)  # 直接转换为字符串
-                elif isinstance(user_id_val, str):  # 检查是否是字符串
-                    if "_" in user_id_val:  # 如果包含下划线，则分割
-                        original_user_id = user_id_val.split("_", 1)[-1]
-                    else:  # 如果不包含下划线，则直接使用该字符串
-                        original_user_id = user_id_val
-                # else: # 其他类型或 None，original_user_id 保持为 None
-
+            async for doc in cursor:
+                person_id_from_db = doc.get("person_id")
                 person_name = doc.get("person_name")
-
-                # 确保 original_user_id 和 person_name 都有效
-                if original_user_id and person_name:
-                    names_map[original_user_id] = person_name
-
-            logger.debug(f"批量获取 {len(user_ids)} 个用户的 person_name，找到 {len(names_map)} 个。")
+                if person_id_from_db and person_name:
+                    original_user_id = person_id_to_user_id_map.get(person_id_from_db)
+                    if original_user_id:
+                        names_map[original_user_id] = person_name
+            # logger.debug(f"RelationshipManager.get_person_names_batch: 为 {len(user_ids_str)} 用户获取到 {len(names_map)} 个 person_name。")
         except AttributeError as e:
-            # 如果 db 对象没有 person_info 属性，或者 find 方法不存在
-            logger.error(f"访问数据库时出错: {e}。请检查 common/database.py 和集合名称。")
+            logger.error(f"访问数据库 'person_info' 集合时出错: {e}。")
         except Exception as e:
-            logger.error(f"批量获取 person_name 时出错: {e}", exc_info=True)
+            logger.error(f"批量从 person_info 获取 person_name 时出错: {e}", exc_info=True)
         return names_map
-
-    @staticmethod
-    async def get_users_group_nicknames(
-        platform: str, user_ids: List[str], group_id: str
-    ) -> Dict[str, Dict[str, Any]]: # 修改返回类型提示
-        """
-        批量获取多个用户在指定群组的绰号信息和 user_id。
-
-        Args:
-            platform (str): 平台名称。
-            user_ids (List[str]): 用户 ID 列表。
-            group_id (str): 群组 ID。
-
-        Returns:
-            Dict[str, Dict[str, Any]]: 映射 {person_name: {"user_id": "uid", "nicknames": [{"绰号A": 次数}, ...]} }
-        """
-        if not user_ids or not group_id:
-            return {}
-
-        person_ids_map = {person_info_manager.get_person_id(platform, str(uid)): str(uid) for uid in user_ids} # person_id 到 user_id 的映射
-        person_ids = list(person_ids_map.keys())
-        nicknames_data = {}
-        group_id_str = str(group_id)
-
-        try:
-            cursor = db.person_info.find(
-                {"person_id": {"$in": person_ids}},
-                {"_id": 0, "person_id": 1, "person_name": 1, "group_nicknames": 1, "user_id": 1}, # 添加 user_id 到查询
-            )
-
-            for doc in cursor:
-                person_name = doc.get("person_name")
-                original_user_id_from_doc = None
-                user_id_val = doc.get("user_id")
-
-                if isinstance(user_id_val, (int, float)):
-                    original_user_id_from_doc = str(user_id_val)
-                elif isinstance(user_id_val, str):
-                    if "_" in user_id_val:
-                        original_user_id_from_doc = user_id_val.split("_", 1)[-1]
-                    else:
-                        original_user_id_from_doc = user_id_val
-
-                # 如果通过 person_id 映射能找到原始请求的 user_id，优先使用它，以保证是输入时的 user_id
-                # 否则，使用从文档中解析的 user_id
-                current_person_id = doc.get("person_id")
-                actual_user_id = person_ids_map.get(current_person_id, original_user_id_from_doc)
-
-
-                if not person_name or not actual_user_id: # 确保 person_name 和 actual_user_id 都有效
-                    logger.warning(
-                        f"跳过处理，因为 person_name ('{person_name}') 或 actual_user_id ('{actual_user_id}') 无效。 Doc person_id: {current_person_id}"
-                    )
-                    continue
-
-                group_nicknames_list = doc.get("group_nicknames", [])
-                target_group_nicknames = []
-
-                for group_entry in group_nicknames_list:
-                    if isinstance(group_entry, dict) and group_entry.get("group_id") == group_id_str:
-                        nicknames_raw = group_entry.get("nicknames", [])
-                        if isinstance(nicknames_raw, list):
-                            target_group_nicknames = nicknames_raw
-                        break
-
-                if target_group_nicknames:
-                    valid_nicknames_formatted = []
-                    for item in target_group_nicknames:
-                        if (
-                            isinstance(item, dict)
-                            and isinstance(item.get("name"), str)
-                            and isinstance(item.get("count"), int)
-                            and item["count"] > 0
-                        ):
-                            valid_nicknames_formatted.append({item["name"]: item["count"]})
-                        else:
-                            logger.warning(
-                                f"数据库中用户 {person_name} (UID: {actual_user_id}) 群组 {group_id_str} 的绰号格式无效或 count <= 0: {item}"
-                            )
-
-                    if valid_nicknames_formatted:
-                        # 修改存储结构
-                        nicknames_data[person_name] = {
-                            "user_id": actual_user_id,
-                            "nicknames": valid_nicknames_formatted
-                        }
-            logger.debug(
-                f"批量获取群组 {group_id_str} 中 {len(user_ids)} 个用户的绰号和UID，找到 {len(nicknames_data)} 个用户的数据。"
-            )
-
-        except AttributeError as e:
-            logger.error(f"访问数据库时出错: {e}。请检查 common/database.py 和集合名称 'person_info'。")
-        except Exception as e:
-            logger.error(f"批量获取群组绰号时出错: {e}", exc_info=True)
-
-        return nicknames_data
 
     @staticmethod
     async def is_qved_name(platform, user_id):
