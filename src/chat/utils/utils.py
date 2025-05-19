@@ -41,7 +41,7 @@ KNOWN_ABBREVIATIONS_ENDING_WITH_DOT = {
     "Ph.D.", "M.D.", "B.A.", "M.A.", "Jan.", "Feb.", "Mar.", "Apr.", "Jun.", "Jul.",
     "Aug.", "Sep.", "Oct.", "Nov.", "Dec.", "Mon.", "Tue.", "Wed.", "Thu.", "Fri.",
     "Sat.", "Sun.", "U.S.", "U.K.", "E.U.", "U.S.A.", "U.S.S.R.", "Ave.", "Blvd.",
-    "Rd.", "Ln.", "approx.", "dept.", "appt.", "श्री.", # 印地语中的 Shri.
+    "Rd.", "Ln.", "approx.", "dept.", "appt.", "श्री.", "D.C.",
 }
 
 # --- 辅助函数 ---
