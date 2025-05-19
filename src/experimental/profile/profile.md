@@ -70,7 +70,8 @@
 3. **数据导出与Prompt注入 (Data Export & Prompt Injection)**  
    * ProfileManager 将提供一个核心方法，根据当前的交互上下文（如当前平台、当前用户 user\_id、当前群组 group\_id）以及需要注入的画像维度，从 profile\_info 表中提取相关信息。  
    * **聊天记录格式调整**：机器人在处理和记录聊天时，将从 person\_name: message 格式转变为 user\_id: message 格式。person\_name 将不再是主要的对话者标识。  
-   * **Prompt注入格式 (示例)**：  
+   * **Prompt注入格式 (示例)**：
+     ```
      // 以下是你了解的交互对象的信息：  
      {  
          "\<NaturalPersonID\_1\>": { // 锚定自然人的唯一ID (加盐哈希值)  
@@ -103,7 +104,7 @@
          }  
          // ... 可能包含多个上下文相关用户的画像 ...  
      }
-
+ 
    * **注入逻辑**：  
      * NaturalPersonID 作为顶层键，确保所有信息都归属于一个确认的自然人。  
      * current\_platform\_context 字段提供机器人进行准确提及所需的信息：当前平台下此用户的 user\_id，以及在该平台和当前群组中最适合称呼TA的绰号 (group\_sobriquet) 和其平台昵称 (platform\_nickname)。机器人可以优先使用 group\_sobriquet。  
