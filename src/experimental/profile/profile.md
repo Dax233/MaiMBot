@@ -74,32 +74,32 @@
      ```
      // 以下是你了解的交互对象的信息：  
      {  
-         "\<NaturalPersonID\_1\>": { // 锚定自然人的唯一ID (加盐哈希值)  
-             "current\_platform\_context": { // 仅包含当前交互平台的相关信息  
-                 "\<platform\_name\>": { // 例如 "qq"  
-                     "\<user\_id\_on\_current\_platform\>": { // 例如 "12345"  
-                         "group\_sobriquet": "大佬", // 当前群组中最常用的针对此用户的绰号  
-                         "platform\_nickname": "用户昵称" // 用户在该平台的通用昵称  
+         "<NaturalPersonID_1>": { // 锚定自然人的唯一ID (加盐哈希值)  
+             "current_platform_context": { // 仅包含当前交互平台的相关信息  
+                 "<platform_name>": { // 例如 "qq"  
+                     "<user_id_on_current_platform>": { // 例如 "12345"  
+                         "group_nickname": "大佬", // 当前群组中最常用的针对此用户的绰号  
+                         "platform_nickname": "用户昵称" // 用户在该平台的通用昵称  
                      }  
                  }  
              },  
-             "all\_known\_sobriquets\_summary": "常被称为'大佬', '阿强'", // 一个综合的绰号描述字符串  
+             "all_known_sobriquets_summary": "常被称为'大佬', '阿强'", // 一个综合的绰号描述字符串  
              "identity": {  
-                 "professional\_role": "软件工程师",  
-                 "gender\_identity": "男性"  
+                 "professional_role": "软件工程师",  
+                 "gender_identity": "男性"  
                  // ... 其他已获取的身份信息 ...  
              },  
              "personality": {  
-                 "tags": \["幽默", "技术控"\]  
+                 "tags": ["幽默", "技术控"]  
                  // ... 其他已获取的人格信息 ...  
              },  
-             "impression": \[  
+             "impression": [  
                  "对新技术非常感兴趣",  
                  "上次帮助解决了XX问题"  
                  // ... 其他关键印象 ...  
-             \]  
+             ]  
          },  
-         "\<NaturalPersonID\_2\>": { // 其他在当前上下文中可能相关的用户  
+         "<NaturalPersonID_2>": { // 其他在当前上下文中可能相关的用户  
              // ... 类似结构 ...  
          }  
          // ... 可能包含多个上下文相关用户的画像 ...  
