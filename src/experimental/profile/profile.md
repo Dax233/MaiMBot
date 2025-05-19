@@ -78,7 +78,7 @@
              "current_platform_context": { // 仅包含当前交互平台的相关信息  
                  "<platform_name>": { // 例如 "qq"  
                      "<user_id_on_current_platform>": { // 例如 "12345"  
-                         "group_nickname": "大佬", // 当前群组中最常用的针对此用户的绰号  
+                         "group_nickname": "大佬", // 当前群组中该用户的群昵称
                          "platform_nickname": "用户昵称" // 用户在该平台的通用昵称  
                      }  
                  }  
