@@ -435,11 +435,14 @@ class ProfileConfig(ConfigBase):
     min_sobriquet_count_for_prompt_injection: float = 10
     """绰号应用最低映射强度阈值"""
 
-    sobriquet_event_decay_factor: float = 0.98
+    sobriquet_event_decay_factor: float = 0.1
     """绰号映射强度衰减因子"""
 
     unreliable_sobriquet_decay_factor: float = 0.1
     """绰号不可靠映射强度衰减因子"""
+
+    reliable_mapping_strength_increment: float = 1.0
+    """绰号可靠映射强度增量"""
 
 @dataclass
 class PFCConfig(ConfigBase):
